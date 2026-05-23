@@ -1,0 +1,463 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0440F79167C3EF08AEAB6DE2 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7A3CA26832995CEBDFEED8 /* Tokens.swift */; };
+		10F388F0EA51E3ADE2CC0FD2 /* SkogaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E6D30C0F5B11763748C1C22 /* SkogaApp.swift */; };
+		24FB5C42B6D8667D132CE1CD /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA33B6515A779BB69660B110 /* Conversation.swift */; };
+		303029A15B9017AA387563AB /* DaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3CC5FADA740026853822A19 /* DaemonClient.swift */; };
+		4B666D2DD45E99850F918565 /* Sidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAD982A7CF77B3D772232722 /* Sidebar.swift */; };
+		640853C0172CD400015511A2 /* TitleBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5310DF4FE0BF1441CA5B5858 /* TitleBar.swift */; };
+		696B8958E1B7D92FC04551DC /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F594D7BABF3680BF59BBE69 /* Theme.swift */; };
+		6EEEECFE96A849FA50EBB981 /* RosterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAC0B12748DBA520B86EA074 /* RosterView.swift */; };
+		7812EB1D772C88A505B7488B /* StatusPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EAA1E89343E9FE80E819AE0 /* StatusPill.swift */; };
+		781F301DA5B2BD2BE473938D /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B7ADCECFD1E01D7C8FCCBFA /* AppState.swift */; };
+		823115FEF637EEBBC6A8D163 /* PulseDot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C6D36A05B968E62F7CB7BF /* PulseDot.swift */; };
+		8C054293BB4CF2C9E24828CD /* SkogaGlyph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81F8C2B09E59496FB397779E /* SkogaGlyph.swift */; };
+		8D5B6940D68D2D386C81D000 /* MainWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9504CA8AFEE1742998939607 /* MainWindow.swift */; };
+		9525F4D036722C7A08ACF65D /* MockDaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED68B708D3D45C9366760F38 /* MockDaemonClient.swift */; };
+		958EA9D087B23C21A7A0845A /* AgentCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3AEE547F6633CF2722E23E2 /* AgentCard.swift */; };
+		AA24C55FF75AB355861514D0 /* Agent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3148BC8738DB0F36AA1A85E9 /* Agent.swift */; };
+		B038B3D3555C717A97F1D66A /* CockpitStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA9FE95C049FA34A02C1F2E1 /* CockpitStrip.swift */; };
+		B1FE387B2D3F62BE92234B26 /* WindowAccessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F7F15D58C08252650D51B5 /* WindowAccessor.swift */; };
+		BFF1C77E6332943D4D93EEA1 /* FilterRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FAC023DD953B7C1C85F0027 /* FilterRail.swift */; };
+		C0B8611AF2746532CA6B30F5 /* Color+Oklch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 235DA73ACD9025DC61F6CAA5 /* Color+Oklch.swift */; };
+		C0DCD0495C0135A8877E74D7 /* ActivityBars.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E13C9D4BF28ACDB5B9C1CC /* ActivityBars.swift */; };
+		CCFCAD5B8E9DED56CC8A7D65 /* SkogaIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */; };
+		F953B4F6DFAD8786461DD1F8 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296A4F6E32617A28B9E035E9 /* Typography.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		011A602CAADDFE550B52C9DB /* Skoga.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Skoga.entitlements; sourceTree = "<group>"; };
+		18C6D36A05B968E62F7CB7BF /* PulseDot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseDot.swift; sourceTree = "<group>"; };
+		235DA73ACD9025DC61F6CAA5 /* Color+Oklch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Oklch.swift"; sourceTree = "<group>"; };
+		296A4F6E32617A28B9E035E9 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
+		3148BC8738DB0F36AA1A85E9 /* Agent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Agent.swift; sourceTree = "<group>"; };
+		3F594D7BABF3680BF59BBE69 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		49F7F15D58C08252650D51B5 /* WindowAccessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowAccessor.swift; sourceTree = "<group>"; };
+		4FAC023DD953B7C1C85F0027 /* FilterRail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterRail.swift; sourceTree = "<group>"; };
+		5310DF4FE0BF1441CA5B5858 /* TitleBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleBar.swift; sourceTree = "<group>"; };
+		62CC800A856A8D28FA8CB11E /* Skoga.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Skoga.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7B7ADCECFD1E01D7C8FCCBFA /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		7E6D30C0F5B11763748C1C22 /* SkogaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaApp.swift; sourceTree = "<group>"; };
+		81F8C2B09E59496FB397779E /* SkogaGlyph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaGlyph.swift; sourceTree = "<group>"; };
+		8EAA1E89343E9FE80E819AE0 /* StatusPill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusPill.swift; sourceTree = "<group>"; };
+		90E13C9D4BF28ACDB5B9C1CC /* ActivityBars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityBars.swift; sourceTree = "<group>"; };
+		9504CA8AFEE1742998939607 /* MainWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindow.swift; sourceTree = "<group>"; };
+		9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaIcons.swift; sourceTree = "<group>"; };
+		C3CC5FADA740026853822A19 /* DaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClient.swift; sourceTree = "<group>"; };
+		CAC0B12748DBA520B86EA074 /* RosterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RosterView.swift; sourceTree = "<group>"; };
+		CE7A3CA26832995CEBDFEED8 /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
+		D3AEE547F6633CF2722E23E2 /* AgentCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCard.swift; sourceTree = "<group>"; };
+		EA9FE95C049FA34A02C1F2E1 /* CockpitStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitStrip.swift; sourceTree = "<group>"; };
+		ED68B708D3D45C9366760F38 /* MockDaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDaemonClient.swift; sourceTree = "<group>"; };
+		FA33B6515A779BB69660B110 /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
+		FAD982A7CF77B3D772232722 /* Sidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sidebar.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		2591AFF9D2E19C107B3A97AF /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				3148BC8738DB0F36AA1A85E9 /* Agent.swift */,
+				FA33B6515A779BB69660B110 /* Conversation.swift */,
+			);
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		6A5550E3937E20E53CB337E4 /* Cockpit */ = {
+			isa = PBXGroup;
+			children = (
+				EA9FE95C049FA34A02C1F2E1 /* CockpitStrip.swift */,
+			);
+			path = Cockpit;
+			sourceTree = "<group>";
+		};
+		74A01C148483A86AAB732CED /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				235DA73ACD9025DC61F6CAA5 /* Color+Oklch.swift */,
+				3F594D7BABF3680BF59BBE69 /* Theme.swift */,
+				CE7A3CA26832995CEBDFEED8 /* Tokens.swift */,
+				296A4F6E32617A28B9E035E9 /* Typography.swift */,
+			);
+			path = Design;
+			sourceTree = "<group>";
+		};
+		7E089CA2369299101A551FA7 /* Chrome */ = {
+			isa = PBXGroup;
+			children = (
+				9504CA8AFEE1742998939607 /* MainWindow.swift */,
+				FAD982A7CF77B3D772232722 /* Sidebar.swift */,
+				5310DF4FE0BF1441CA5B5858 /* TitleBar.swift */,
+				49F7F15D58C08252650D51B5 /* WindowAccessor.swift */,
+			);
+			path = Chrome;
+			sourceTree = "<group>";
+		};
+		BDEE565CDAC5419294812FFD /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				90E13C9D4BF28ACDB5B9C1CC /* ActivityBars.swift */,
+				18C6D36A05B968E62F7CB7BF /* PulseDot.swift */,
+				81F8C2B09E59496FB397779E /* SkogaGlyph.swift */,
+				9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */,
+				8EAA1E89343E9FE80E819AE0 /* StatusPill.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		C099F9773FA682119AF4F76F /* Skoga */ = {
+			isa = PBXGroup;
+			children = (
+				C6161100EEB1638A090D84C2 /* App */,
+				7E089CA2369299101A551FA7 /* Chrome */,
+				6A5550E3937E20E53CB337E4 /* Cockpit */,
+				BDEE565CDAC5419294812FFD /* Components */,
+				F528132174612A51387D841B /* Data */,
+				74A01C148483A86AAB732CED /* Design */,
+				2591AFF9D2E19C107B3A97AF /* Domain */,
+				ED9290C388E7599C45626052 /* Roster */,
+				E6D0C8C704D11988484F1BB0 /* State */,
+			);
+			path = Skoga;
+			sourceTree = "<group>";
+		};
+		C6161100EEB1638A090D84C2 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				011A602CAADDFE550B52C9DB /* Skoga.entitlements */,
+				7E6D30C0F5B11763748C1C22 /* SkogaApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		E6D0C8C704D11988484F1BB0 /* State */ = {
+			isa = PBXGroup;
+			children = (
+				7B7ADCECFD1E01D7C8FCCBFA /* AppState.swift */,
+			);
+			path = State;
+			sourceTree = "<group>";
+		};
+		ED9290C388E7599C45626052 /* Roster */ = {
+			isa = PBXGroup;
+			children = (
+				D3AEE547F6633CF2722E23E2 /* AgentCard.swift */,
+				4FAC023DD953B7C1C85F0027 /* FilterRail.swift */,
+				CAC0B12748DBA520B86EA074 /* RosterView.swift */,
+			);
+			path = Roster;
+			sourceTree = "<group>";
+		};
+		F528132174612A51387D841B /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				C3CC5FADA740026853822A19 /* DaemonClient.swift */,
+				ED68B708D3D45C9366760F38 /* MockDaemonClient.swift */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		F5AFB0703AD1E792E5CE7948 = {
+			isa = PBXGroup;
+			children = (
+				C099F9773FA682119AF4F76F /* Skoga */,
+				FCF484051ACC79D04A676AF0 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FCF484051ACC79D04A676AF0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				62CC800A856A8D28FA8CB11E /* Skoga.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		1FE1C874D5B4C771931E8C41 /* Skoga */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6C8CF5621CCE22C1FBEEAF8B /* Build configuration list for PBXNativeTarget "Skoga" */;
+			buildPhases = (
+				729AC11EABFEE9968EF21B10 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Skoga;
+			packageProductDependencies = (
+			);
+			productName = Skoga;
+			productReference = 62CC800A856A8D28FA8CB11E /* Skoga.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		5D7DBDAEB8892D4A079B475A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					1FE1C874D5B4C771931E8C41 = {
+						DevelopmentTeam = "";
+					};
+				};
+			};
+			buildConfigurationList = 7126CA6468C268F6E4DC3709 /* Build configuration list for PBXProject "Skoga" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = F5AFB0703AD1E792E5CE7948;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = FCF484051ACC79D04A676AF0 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1FE1C874D5B4C771931E8C41 /* Skoga */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		729AC11EABFEE9968EF21B10 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C0DCD0495C0135A8877E74D7 /* ActivityBars.swift in Sources */,
+				AA24C55FF75AB355861514D0 /* Agent.swift in Sources */,
+				958EA9D087B23C21A7A0845A /* AgentCard.swift in Sources */,
+				781F301DA5B2BD2BE473938D /* AppState.swift in Sources */,
+				B038B3D3555C717A97F1D66A /* CockpitStrip.swift in Sources */,
+				C0B8611AF2746532CA6B30F5 /* Color+Oklch.swift in Sources */,
+				24FB5C42B6D8667D132CE1CD /* Conversation.swift in Sources */,
+				303029A15B9017AA387563AB /* DaemonClient.swift in Sources */,
+				BFF1C77E6332943D4D93EEA1 /* FilterRail.swift in Sources */,
+				8D5B6940D68D2D386C81D000 /* MainWindow.swift in Sources */,
+				9525F4D036722C7A08ACF65D /* MockDaemonClient.swift in Sources */,
+				823115FEF637EEBBC6A8D163 /* PulseDot.swift in Sources */,
+				6EEEECFE96A849FA50EBB981 /* RosterView.swift in Sources */,
+				4B666D2DD45E99850F918565 /* Sidebar.swift in Sources */,
+				10F388F0EA51E3ADE2CC0FD2 /* SkogaApp.swift in Sources */,
+				8C054293BB4CF2C9E24828CD /* SkogaGlyph.swift in Sources */,
+				CCFCAD5B8E9DED56CC8A7D65 /* SkogaIcons.swift in Sources */,
+				7812EB1D772C88A505B7488B /* StatusPill.swift in Sources */,
+				696B8958E1B7D92FC04551DC /* Theme.swift in Sources */,
+				640853C0172CD400015511A2 /* TitleBar.swift in Sources */,
+				0440F79167C3EF08AEAB6DE2 /* Tokens.swift in Sources */,
+				F953B4F6DFAD8786461DD1F8 /* Typography.swift in Sources */,
+				B1FE387B2D3F62BE92234B26 /* WindowAccessor.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		6E4CB308DE83824399F7546E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Skoga/App/Skoga.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Skoga/App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.getskoga.Skoga;
+				PRODUCT_NAME = Skoga;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		B73AD2975332EFE650B0994D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.0.1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.10;
+			};
+			name = Release;
+		};
+		D5D8D37E95BF4D94C9A39BED /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.0.1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.10;
+			};
+			name = Debug;
+		};
+		E8402F8C3DFD77BD7215A970 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Skoga/App/Skoga.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Skoga/App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.getskoga.Skoga;
+				PRODUCT_NAME = Skoga;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6C8CF5621CCE22C1FBEEAF8B /* Build configuration list for PBXNativeTarget "Skoga" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E8402F8C3DFD77BD7215A970 /* Debug */,
+				6E4CB308DE83824399F7546E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7126CA6468C268F6E4DC3709 /* Build configuration list for PBXProject "Skoga" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D5D8D37E95BF4D94C9A39BED /* Debug */,
+				B73AD2975332EFE650B0994D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 5D7DBDAEB8892D4A079B475A /* Project object */;
+}

@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+
+# Xcode user-specific
+xcuserdata/
+*.xcuserstate
+*.xcuserstatevalue
+
+# Build artifacts
+build/
+DerivedData/
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+
+# CocoaPods / Carthage (not in use today, but harmless)
+Pods/
+Carthage/Build/
+
+# IDE
+.idea/
+.vscode/
