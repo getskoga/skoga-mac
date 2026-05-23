@@ -46,6 +46,18 @@ final class AppState: ObservableObject {
         } catch {
             // mock client doesn't throw; real client wiring will surface this in a banner.
         }
+        if let id = ProcessInfo.processInfo.environment["SKOGA_OPEN"], agents.contains(where: { $0.id == id }) {
+            openConversation(for: id)
+        }
+        if let view = ProcessInfo.processInfo.environment["SKOGA_VIEW"], let v = AppView(rawValue: view) {
+            self.view = v
+        }
+        if let pr = ProcessInfo.processInfo.environment["SKOGA_PR"], agents.contains(where: { $0.id == pr }) {
+            self.prAgentId = pr
+        }
+        if ProcessInfo.processInfo.environment["SKOGA_CMD"] != nil {
+            self.commandPaletteOpen = true
+        }
     }
 
     var openAgent: Agent? {

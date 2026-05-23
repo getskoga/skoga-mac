@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<title>Skoga — Print</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;450;500;600;700&family=Geist+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="styles.css" />
+
+<style>
+  /* ── Print page layout ───────────────────────────── */
+  @page { size: A4 landscape; margin: 0.4cm; }
+
+  html, body {
+    background: white !important;
+    background-image: none !important;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    height: auto;
+    min-height: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  #screen-root { display: none; }
+
+  .print-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 18px;
+  }
+
+  .print-page {
+    width: 1085px;
+    height: 745px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    break-after: page;
+    page-break-after: always;
+    background: white;
+  }
+  .print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .print-caption {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: oklch(0.45 0.014 60);
+    padding: 0 4px 0;
+  }
+  .print-caption .num {
+    color: oklch(0.32 0.012 60);
+    font-weight: 500;
+  }
+  .print-caption .ttl {
+    color: oklch(0.22 0.012 60);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .print-caption .sub {
+    color: oklch(0.55 0.012 60);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 10.5px;
+  }
+  .print-caption .grow { flex: 1; }
+  .print-caption .stamp {
+    color: oklch(0.55 0.012 60);
+    text-transform: none;
+    letter-spacing: 0.02em;
+  }
+
+  .print-frame {
+    flex: 1;
+    min-height: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 0 0 0.5px oklch(0 0 0 / 0.18);
+    position: relative;
+    background: white;
+    isolation: isolate;
+  }
+  .print-frame .skoga-app {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* Confine fixed overlays (PR modal, command palette, toast) to their frame */
+  .print-frame .modal-overlay,
+  .print-frame .toast {
+    position: absolute !important;
+  }
+  .print-frame .modal-overlay {
+    inset: 0 !important;
+  }
+  .print-frame .modal {
+    /* In-frame the modal can't be a 560px monolith — scale to fit */
+    width: 84% !important;
+    max-height: 88% !important;
+  }
+
+  /* When print-mode app is mounted in screen view: keep it self-contained */
+  .print-stack { font-family: "Geist", -apple-system, sans-serif; }
+
+  /* Hide hover/transition flicker that doesn't make sense in print */
+  @media print {
+    .agent-card { transition: none !important; }
+    .print-stack { padding: 0; gap: 0; }
+    .print-page { width: 100%; height: calc(100vh - 0px); }
+  }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body class="font-mono-mode">
+
+<script>
+  // Match the user's saved Tweaks settings on disk
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "dark": false,
+    "accent": "forest",
+    "layout": "cards",
+    "agentCount": 12,
+    "font": "mono"
+  }/*EDITMODE-END*/;
+</script>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="data.jsx"></script>
+<script type="text/babel" src="components.jsx"></script>
+<script type="text/babel" src="views.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+
+<div class="print-stack" id="pages">
+  <div class="print-page">
+    <div class="print-caption">
+      <span class="num">01</span>
+      <span class="ttl">Roster · Cockpit</span>
+      <span class="sub">at-a-glance status of the guild — who's running, who's blocked, who needs you</span>
+      <span class="grow"></span>
+      <span class="stamp">Skoga α 0.7 · macOS</span>
+    </div>
+    <div class="print-frame"><div id="root-roster"></div></div>
+  </div>
+
+  <div class="print-page">
+    <div class="print-caption">
+      <span class="num">02</span>
+      <span class="ttl">Conversation · Astrid (blocked)</span>
+      <span class="sub">drop into a 1:1 — read the trace, answer the question, redirect the run</span>
+      <span class="grow"></span>
+      <span class="stamp">cart drawer · xstate v5 migration</span>
+    </div>
+    <div class="print-frame"><div id="root-conv"></div></div>
+  </div>
+
+  <div class="print-page">
+    <div class="print-caption">
+      <span class="num">03</span>
+      <span class="ttl">Dispatch · new run</span>
+      <span class="sub">spawn an agent against a fresh worktree — writes like a ticket, not a prompt</span>
+      <span class="grow"></span>
+      <span class="stamp">template · feature · auto-assign</span>
+    </div>
+    <div class="print-frame"><div id="root-dispatch"></div></div>
+  </div>
+
+  <div class="print-page">
+    <div class="print-caption">
+      <span class="num">04</span>
+      <span class="ttl">PR handoff</span>
+      <span class="sub">one button — Skoga doesn't try to be a review tool, it routes you to GitHub cleanly</span>
+      <span class="grow"></span>
+      <span class="stamp">linnea/e2e-guest-checkout → main</span>
+    </div>
+    <div class="print-frame"><div id="root-pr"></div></div>
+  </div>
+
+  <div class="print-page">
+    <div class="print-caption">
+      <span class="num">05</span>
+      <span class="ttl">Telemetry · today</span>
+      <span class="sub">manager-y metrics — spend per agent, per model, blocked rate</span>
+      <span class="grow"></span>
+      <span class="stamp">budget · $40.00 · forge plan</span>
+    </div>
+    <div class="print-frame"><div id="root-telemetry"></div></div>
+  </div>
+</div>
+
+<script type="text/babel">
+  function mount(elId, initial) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    ReactDOM.createRoot(el).render(<App initial={initial} printMode={true} />);
+  }
+
+  mount("root-roster",    { view: "roster" });
+  mount("root-conv",      { view: "conversation", openAgentId: "astrid" });
+  mount("root-dispatch",  { view: "dispatch" });
+  mount("root-pr",        { view: "conversation", openAgentId: "linnea", prAgentId: "linnea" });
+  mount("root-telemetry", { view: "telemetry" });
+
+  // Auto-print once everything has settled
+  (async () => {
+    if (document.fonts && document.fonts.ready) {
+      try { await document.fonts.ready; } catch (e) {}
+    }
+    // Give React mounts + layout an extra beat
+    await new Promise((r) => setTimeout(r, 700));
+    window.print();
+  })();
+</script>
+</body>
+</html>

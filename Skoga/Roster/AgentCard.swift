@@ -15,6 +15,7 @@ struct AgentCard: View {
                     attentionBanner(message)
                 }
                 taskBlock
+                Spacer(minLength: 0)
                 progressRow
                 metaRow
             }
@@ -22,6 +23,7 @@ struct AgentCard: View {
             .padding(.top, Tokens.Pad.cardY)
             .padding(.bottom, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 200)
             .background(cardBackground)
             .overlay(
                 RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
@@ -98,6 +100,8 @@ struct AgentCard: View {
                 .foregroundStyle(p.ink)
                 .lineSpacing(1.45 * 13.5 - 13.5)
                 .multilineTextAlignment(.leading)
+                .lineLimit(2)
+                .truncationMode(.tail)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

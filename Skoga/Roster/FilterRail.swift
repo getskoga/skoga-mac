@@ -11,6 +11,7 @@ struct FilterRail: View {
             searchField
             dispatchButton
         }
+        .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, Tokens.Pad.viewX)
         .padding(.vertical, 12)
         .background(p.paper)
@@ -64,10 +65,13 @@ struct FilterRail: View {
                 if let dot { PulseDot(status: dot) }
                 Text(label)
                     .font(SkogaFont.smallMedium(11.5))
+                    .lineLimit(1)
                 Text("\(count)")
                     .font(SkogaFont.monoSmall(10.5))
                     .foregroundStyle(on ? p.ink2 : p.inkFaint)
+                    .lineLimit(1)
             }
+            .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 12).padding(.vertical, 6)
             .foregroundStyle(on ? p.ink : p.inkMute)
             .background(on ? p.paper4 : .clear)

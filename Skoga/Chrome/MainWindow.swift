@@ -26,7 +26,18 @@ struct MainWindow: View {
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+
+            if let id = state.prAgentId, let agent = state.agents.first(where: { $0.id == id }) {
+                PRModal(agent: agent)
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            }
+
+            if state.commandPaletteOpen {
+                CommandPalette()
+                    .transition(.opacity)
+            }
         }
+        .onExitCommand { state.commandPaletteOpen = false }
         .background(WindowAccessor())
         .animation(.easeOut(duration: 0.2), value: state.toast)
         .animation(.easeOut(duration: 0.15), value: state.view)
@@ -34,13 +45,22 @@ struct MainWindow: View {
 
     @ViewBuilder private var mainArea: some View {
         VStack(spacing: 0) {
-            // Cockpit appears on roster (and would on review/telemetry/dispatch
-            // if we mirrored the React conditional). For the slice, roster only.
-            if state.view == .roster {
+            switch state.view {
+            case .roster:
                 CockpitStrip()
                 RosterView()
-            } else {
-                placeholderView
+            case .conversation:
+                if let agent = state.openAgent {
+                    ConversationView(agent: agent)
+                } else {
+                    placeholderView
+                }
+            case .dispatch:
+                DispatchView()
+            case .review:
+                ReviewView()
+            case .telemetry:
+                TelemetryView()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

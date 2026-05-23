@@ -61,6 +61,7 @@ struct CockpitStrip: View {
                 .frame(maxWidth: .infinity)
                 .padding(.leading, 22)
         }
+        .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, Tokens.Pad.viewX)
         .padding(.vertical, 14)
         .background(
