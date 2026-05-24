@@ -1,5 +1,5 @@
 import Foundation
-import Network
+import Darwin
 
 /// One-shot JSON-RPC client over a Unix domain socket. Each `call` opens a
 /// fresh connection, sends a line-delimited request, reads one line back, and
@@ -8,6 +8,13 @@ import Network
 /// recovery. Matches what a UI app needs (low call rate, easy cancellation).
 ///
 /// `EventStream` does keep a persistent connection — see below.
+///
+/// Why raw `Darwin.socket()` instead of `NWConnection`: NWConnection's Unix
+/// transport on macOS wraps the fd so the server's `getpeereid()` returns
+/// `ENOTCONN`, which trips skogad's same-uid peer-credential check and gets
+/// every RPC rejected at handshake. A plain `SOCK_STREAM` Unix socket via
+/// `connect(2)` behaves correctly — and NWConnection's DNS/TLS/path-monitoring
+/// features aren't useful for a local UDS anyway.
 enum JSONRPCError: Error, LocalizedError {
     case socketMissing(URL)
     case connectFailed(String)
@@ -38,13 +45,22 @@ struct JSONRPCClient {
         if !FileManager.default.fileExists(atPath: socketPath.path) {
             throw JSONRPCError.socketMissing(socketPath)
         }
-        let conn = NWConnection(to: .unix(path: socketPath.path), using: .tcp)
         let line = try Self.encodeRequest(method: method, params: params, id: 1)
-        try await Self.start(conn)
-        defer { conn.cancel() }
-        try await Self.send(conn, line: line)
-        let response = try await Self.readLine(conn)
-        return try Self.decode(response, type: R.self)
+        let path = socketPath.path
+        return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<R, Error>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let socket = try UnixSocket.connect(path: path)
+                    defer { socket.close() }
+                    try socket.writeAll(line)
+                    let response = try socket.readLine()
+                    let result: R = try Self.decode(response, type: R.self)
+                    cont.resume(returning: result)
+                } catch {
+                    cont.resume(throwing: error)
+                }
+            }
+        }
     }
 
     /// Open a persistent connection, issue `events.subscribe`, and return an
@@ -52,21 +68,30 @@ struct JSONRPCClient {
     /// stream ends when the daemon closes the socket or the caller cancels
     /// the consuming Task.
     func eventStream() -> AsyncStream<RPCEvent> {
-        AsyncStream { continuation in
-            let task = Task {
+        let path = socketPath.path
+        return AsyncStream { continuation in
+            // Hold the socket in a class so the read-loop closure and the
+            // `onTermination` closure can both reach it. Closing the fd from
+            // termination unblocks `read(2)` on the worker thread with EBADF.
+            final class SocketHolder: @unchecked Sendable {
+                var socket: UnixSocket?
+            }
+            let holder = SocketHolder()
+            let queue = DispatchQueue(label: "dev.getskoga.Skoga.JSONRPCEventStream", qos: .userInitiated)
+            queue.async {
                 do {
-                    let conn = NWConnection(to: .unix(path: socketPath.path), using: .tcp)
-                    try await Self.start(conn)
+                    let socket = try UnixSocket.connect(path: path)
+                    holder.socket = socket
                     let req = try Self.encodeRequest(method: "events.subscribe", params: nil, id: 1)
-                    try await Self.send(conn, line: req)
+                    try socket.writeAll(req)
                     // Drain the subscribe ack (the first line back) before
                     // entering the notification loop. Subsequent lines are
                     // `events.event` frames.
-                    _ = try? await Self.readLine(conn)
-                    while !Task.isCancelled {
+                    _ = try? socket.readLine()
+                    while true {
                         let line: Data
                         do {
-                            line = try await Self.readLine(conn)
+                            line = try socket.readLine()
                         } catch {
                             break
                         }
@@ -74,14 +99,16 @@ struct JSONRPCClient {
                             continuation.yield(event)
                         }
                     }
-                    conn.cancel()
+                    socket.close()
                 } catch {
                     // Connection setup failed — terminate the stream so the
                     // consumer can fall back to polling / show the banner.
                 }
                 continuation.finish()
             }
-            continuation.onTermination = { _ in task.cancel() }
+            continuation.onTermination = { _ in
+                holder.socket?.close()
+            }
         }
     }
 
@@ -139,97 +166,127 @@ struct JSONRPCClient {
         }
         return d
     }
+}
 
-    // MARK: – NWConnection async wrappers
+// MARK: – Raw Unix socket
 
-    static func start(_ conn: NWConnection) async throws {
-        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            // `stateUpdateHandler` may fire more than once (.ready, then .failed
-            // on disconnect). `resumed` flips on the first terminal state so we
-            // don't resume the same continuation twice — that's a runtime crash.
-            var resumed = false
-            conn.stateUpdateHandler = { state in
-                guard !resumed else { return }
-                switch state {
-                case .ready:
-                    resumed = true
-                    cont.resume()
-                case .failed(let err):
-                    resumed = true
-                    cont.resume(throwing: JSONRPCError.connectFailed("\(err)"))
-                case .cancelled:
-                    resumed = true
-                    cont.resume(throwing: JSONRPCError.connectFailed("cancelled before ready"))
-                default:
-                    break
+/// Thin wrapper around a `SOCK_STREAM` Unix-domain fd. Blocking I/O on the
+/// caller's thread — callers schedule work on a `DispatchQueue` worker and
+/// bridge to async via `withCheckedThrowingContinuation`.
+private final class UnixSocket: @unchecked Sendable {
+    private var fd: Int32
+    private var readBuffer = Data()
+    private let closeLock = NSLock()
+    private var didClose = false
+
+    private init(fd: Int32) { self.fd = fd }
+
+    static func connect(path: String) throws -> UnixSocket {
+        let fd = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
+        if fd < 0 {
+            throw JSONRPCError.connectFailed("socket: \(errnoMessage())")
+        }
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        // sun_len exists on macOS (BSD-derived) but is harmless to set; leave
+        // `connect(2)` to use the explicit length argument either way.
+        let pathBytes = Array(path.utf8)
+        let maxLen = MemoryLayout.size(ofValue: addr.sun_path) - 1 // 103 on macOS
+        if pathBytes.count > maxLen {
+            Darwin.close(fd)
+            throw JSONRPCError.connectFailed("socket path too long: \(pathBytes.count) > \(maxLen)")
+        }
+        withUnsafeMutablePointer(to: &addr.sun_path) { sunPathPtr in
+            sunPathPtr.withMemoryRebound(to: UInt8.self, capacity: maxLen + 1) { dst in
+                for (i, byte) in pathBytes.enumerated() {
+                    dst[i] = byte
                 }
+                dst[pathBytes.count] = 0
             }
-            conn.start(queue: .global(qos: .userInitiated))
+        }
+        let len = socklen_t(MemoryLayout<sockaddr_un>.size)
+        let rc = withUnsafePointer(to: &addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sa in
+                Darwin.connect(fd, sa, len)
+            }
+        }
+        if rc < 0 {
+            let msg = errnoMessage()
+            Darwin.close(fd)
+            throw JSONRPCError.connectFailed("connect: \(msg)")
+        }
+        return UnixSocket(fd: fd)
+    }
+
+    func writeAll(_ data: Data) throws {
+        try data.withUnsafeBytes { (buf: UnsafeRawBufferPointer) in
+            guard let base = buf.baseAddress else { return }
+            var offset = 0
+            let total = buf.count
+            while offset < total {
+                let n = Darwin.write(fd, base.advanced(by: offset), total - offset)
+                if n < 0 {
+                    if errno == EINTR { continue }
+                    throw JSONRPCError.sendFailed(UnixSocket.errnoMessage())
+                }
+                if n == 0 {
+                    throw JSONRPCError.sendFailed("write returned 0")
+                }
+                offset += n
+            }
         }
     }
 
-    static func send(_ conn: NWConnection, line: Data) async throws {
-        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            conn.send(content: line, completion: .contentProcessed { error in
-                if let error {
-                    cont.resume(throwing: JSONRPCError.sendFailed("\(error)"))
-                } else {
-                    cont.resume()
+    /// Read until `\n`. Buffers leftover bytes across calls so the event
+    /// stream can receive multiple frames on one connection.
+    func readLine() throws -> Data {
+        var chunk = [UInt8](repeating: 0, count: 4096)
+        while true {
+            if let nlIdx = readBuffer.firstIndex(of: 0x0a) {
+                let line = readBuffer.subdata(in: readBuffer.startIndex..<nlIdx)
+                readBuffer.removeSubrange(readBuffer.startIndex...nlIdx)
+                return line
+            }
+            let n = chunk.withUnsafeMutableBufferPointer { ptr -> Int in
+                guard let base = ptr.baseAddress else { return 0 }
+                return Darwin.read(fd, base, ptr.count)
+            }
+            if n < 0 {
+                if errno == EINTR { continue }
+                throw JSONRPCError.readFailed(UnixSocket.errnoMessage())
+            }
+            if n == 0 {
+                if readBuffer.isEmpty {
+                    throw JSONRPCError.emptyResponse
                 }
-            })
+                // Peer closed mid-line — surface whatever arrived so a
+                // partial frame shows up in diagnostics instead of vanishing.
+                let line = readBuffer
+                readBuffer.removeAll(keepingCapacity: false)
+                return line
+            }
+            chunk.withUnsafeBufferPointer { ptr in
+                if let base = ptr.baseAddress {
+                    readBuffer.append(base, count: n)
+                }
+            }
         }
     }
 
-    /// Read until `\n`. Buffers across multiple receive callbacks because
-    /// NWConnection doesn't promise framing — a single response may arrive
-    /// across two `receive` deliveries, or two responses in one.
-    static func readLine(_ conn: NWConnection) async throws -> Data {
-        actor LineBuffer {
-            var data = Data()
-            func append(_ chunk: Data) -> Data? {
-                data.append(chunk)
-                if let nl = data.firstIndex(of: 0x0a) {
-                    let line = data.subdata(in: 0..<nl)
-                    data.removeSubrange(0...nl)
-                    return line
-                }
-                return nil
-            }
+    func close() {
+        closeLock.lock(); defer { closeLock.unlock() }
+        if !didClose {
+            _ = Darwin.close(fd)
+            didClose = true
         }
-        let buffer = LineBuffer()
-        return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Data, Error>) in
-            var resumed = false
-            func receiveOne() {
-                conn.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { data, _, isComplete, error in
-                    if resumed { return }
-                    if let error {
-                        resumed = true
-                        cont.resume(throwing: JSONRPCError.readFailed("\(error)"))
-                        return
-                    }
-                    Task {
-                        if let chunk = data, !chunk.isEmpty {
-                            if let line = await buffer.append(chunk) {
-                                if !resumed {
-                                    resumed = true
-                                    cont.resume(returning: line)
-                                }
-                                return
-                            }
-                        }
-                        if isComplete {
-                            if !resumed {
-                                resumed = true
-                                cont.resume(throwing: JSONRPCError.emptyResponse)
-                            }
-                            return
-                        }
-                        receiveOne()
-                    }
-                }
-            }
-            receiveOne()
-        }
+    }
+
+    deinit {
+        close()
+    }
+
+    private static func errnoMessage() -> String {
+        String(cString: strerror(errno))
     }
 }
 
