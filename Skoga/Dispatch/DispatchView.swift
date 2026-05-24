@@ -1,25 +1,16 @@
 import SwiftUI
+import AppKit
 
 struct DispatchView: View {
     @Environment(\.palette) private var p
     @EnvironmentObject private var state: AppState
 
     @State private var template: Template = .feature
-    @State private var title: String = "Wire Stripe customer portal callbacks into settings → billing"
-    @State private var brief: String = """
-    Hook the Stripe customer-portal redirect into Settings → Billing.
-
-    When the user clicks Manage subscription:
-      1. Hit /v2/billing/portal-session to mint a session URL
-      2. Redirect with return_url back to /settings/billing?from=portal
-      3. On return, fetch fresh /v2/billing/subscription and update the cache
-
-    Edge cases: handle the case where the session is expired, and ensure the UI shows a sensible 'Refreshing…' state on return.
-    """
-    @State private var repo: String = REPOS[0]
+    @State private var title: String = ""
+    @State private var brief: String = ""
+    @State private var repo: String = ""
     @State private var assignee: String = "auto"
-    @State private var model: String = "claude-sonnet-4.7"
-    @State private var budget: String = "4.00"
+    @State private var model: String = "claude-opus-4.7"
 
     static let REPOS = [
         "skoga/monolith-web", "skoga/ledger-svc", "skoga/core-runtime",
@@ -99,10 +90,7 @@ struct DispatchView: View {
                     field(label: "Brief · spec · acceptance") { bodyInput }
                     field(label: "Repository") { repoPills }
                     field(label: "Assign to") { assigneeGrid }
-                    HStack(alignment: .top, spacing: 14) {
-                        field(label: "Model") { modelSelect }
-                        field(label: "Budget cap") { budgetInput }
-                    }
+                    field(label: "Model") { modelSelect }
                     actionsRow
                 }
                 .frame(maxWidth: 720, alignment: .leading)
@@ -336,27 +324,29 @@ struct DispatchView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var budgetInput: some View {
-        TextField("", text: $budget)
-            .textFieldStyle(.plain)
-            .font(SkogaFont.body(13.5))
-            .foregroundStyle(p.ink)
-            .padding(.horizontal, 13).padding(.vertical, 11)
-            .background(p.paper)
-            .overlay(
-                RoundedRectangle(cornerRadius: Tokens.Radius.input)
-                    .stroke(p.rule, lineWidth: Tokens.Hairline.width)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.input))
-            .frame(maxWidth: .infinity)
+    private func dispatchTapped() {
+        // The Dispatch UI's repo pills are hints from the original design's
+        // canned list — they don't correspond to anything on disk. Always
+        // pop a folder picker so the user picks a real host clone before
+        // skogad gets a `session.create` it could actually serve.
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Choose repo"
+        panel.message = "Pick the host clone skoga should create a session worktree against."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let agentName = model.split(separator: "-").first.map(String.init) ?? "claude"
+        let taskText = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        Task {
+            await state.dispatch(task: taskText, agent: agentName, base: "main", repoRoot: url)
+        }
     }
 
     private var actionsRow: some View {
         HStack(spacing: 8) {
-            Button {
-                state.showToast("Dispatched \"\(title.prefix(48))\(title.count > 48 ? "…" : "")\". Worktree booting…")
-                state.backToRoster()
-            } label: {
+            Button(action: dispatchTapped) {
                 HStack(spacing: 6) {
                     Image(skoga: .bolt).skogaIconSize(13)
                     Text("Dispatch run").font(SkogaFont.bodyMedium(12))

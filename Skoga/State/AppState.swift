@@ -32,20 +32,22 @@ final class AppState: ObservableObject {
     @Published private(set) var activity: [Double] = []
     @Published private(set) var conversation: [ConversationMessage] = []
     @Published private(set) var timeline: [TimelineEntry] = []
+    @Published private(set) var daemonStatus: DaemonStatus
 
     let client: DaemonClient
+    private let isMock: Bool
 
-    init(client: DaemonClient? = nil) {
+    init(client: DaemonClient? = nil, isMock: Bool = true) {
         self.client = client ?? MockDaemonClient()
+        self.isMock = isMock
+        self.daemonStatus = isMock ? .mock : .connecting
     }
 
     func bootstrap() async {
-        do {
-            agents   = try await client.listAgents()
-            activity = try await client.activitySeries()
-        } catch {
-            // mock client doesn't throw; real client wiring will surface this in a banner.
-        }
+        await refresh()
+        startEventLoop()
+        startPollingFallback()
+
         if let id = ProcessInfo.processInfo.environment["SKOGA_OPEN"], agents.contains(where: { $0.id == id }) {
             openConversation(for: id)
         }
@@ -58,6 +60,78 @@ final class AppState: ObservableObject {
         if ProcessInfo.processInfo.environment["SKOGA_CMD"] != nil {
             self.commandPaletteOpen = true
         }
+    }
+
+    /// Re-fetch the agent list and, on the live path, update `daemonStatus`
+    /// based on whether `daemon.version` + `session.list` round-trip cleanly.
+    /// The activity series stays on whatever the client returned at boot
+    /// (zero-length on live; the seed wave on mock) — skogad doesn't emit
+    /// per-minute load yet so re-polling it is wasted work.
+    func refresh() async {
+        if isMock {
+            agents = (try? await client.listAgents()) ?? agents
+            activity = (try? await client.activitySeries()) ?? activity
+            return
+        }
+        do {
+            let version = try await client.daemonVersion()
+            agents = try await client.listAgents()
+            daemonStatus = .connected(version: version)
+        } catch {
+            daemonStatus = .notRunning(detail: describe(error))
+        }
+    }
+
+    func dispatch(task: String, agent: String, base: String, repoRoot: URL) async {
+        do {
+            let created = try await client.createSession(task: task, agent: agent, base: base, repoRoot: repoRoot)
+            let title = task.count > 48 ? task.prefix(48) + "…" : Substring(task)
+            showToast("Dispatched \"\(title)\" → \(created.repo) (\(created.id.prefix(6)))")
+            backToRoster()
+            await refresh()
+        } catch {
+            showToast("Dispatch failed: \(describe(error))")
+        }
+    }
+
+    func kill(agentId: String) async {
+        do {
+            try await client.killSession(id: agentId)
+            showToast("Killed session \(agentId.prefix(6))")
+            await refresh()
+        } catch {
+            showToast("Kill failed: \(describe(error))")
+        }
+    }
+
+    private func startEventLoop() {
+        let stream = client.events()
+        Task { [weak self] in
+            for await _ in stream {
+                await self?.refresh()
+            }
+        }
+    }
+
+    /// Backstop for when the event stream isn't viable (mock mode, daemon
+    /// down, socket closed after subscribe). A 5s tick is cheap and means a
+    /// user who starts skogad after launching the app doesn't have to
+    /// restart — the next poll switches the banner from `.notRunning` to
+    /// `.connected` and the Roster lights up.
+    private func startPollingFallback() {
+        Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                await self?.refresh()
+            }
+        }
+    }
+
+    private func describe(_ error: Error) -> String {
+        if let rpc = error as? JSONRPCError {
+            return rpc.errorDescription ?? "\(rpc)"
+        }
+        return error.localizedDescription
     }
 
     var openAgent: Agent? {

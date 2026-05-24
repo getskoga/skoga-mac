@@ -12,6 +12,7 @@ struct MainWindow: View {
 
             VStack(spacing: 0) {
                 TitleBar()
+                DaemonStatusBanner(status: state.daemonStatus)
                 HStack(spacing: 0) {
                     Sidebar()
                     mainArea

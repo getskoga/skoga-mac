@@ -22,6 +22,22 @@ final class MockDaemonClient: DaemonClient {
         // The design ships one timeline (Astrid's) and reuses it for all agents.
         timelineCache
     }
+
+    func daemonVersion() async throws -> String { "mock" }
+
+    func createSession(task: String, agent: String, base: String, repoRoot: URL) async throws -> Agent {
+        // No-op in mock mode; the design has no notion of starting a real session.
+        throw NSError(domain: "MockDaemonClient", code: 0,
+                      userInfo: [NSLocalizedDescriptionKey: "Dispatch requires a live skogad. Unset SKOGA_USE_MOCK."])
+    }
+
+    func killSession(id: String) async throws {
+        // No-op.
+    }
+
+    nonisolated func events() -> AsyncStream<RPCEvent> {
+        AsyncStream { $0.finish() }
+    }
 }
 
 // MARK: – Seed data

@@ -1,14 +1,45 @@
 import Foundation
 
-/// The protocol the SwiftUI app talks through. A real implementation will speak
-/// JSON-RPC 2.0 over `~/.skoga/sock` (Unix domain socket) per the skoga architecture doc.
-/// For now `MockDaemonClient` carries the design's seed data.
+/// The protocol the SwiftUI app talks through. `LiveDaemonClient` speaks
+/// JSON-RPC 2.0 over `~/.skoga/sock`; `MockDaemonClient` carries the design's
+/// seed data for previews and for running the app without skogad installed.
 @MainActor
 protocol DaemonClient: AnyObject {
     func listAgents() async throws -> [Agent]
     func conversation(for agentId: String) async throws -> [ConversationMessage]
     func activitySeries() async throws -> [Double]
     func timeline(for agentId: String) async throws -> [TimelineEntry]
+
+    /// Returns the daemon's reported version (`daemon.version`). Used at
+    /// bootstrap to gate against an installed-but-too-old skogad.
+    func daemonVersion() async throws -> String
+
+    /// Start a new skoga session. `agent` is the adapter name (e.g. `"claude"`);
+    /// `base` is the branch to fork from (typically `"main"`); `repoRoot` is
+    /// the absolute path to the host clone.
+    func createSession(task: String, agent: String, base: String, repoRoot: URL) async throws -> Agent
+
+    /// Tear a session down (`session.kill`). Worktree removal happens
+    /// asynchronously; subscribers see the `session.killed` event when done.
+    func killSession(id: String) async throws
+
+    /// Push notification stream from `events.subscribe`. Implementations that
+    /// can't subscribe (mock, offline) return an empty stream that completes
+    /// immediately so consumers fall back to polling.
+    nonisolated func events() -> AsyncStream<RPCEvent>
+}
+
+/// Whether the app has a live connection to skogad. Drives the banner shown
+/// at the top of `MainWindow` when something needs the user's attention.
+enum DaemonStatus: Equatable {
+    case connecting
+    case connected(version: String)
+    /// Connection refused / socket missing — daemon binary likely installed
+    /// but not running. Hint: `skoga daemon start`.
+    case notRunning(detail: String)
+    /// Running in mock mode (env override) — used for design previews so the
+    /// banner reflects "this isn't real data" instead of "skoga is broken".
+    case mock
 }
 
 struct TimelineEntry: Hashable, Identifiable {

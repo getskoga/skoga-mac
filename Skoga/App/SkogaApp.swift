@@ -2,7 +2,13 @@ import SwiftUI
 
 @main
 struct SkogaApp: App {
-    @StateObject private var state = AppState()
+    @StateObject private var state: AppState = {
+        let mock = ProcessInfo.processInfo.environment["SKOGA_USE_MOCK"] == "1"
+        if mock {
+            return AppState(client: MockDaemonClient(), isMock: true)
+        }
+        return AppState(client: LiveDaemonClient(), isMock: false)
+    }()
 
     var body: some Scene {
         Window("Skoga", id: "main") {
