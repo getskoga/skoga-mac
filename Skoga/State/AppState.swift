@@ -86,7 +86,7 @@ final class AppState: ObservableObject {
         do {
             let created = try await client.createSession(task: task, agent: agent, base: base, repoRoot: repoRoot)
             let title = task.count > 48 ? task.prefix(48) + "…" : Substring(task)
-            showToast("Dispatched \"\(title)\" → \(created.repo) (\(created.id.prefix(6)))")
+            showToast("Dispatched \"\(title)\" → \(created.repo) (\(created.name))")
             backToRoster()
             await refresh()
         } catch {

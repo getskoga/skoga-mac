@@ -132,9 +132,11 @@ private func progressFor(state: RPCSessionState) -> Double {
 }
 
 private func prettyName(from id: String) -> String {
-    // Session ids are 8-char hex. Showing the raw id everywhere is unfriendly;
-    // the first 6 chars are enough to disambiguate at typical fleet sizes.
-    String(id.prefix(6))
+    // Session ids are 8-char hex. Default behavior maps the id to a Norse
+    // alias from `NordicNames` so the Roster reads as "Odin" / "Thor"
+    // instead of "24b171". The user can opt back into hex via
+    // `skoga.useNordicNames` in defaults — see `NordicNames`.
+    NordicNames.displayName(forSessionId: id)
 }
 
 private func prettyRepo(from path: String) -> String {
