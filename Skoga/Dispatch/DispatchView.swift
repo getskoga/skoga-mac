@@ -339,13 +339,34 @@ struct DispatchView: View {
 
         let agentName = model.split(separator: "-").first.map(String.init) ?? "claude"
         let taskText = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Combine the headline and the brief into a single prompt: title as a
+        // one-line header, then the body. The body alone usually has all the
+        // context, but the title is often a tighter "what to do" framing — so
+        // Claude sees both. If the brief is empty we fall back to just the
+        // title; if both are empty we pass nil and the agent boots blank.
+        let briefText = brief.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prompt: String? = {
+            switch (taskText.isEmpty, briefText.isEmpty) {
+            case (true,  true):  return nil
+            case (false, true):  return taskText
+            case (true,  false): return briefText
+            case (false, false): return "\(taskText)\n\n\(briefText)"
+            }
+        }()
         Task {
-            await state.dispatch(task: taskText, agent: agentName, base: "main", repoRoot: url)
+            await state.dispatch(task: taskText, agent: agentName, base: "main", repoRoot: url, initialPrompt: prompt)
         }
+    }
+
+    private var canDispatch: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var actionsRow: some View {
         HStack(spacing: 8) {
+            // Disabled until the headline is non-empty. The daemon rejects
+            // empty tasks with -32602 ("task cannot be empty"), and surfacing
+            // that as a toast is a worse UX than just preventing the click.
             Button(action: dispatchTapped) {
                 HStack(spacing: 6) {
                     Image(skoga: .bolt).skogaIconSize(13)
@@ -355,8 +376,10 @@ struct DispatchView: View {
                 .frame(height: 28)
                 .foregroundStyle(.white)
                 .background(RoundedRectangle(cornerRadius: Tokens.Radius.chip).fill(p.forest))
+                .opacity(canDispatch ? 1 : 0.4)
             }
             .buttonStyle(.plain)
+            .disabled(!canDispatch)
 
             Button {
             } label: {

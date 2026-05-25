@@ -42,19 +42,25 @@ final class LiveDaemonClient: DaemonClient {
         return resp.version
     }
 
-    func createSession(task: String, agent: String, base: String, repoRoot: URL) async throws -> Agent {
+    func createSession(task: String, agent: String, base: String, repoRoot: URL, initialPrompt: String?) async throws -> Agent {
         // auto_launch tells skogad to spawn the detached `skoga
         // _dispatch_launch` subprocess that actually starts the agent in
         // tmux. The Mac dashboard has no other way to bring the agent up —
         // without this, session.create would persist a Running record that
         // gets reaped to AgentExited 30s later (REAP_GRACE_SECS).
+        // initial_prompt is the brief from the Dispatch form; the daemon
+        // forwards it to _dispatch_launch which passes it to the agent as
+        // its first message. We normalize blank-only input to nil here so
+        // the daemon doesn't launch claude with an empty positional arg.
+        let trimmed = initialPrompt?.trimmingCharacters(in: .whitespacesAndNewlines)
         let params = AnyEncodable(SessionCreateParams(
             task: task,
             agent: agent,
             base: base,
             repo_root: repoRoot.path,
             task_auto: false,
-            auto_launch: true
+            auto_launch: true,
+            initial_prompt: (trimmed?.isEmpty ?? true) ? nil : trimmed
         ))
         let resp: SessionCreateResponse = try await rpc.call("session.create", params: params)
         return Agent.from(rpc: resp.session)

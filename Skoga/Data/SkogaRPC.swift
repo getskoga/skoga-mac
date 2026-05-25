@@ -97,6 +97,13 @@ struct SessionCreateParams: Encodable {
     /// agent never enters, and the session would reap to AgentExited
     /// 30 seconds later.
     let auto_launch: Bool
+    /// First message handed to Claude on launch (the brief from the
+    /// Dispatch form). Without this, the agent boots into its empty
+    /// welcome screen and the conversation view stays blank — there's no
+    /// way from the Mac to get the conversation started, so a missing
+    /// initial prompt makes the whole flow look broken even when the
+    /// agent is alive.
+    let initial_prompt: String?
 }
 
 struct SessionCreateResponse: Decodable {

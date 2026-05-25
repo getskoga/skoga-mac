@@ -25,7 +25,7 @@ final class MockDaemonClient: DaemonClient {
 
     func daemonVersion() async throws -> String { "mock" }
 
-    func createSession(task: String, agent: String, base: String, repoRoot: URL) async throws -> Agent {
+    func createSession(task: String, agent: String, base: String, repoRoot: URL, initialPrompt: String?) async throws -> Agent {
         // No-op in mock mode; the design has no notion of starting a real session.
         throw NSError(domain: "MockDaemonClient", code: 0,
                       userInfo: [NSLocalizedDescriptionKey: "Dispatch requires a live skogad. Unset SKOGA_USE_MOCK."])

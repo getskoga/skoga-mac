@@ -16,8 +16,11 @@ protocol DaemonClient: AnyObject {
 
     /// Start a new skoga session. `agent` is the adapter name (e.g. `"claude"`);
     /// `base` is the branch to fork from (typically `"main"`); `repoRoot` is
-    /// the absolute path to the host clone.
-    func createSession(task: String, agent: String, base: String, repoRoot: URL) async throws -> Agent
+    /// the absolute path to the host clone. `initialPrompt`, when non-empty,
+    /// is handed to the agent as its first message so the conversation
+    /// populates immediately rather than landing on Claude's empty welcome
+    /// screen.
+    func createSession(task: String, agent: String, base: String, repoRoot: URL, initialPrompt: String?) async throws -> Agent
 
     /// Tear a session down (`session.kill`). Worktree removal happens
     /// asynchronously; subscribers see the `session.killed` event when done.
