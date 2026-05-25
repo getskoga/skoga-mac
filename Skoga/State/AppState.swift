@@ -127,6 +127,28 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Submit the user's selection to a pending `AskUserQuestion`. The
+    /// daemon drives Claude's TUI picker via tmux key strokes and clears
+    /// the pending state. We optimistically drop the question row from the
+    /// conversation so the UI doesn't show a stale picker between answer
+    /// and the next refresh.
+    func answerQuestion(to agentId: String, selectedIndices: [Int]) async {
+        let toolUseId = agents.first(where: { $0.id == agentId })?.pendingQuestion?.toolUseId
+        do {
+            try await client.answerQuestion(sessionId: agentId, selectedIndices: selectedIndices)
+            if let toolUseId {
+                conversation.removeAll {
+                    if case .question(let q) = $0, q.toolUseId == toolUseId { return true }
+                    return false
+                }
+            }
+            await refresh()
+            await loadConversation(agentId)
+        } catch {
+            showToast("Answer failed: \(describe(error))")
+        }
+    }
+
     private func startEventLoop() {
         let stream = client.events()
         Task { [weak self] in
@@ -194,7 +216,22 @@ final class AppState: ObservableObject {
         // [] for sessions with no transcript yet) — only surface real
         // failures so a fresh session doesn't toast on every open.
         do {
-            conversation = try await client.conversation(for: id)
+            var msgs = try await client.conversation(for: id)
+            // The daemon's transcript-based conversation doesn't include the
+            // in-flight AskUserQuestion (Claude only writes the tool_use
+            // block once it completes), so append a synthesized question row
+            // from the session's pending_question. The Agent has it after
+            // the most recent refresh().
+            if let pending = agents.first(where: { $0.id == id })?.pendingQuestion {
+                let alreadyHas = msgs.contains {
+                    if case .question(let q) = $0 { return q.id == pending.id }
+                    return false
+                }
+                if !alreadyHas {
+                    msgs.append(.question(pending))
+                }
+            }
+            conversation = msgs
         } catch {
             conversation = []
             showToast("Conversation load failed: \(describe(error))")

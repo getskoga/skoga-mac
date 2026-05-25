@@ -132,7 +132,7 @@ private struct ConvFeed: View {
         case .msg(let payload):      ConvMessageRow(payload: payload, agent: agent)
         case .tool(let payload):     ConvToolRow(payload: payload)
         case .write(let payload):    ConvWriteRow(payload: payload)
-        case .question(let payload): ConvQuestionRow(payload: payload)
+        case .question(let payload): ConvQuestionRow(payload: payload, agentId: agent.id)
         }
     }
 }
@@ -285,6 +285,13 @@ private struct ConvQuestionRow: View {
     @Environment(\.palette) private var p
     @EnvironmentObject private var state: AppState
     let payload: ConversationMessage.QuestionPayload
+    let agentId: String?
+
+    /// Tracks toggled options for multi-select; ignored for single-select
+    /// (which submits on first click). Indexed by option offset; the set
+    /// is reset every time the picker is rerendered.
+    @State private var toggled: Set<Int> = []
+    @State private var submitting: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -300,23 +307,36 @@ private struct ConvQuestionRow: View {
                 .lineSpacing(11.5 * 0.6)
                 .fixedSize(horizontal: false, vertical: true)
 
+            // Options as wrapped chips. HStack would clip on long option
+            // lists, but the design's Decision-needed rows tend to have
+            // 2–4 short labels so a single row reads fine. If a future
+            // question needs > ~5 options, switch this to a FlowLayout.
             HStack(spacing: 6) {
-                ForEach(Array(payload.opts.enumerated()), id: \.offset) { _, opt in
-                    Button(opt) {
-                        // Future: record the answer via state
-                    }
-                    .buttonStyle(.plain)
-                    .font(SkogaFont.smallMedium(11.5))
-                    .foregroundStyle(p.ink2)
-                    .padding(.horizontal, 10).padding(.vertical, 5)
-                    .background(
-                        RoundedRectangle(cornerRadius: Tokens.Radius.chip)
-                            .fill(p.paper2)
-                            .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
-                    )
+                ForEach(Array(payload.options.enumerated()), id: \.offset) { idx, opt in
+                    optionChip(index: idx, option: opt)
                 }
             }
             .padding(.top, 6)
+
+            if payload.multiSelect {
+                HStack {
+                    Spacer()
+                    Button("Submit") {
+                        submit(indices: Array(toggled).sorted())
+                    }
+                    .buttonStyle(.plain)
+                    .font(SkogaFont.smallMedium(11.5))
+                    .foregroundStyle(toggled.isEmpty ? p.ink2.opacity(0.5) : p.paper2)
+                    .padding(.horizontal, 12).padding(.vertical, 5)
+                    .background(
+                        RoundedRectangle(cornerRadius: Tokens.Radius.chip)
+                            .fill(toggled.isEmpty ? p.paper2 : p.ember)
+                            .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
+                    )
+                    .disabled(toggled.isEmpty || submitting)
+                }
+                .padding(.top, 4)
+            }
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -326,6 +346,48 @@ private struct ConvQuestionRow: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         .padding(.leading, 38)
+    }
+
+    @ViewBuilder
+    private func optionChip(index: Int, option: ConversationMessage.QuestionOption) -> some View {
+        let isSelected = toggled.contains(index)
+        Button {
+            if payload.multiSelect {
+                if isSelected { toggled.remove(index) } else { toggled.insert(index) }
+            } else {
+                submit(indices: [index])
+            }
+        } label: {
+            HStack(spacing: 4) {
+                if payload.multiSelect {
+                    Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                        .font(.system(size: 10))
+                }
+                Text(option.label)
+                if let description = option.description, !description.isEmpty {
+                    Text(description)
+                        .foregroundStyle(p.ink2.opacity(0.65))
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .font(SkogaFont.smallMedium(11.5))
+        .foregroundStyle(p.ink2)
+        .padding(.horizontal, 10).padding(.vertical, 5)
+        .background(
+            RoundedRectangle(cornerRadius: Tokens.Radius.chip)
+                .fill(isSelected ? p.emberSoft : p.paper2)
+                .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
+        )
+        .disabled(submitting || agentId == nil)
+    }
+
+    private func submit(indices: [Int]) {
+        guard !submitting, !indices.isEmpty, let agentId else { return }
+        submitting = true
+        Task {
+            await state.answerQuestion(to: agentId, selectedIndices: indices)
+        }
     }
 }
 

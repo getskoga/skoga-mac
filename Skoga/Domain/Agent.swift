@@ -51,6 +51,54 @@ struct Agent: Identifiable, Hashable {
     let attn: Bool
     let attnMessage: String?
     let prUrl: String?
+    /// Structured `AskUserQuestion` prompt the agent is currently waiting
+    /// on, if any. The conversation view renders this as a `ConvQuestionRow`
+    /// with clickable options. `nil` for sessions whose agent isn't
+    /// currently asking — the common case.
+    let pendingQuestion: ConversationMessage.QuestionPayload?
+
+    /// Memberwise init with a default for `pendingQuestion` so design
+    /// seeds (all 20+ Agent literals in MockDaemonClient) don't have to
+    /// be edited every time a new optional field lands.
+    init(
+        id: String,
+        name: String,
+        role: String,
+        model: String,
+        status: AgentStatus,
+        task: String,
+        repo: String,
+        branch: String,
+        progress: Double,
+        runtime: String,
+        tokens: Int,
+        cost: Double,
+        commits: Int,
+        files: Int,
+        attn: Bool,
+        attnMessage: String?,
+        prUrl: String?,
+        pendingQuestion: ConversationMessage.QuestionPayload? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.role = role
+        self.model = model
+        self.status = status
+        self.task = task
+        self.repo = repo
+        self.branch = branch
+        self.progress = progress
+        self.runtime = runtime
+        self.tokens = tokens
+        self.cost = cost
+        self.commits = commits
+        self.files = files
+        self.attn = attn
+        self.attnMessage = attnMessage
+        self.prUrl = prUrl
+        self.pendingQuestion = pendingQuestion
+    }
 
     /// `branch` after the first slash, used to label rows like "auth-scope-refresh".
     var branchSlug: String {

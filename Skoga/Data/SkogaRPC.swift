@@ -61,6 +61,11 @@ struct RPCSession: Decodable {
     let landed_pr_url: String?
     let waiting_since: Date?
     let idle_since: Date?
+    /// Mirrors the daemon's `Session.pending_question` — set when the agent
+    /// has an in-flight `AskUserQuestion` and the user hasn't answered yet.
+    /// `nil` keeps the field optional so older daemons (pre-#100) still
+    /// decode cleanly.
+    let pending_question: RPCPendingQuestion?
 }
 
 enum RPCSessionState: String, Decodable {
@@ -128,6 +133,43 @@ struct SessionSendInputParams: Encodable {
 }
 
 struct SessionSendInputResponse: Decodable {
+    let session: RPCSession
+}
+
+// MARK: – AskUserQuestion (session.pending_question / session.answer_question)
+
+struct RPCPendingQuestion: Decodable, Hashable {
+    let tool_use_id: String
+    let question: String
+    let header: String?
+    let multi_select: Bool
+    let options: [RPCQuestionOption]
+    let asked_at: Date
+}
+
+struct RPCQuestionOption: Decodable, Hashable {
+    let label: String
+    let description: String?
+}
+
+struct SessionPendingQuestionParams: Encodable {
+    let id: String
+}
+
+struct SessionPendingQuestionResponse: Decodable {
+    let session: RPCSession
+    let question: RPCPendingQuestion?
+}
+
+struct SessionAnswerQuestionParams: Encodable {
+    let id: String
+    /// Zero-based indices into the pending question's options. Single-
+    /// select sends a one-element array; multi-select sends the full
+    /// chosen set. Daemon rejects empty arrays.
+    let selected_indices: [Int]
+}
+
+struct SessionAnswerQuestionResponse: Decodable {
     let session: RPCSession
 }
 
@@ -207,5 +249,28 @@ struct RPCConversationMessage: Decodable {
             guard let path, let adds, let rems else { return nil }
             return .write(.init(id: id, path: path, adds: adds, rems: rems))
         }
+    }
+}
+
+extension RPCPendingQuestion {
+    /// Materialize the daemon's pending question as an in-feed conversation
+    /// row. The session.conversation RPC reconstructs history from the
+    /// Claude transcript, which doesn't yet contain a `tool_result` for an
+    /// in-flight AskUserQuestion — so the question would otherwise be
+    /// invisible in the feed until the user answers and the agent
+    /// continues. Synthesizing the row here gives the user something to
+    /// click while the call is still pending.
+    ///
+    /// The row id is the tool_use_id so SwiftUI's ForEach identifies the
+    /// row stably across polls.
+    func toConversationMessage() -> ConversationMessage {
+        .question(.init(
+            id: tool_use_id,
+            label: header ?? "Question",
+            body: question.split(separator: "\n", omittingEmptySubsequences: false).map(String.init),
+            options: options.map { .init(label: $0.label, description: $0.description) },
+            multiSelect: multi_select,
+            toolUseId: tool_use_id
+        ))
     }
 }

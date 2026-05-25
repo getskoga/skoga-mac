@@ -82,6 +82,30 @@ final class LiveDaemonClient: DaemonClient {
         let _: SessionSendInputResponse = try await rpc.call("session.send_input", params: params)
     }
 
+    func pendingQuestion(for agentId: String) async throws -> RPCPendingQuestion? {
+        // Older daemons (pre-#100) don't expose this method; swallow
+        // METHOD_NOT_FOUND so the conversation view still renders.
+        let params = AnyEncodable(SessionPendingQuestionParams(id: agentId))
+        do {
+            let resp: SessionPendingQuestionResponse = try await rpc.call(
+                "session.pending_question", params: params
+            )
+            return resp.question
+        } catch let JSONRPCError.rpc(rpcError) where rpcError.code == -32601 {
+            return nil
+        }
+    }
+
+    func answerQuestion(sessionId: String, selectedIndices: [Int]) async throws {
+        let params = AnyEncodable(SessionAnswerQuestionParams(
+            id: sessionId,
+            selected_indices: selectedIndices
+        ))
+        let _: SessionAnswerQuestionResponse = try await rpc.call(
+            "session.answer_question", params: params
+        )
+    }
+
     /// Forwards every `events.event` notification to the caller. The consumer
     /// is expected to debounce + refetch — payloads are too heterogeneous to
     /// apply incrementally and a full `session.list` is cheap.
@@ -97,12 +121,18 @@ extension Agent {
     /// doesn't expose yet (tokens, cost, commits, files, progress) are zeroed;
     /// `name`/`role` are derived from the id and the configured agent adapter.
     static func from(rpc s: RPCSession) -> Agent {
+        let pendingQuestion = s.pending_question?.toConversationMessage()
+        let pendingQuestionPayload: ConversationMessage.QuestionPayload? = {
+            guard case .question(let q) = pendingQuestion else { return nil }
+            return q
+        }()
         let status = AgentStatus(rpc: s.state, waiting: s.waiting_since, idle: s.idle_since)
         let waiting = s.waiting_since != nil
         let conflicted = s.state == .conflicted || s.state == .syncBroken
         let attn = waiting || conflicted
 
         let attnMessage: String? = {
+            if pendingQuestionPayload != nil { return "Agent is asking a question" }
             if waiting { return "Agent is blocked waiting on input" }
             if s.state == .conflicted { return "Rebase conflict — needs resolution" }
             if s.state == .syncBroken { return "Sync broken — run `skoga sync --debug`" }
@@ -126,7 +156,8 @@ extension Agent {
             files: 0,
             attn: attn,
             attnMessage: attnMessage,
-            prUrl: s.landed_pr_url
+            prUrl: s.landed_pr_url,
+            pendingQuestion: pendingQuestionPayload
         )
     }
 }

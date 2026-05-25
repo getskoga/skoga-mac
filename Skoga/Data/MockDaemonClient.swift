@@ -40,6 +40,17 @@ final class MockDaemonClient: DaemonClient {
         // silently lets designers exercise the composer end-to-end.
     }
 
+    func pendingQuestion(for agentId: String) async throws -> RPCPendingQuestion? {
+        // No-op for the mock — designers exercise the question UI via
+        // the seeded `.question(...)` conversation rows, not the live
+        // pending_question RPC.
+        nil
+    }
+
+    func answerQuestion(sessionId: String, selectedIndices: [Int]) async throws {
+        // No-op. The mock has no live agent to drive.
+    }
+
     nonisolated func events() -> AsyncStream<RPCEvent> {
         AsyncStream { $0.finish() }
     }

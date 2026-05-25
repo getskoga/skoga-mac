@@ -33,6 +33,19 @@ protocol DaemonClient: AnyObject {
     /// is gone (process crashed / never launched).
     func sendInput(sessionId: String, text: String) async throws
 
+    /// Fetch the session's in-flight `AskUserQuestion`, if any. Returns nil
+    /// when the agent has no pending picker. Used as a polled fallback for
+    /// older daemons that don't yet include `pending_question` on
+    /// `RPCSession`.
+    func pendingQuestion(for agentId: String) async throws -> RPCPendingQuestion?
+
+    /// Deliver the user's selection back to the agent. `selectedIndices`
+    /// are zero-based into the pending question's options. Daemon
+    /// translates this into tmux key strokes that drive Claude's picker.
+    /// Single-select expects a one-element array; multi-select the full
+    /// chosen set.
+    func answerQuestion(sessionId: String, selectedIndices: [Int]) async throws
+
     /// Push notification stream from `events.subscribe`. Implementations that
     /// can't subscribe (mock, offline) return an empty stream that completes
     /// immediately so consumers fall back to polling.

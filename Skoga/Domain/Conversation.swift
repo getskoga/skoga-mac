@@ -94,18 +94,55 @@ enum ConversationMessage: Hashable, Identifiable {
         let id: String
         let label: String
         let body: [String]
-        let opts: [String]
+        let options: [QuestionOption]
+        /// Whether the picker accepts multiple selections. The composer in
+        /// the conversation view varies its affordance on this: single-
+        /// select sends on first click, multi-select renders a Submit
+        /// button after toggling.
+        let multiSelect: Bool
+        /// Claude's `tool_use_id` for the AskUserQuestion call this row
+        /// represents. Optional because mock seeds and tests don't pair
+        /// with a real tool call.
+        let toolUseId: String?
 
+        init(
+            id: String = UUID().uuidString,
+            label: String,
+            body: [String],
+            options: [QuestionOption],
+            multiSelect: Bool = false,
+            toolUseId: String? = nil
+        ) {
+            self.id = id
+            self.label = label
+            self.body = body
+            self.options = options
+            self.multiSelect = multiSelect
+            self.toolUseId = toolUseId
+        }
+
+        /// Convenience for design seeds that only have plain option labels —
+        /// keeps the long-form `[QuestionOption]` initializer for the live
+        /// path (which gets descriptions from the daemon).
         init(
             id: String = UUID().uuidString,
             label: String,
             body: [String],
             opts: [String]
         ) {
-            self.id = id
-            self.label = label
-            self.body = body
-            self.opts = opts
+            self.init(
+                id: id,
+                label: label,
+                body: body,
+                options: opts.map { QuestionOption(label: $0, description: nil) },
+                multiSelect: false,
+                toolUseId: nil
+            )
         }
+    }
+
+    struct QuestionOption: Hashable {
+        let label: String
+        let description: String?
     }
 }
