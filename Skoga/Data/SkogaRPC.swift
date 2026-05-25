@@ -56,6 +56,11 @@ struct RPCSession: Decodable {
     let base: String
     let branch: String
     let repo_root: String
+    /// Filesystem path to the session's linked git worktree. Needed by the
+    /// Mac app to compute `git diff base...HEAD` for the Claude-drafted
+    /// commit message that pre-fills the PR modal — without it we'd have
+    /// to reimplement the daemon's sandbox-mode path resolution in Swift.
+    let worktree: String?
     let created_at: Date
     let state: RPCSessionState
     let landed_pr_url: String?

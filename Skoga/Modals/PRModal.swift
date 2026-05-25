@@ -96,6 +96,7 @@ struct PRModal: View {
             VStack(alignment: .leading, spacing: 16) {
                 branchRow
                 diffStat
+                if phase == .loading { draftingIndicator }
                 field(label: "Title") {
                     TextField("", text: $title)
                         .textFieldStyle(.plain)
@@ -104,6 +105,7 @@ struct PRModal: View {
                         .background(p.paper)
                         .overlay(RoundedRectangle(cornerRadius: 7).stroke(p.rule, lineWidth: Tokens.Hairline.width))
                         .clipShape(RoundedRectangle(cornerRadius: 7))
+                        .disabled(phase == .loading)
                 }
                 field(label: "Description") {
                     TextEditor(text: $bodyText)
@@ -114,11 +116,35 @@ struct PRModal: View {
                         .background(p.paper)
                         .overlay(RoundedRectangle(cornerRadius: 7).stroke(p.rule, lineWidth: Tokens.Hairline.width))
                         .clipShape(RoundedRectangle(cornerRadius: 7))
+                        .disabled(phase == .loading)
                 }
                 reviewersField
             }
             .padding(.horizontal, 22).padding(.vertical, 18)
         }
+    }
+
+    /// Small status row shown while `previewPR` is in flight. The call
+    /// shells out to `claude -p` against the session's diff — typically a
+    /// 5-30s wait — so without this the modal looks frozen, and users
+    /// reflexively dismiss it before the draft lands.
+    private var draftingIndicator: some View {
+        HStack(spacing: 8) {
+            ProgressView()
+                .controlSize(.small)
+                .progressViewStyle(.circular)
+            Text("Drafting commit message with Claude…")
+                .font(SkogaFont.monoSmall(11))
+                .foregroundStyle(p.inkMute)
+            Spacer()
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(p.paper2)
+        .overlay(
+            RoundedRectangle(cornerRadius: Tokens.Radius.chip)
+                .stroke(p.rule, lineWidth: Tokens.Hairline.width)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.chip))
     }
 
     @ViewBuilder

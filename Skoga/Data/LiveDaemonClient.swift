@@ -131,6 +131,21 @@ final class LiveDaemonClient: DaemonClient {
     }
 
     func previewPR(for sessionId: String) async throws -> PRPreview {
+        // Mirror the CLI's `commit_message: Claude` mode: ask Claude to draft
+        // a commit message from the session's diff and use it as the PR's
+        // title (first line) + body (rest). Without this the modal pre-fills
+        // with the bare session task — produces noticeably worse PRs than
+        // `skoga land` from a terminal, which is the gap this method closes.
+        //
+        // Two failure paths fall back to the CLI's default-message preview
+        // rather than surfacing as a modal error: (1) we couldn't locate the
+        // session via session.list (older daemon, race against teardown);
+        // (2) we found it but `claude` isn't installed / produced nothing
+        // useful. The user can still edit the field — getting a worse
+        // default is better than a hard-failed modal.
+        if let drafted = try? await claudeDraftedPreview(for: sessionId) {
+            return drafted
+        }
         let out = try await runSkoga(args: ["land", sessionId, "--preview"])
         let trimmed = out.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let data = trimmed.data(using: .utf8) else {
@@ -138,6 +153,43 @@ final class LiveDaemonClient: DaemonClient {
         }
         let payload = try JSONDecoder().decode(SkogaLandPreviewPayload.self, from: data)
         return PRPreview(title: payload.title, body: payload.body)
+    }
+
+    /// Re-implements `skoga land`'s `draft_message_via_claude` in Swift so
+    /// the Mac app's PR modal pre-fills with the same Claude-drafted text a
+    /// terminal `skoga land` would produce. Throws (and lets `previewPR`
+    /// fall back) when any precondition fails — claude not installed, empty
+    /// diff, non-zero exit — rather than papering over with junk output.
+    private func claudeDraftedPreview(for sessionId: String) async throws -> PRPreview {
+        guard let session = try await fetchSession(id: sessionId) else {
+            throw SkogaCLIError.unexpectedOutput("session \(sessionId) not in session.list")
+        }
+        guard let worktree = session.worktree, !worktree.isEmpty else {
+            throw SkogaCLIError.unexpectedOutput("session \(sessionId) has no worktree path")
+        }
+        // `origin/<base>...HEAD` is the read-only equivalent of what the
+        // CLI feeds Claude. The CLI rebases onto target + `reset --soft
+        // merge_base` + `diff --cached`; we can't mutate the worktree for
+        // a preview, so we use three-dot diff (which is `merge-base(...)
+        // → HEAD`) directly. If `origin/<base>` has moved since the
+        // session last rebased, the actual landed diff will include
+        // upstream churn this preview doesn't — acceptable for the modal
+        // pre-fill since the user reviews the message before landing.
+        let diff = try await runGit(
+            args: ["diff", "origin/\(session.base)...HEAD"],
+            cwd: worktree
+        )
+        if diff.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            throw SkogaCLIError.unexpectedOutput("no diff vs origin/\(session.base)")
+        }
+        let drafted = try await draftCommitMessageViaClaude(task: session.task, diff: diff)
+        return splitCommitMessage(drafted)
+    }
+
+    private func fetchSession(id: String) async throws -> RPCSession? {
+        let params = AnyEncodable(SessionListParams(include_terminal: true))
+        let sessions: [RPCSession] = try await rpc.call("session.list", params: params)
+        return sessions.first(where: { $0.id == id })
     }
 
     func landPR(for sessionId: String, title: String, body: String) async throws {
@@ -159,20 +211,155 @@ final class LiveDaemonClient: DaemonClient {
         guard let bin = LiveDaemonClient.resolveSkogaBinary() else {
             throw SkogaCLIError.binaryNotFound
         }
+        return try await runProcess(executable: bin, args: args, stdin: nil, cwd: nil)
+    }
+
+    /// Run `git <args>` in `cwd`. Trimmed stdout on success; stderr folded
+    /// into `SkogaCLIError.commandFailed` on non-zero. `git` is resolved
+    /// via the system PATH — every macOS dev install has it (Xcode CLT or
+    /// Homebrew), so there's no equivalent of `resolveSkogaBinary` here.
+    private nonisolated func runGit(args: [String], cwd: String) async throws -> String {
+        try await runProcess(
+            executable: URL(fileURLWithPath: "/usr/bin/env"),
+            args: ["git"] + args,
+            stdin: nil,
+            cwd: cwd
+        )
+    }
+
+    /// Ask `claude` to draft a commit message from the staged diff. The
+    /// prompt mirrors `draft_message_via_claude` in skoga-cli's land.rs
+    /// verbatim — keeping the wording aligned means PRs opened from the
+    /// Mac app read the same as PRs opened from a terminal `skoga land`.
+    private nonisolated func draftCommitMessageViaClaude(task: String, diff: String) async throws -> String {
+        guard let bin = LiveDaemonClient.resolveClaudeBinary() else {
+            throw SkogaCLIError.binaryNotFound
+        }
+        // Embed the diff in the prompt arg (not stdin) to match the CLI's
+        // `draft_message_via_claude` byte-for-byte. ARG_MAX on macOS is 1MB
+        // — large for diffs but the CLI uses this shape successfully today,
+        // so we keep the two flows on the same prompt for parity. If we
+        // later hit E2BIG on a real PR, switch both implementations to
+        // stdin together so the wording stays aligned.
+        let prompt = """
+        Write a concise git commit message for the staged changes below. \
+        The user's original task was: "\(task)". \
+        Output ONLY the commit message — no preamble, no code fences. \
+        First line: imperative subject, 50 chars or less. \
+        Then a blank line. \
+        Then a short body wrapped at 72 chars explaining the why.
+
+        --- diff ---
+        \(diff)
+        """
+        let stdout = try await runProcess(
+            executable: bin,
+            args: ["-p", prompt],
+            stdin: nil,
+            cwd: nil
+        )
+        let trimmed = stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            throw SkogaCLIError.unexpectedOutput("claude produced an empty message")
+        }
+        return trimmed
+    }
+
+    /// Split a Claude-drafted commit message into PR title (first line) and
+    /// PR body (everything after the blank line). Matches the CLI's
+    /// `first_line` / `message_body` pair — same splitting rule, so the
+    /// modal pre-fill renders the same shape the terminal flow would.
+    private nonisolated func splitCommitMessage(_ message: String) -> PRPreview {
+        // Strip leading blank lines before picking the title. Claude has
+        // been observed to prefix the message with an empty line; without
+        // this guard the title field would render blank even though the
+        // body contains a perfectly good subject.
+        let lines = message.split(separator: "\n", omittingEmptySubsequences: false)
+        let firstNonEmpty = lines.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) ?? lines.startIndex
+        let titleSlice = lines[firstNonEmpty]
+        let title = String(titleSlice).trimmingCharacters(in: .whitespaces)
+        let bodyLines = lines[lines.index(after: firstNonEmpty)...]
+        let body = bodyLines
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return PRPreview(title: title, body: body)
+    }
+
+    /// Common subprocess runner shared by `runSkoga`, `runGit`, and the
+    /// claude shell-out. Captures stdout, folds stderr into the error
+    /// message, and (when `stdin` is non-nil) writes the payload onto the
+    /// child's stdin before closing.
+    ///
+    /// Drains stdout/stderr asynchronously via `readabilityHandler` rather
+    /// than calling `readToEnd()` in `terminationHandler`. The pipe buffer
+    /// is ~64 KB; `git diff origin/<base>...HEAD` on any substantive
+    /// session blows past that and the child would block on `write()`,
+    /// never exit, and the modal would hang forever waiting on
+    /// `terminationHandler` to fire. Draining as data arrives keeps the
+    /// pipe from filling. A locked accumulator is needed because
+    /// `readabilityHandler` and `terminationHandler` fire on different
+    /// background queues.
+    private nonisolated func runProcess(
+        executable: URL,
+        args: [String],
+        stdin: String?,
+        cwd: String?
+    ) async throws -> String {
         let process = Process()
-        process.executableURL = bin
+        process.executableURL = executable
         process.arguments = args
+        if let cwd { process.currentDirectoryURL = URL(fileURLWithPath: cwd) }
         let outPipe = Pipe()
         let errPipe = Pipe()
+        let inPipe: Pipe? = (stdin != nil) ? Pipe() : nil
         process.standardOutput = outPipe
         process.standardError = errPipe
+        if let inPipe {
+            process.standardInput = inPipe
+        } else {
+            // Close stdin explicitly. Claude (and a few other CLIs) will
+            // otherwise hang reading from an inherited stdin in `-p` mode —
+            // the GUI app has no TTY, so what we'd inherit is undefined.
+            process.standardInput = FileHandle.nullDevice
+        }
+
+        let stdoutBuffer = LockedData()
+        let stderrBuffer = LockedData()
+        outPipe.fileHandleForReading.readabilityHandler = { handle in
+            let chunk = handle.availableData
+            if chunk.isEmpty {
+                // EOF on the pipe — child closed its write end. Detach so
+                // we don't busy-loop on a closed handle.
+                handle.readabilityHandler = nil
+            } else {
+                stdoutBuffer.append(chunk)
+            }
+        }
+        errPipe.fileHandleForReading.readabilityHandler = { handle in
+            let chunk = handle.availableData
+            if chunk.isEmpty {
+                handle.readabilityHandler = nil
+            } else {
+                stderrBuffer.append(chunk)
+            }
+        }
 
         return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<String, Error>) in
             process.terminationHandler = { p in
-                let outData = (try? outPipe.fileHandleForReading.readToEnd()) ?? nil ?? Data()
-                let errData = (try? errPipe.fileHandleForReading.readToEnd()) ?? nil ?? Data()
-                let stdout = String(data: outData, encoding: .utf8) ?? ""
-                let stderr = String(data: errData, encoding: .utf8) ?? ""
+                // Detach handlers; the child is gone and any further
+                // availableData will be empty anyway. Drain whatever the
+                // kernel still has buffered with one final read so we
+                // don't lose a trailing chunk.
+                outPipe.fileHandleForReading.readabilityHandler = nil
+                errPipe.fileHandleForReading.readabilityHandler = nil
+                if let tail = try? outPipe.fileHandleForReading.readToEnd() {
+                    stdoutBuffer.append(tail)
+                }
+                if let tail = try? errPipe.fileHandleForReading.readToEnd() {
+                    stderrBuffer.append(tail)
+                }
+                let stdout = String(data: stdoutBuffer.snapshot(), encoding: .utf8) ?? ""
+                let stderr = String(data: stderrBuffer.snapshot(), encoding: .utf8) ?? ""
                 if p.terminationStatus == 0 {
                     cont.resume(returning: stdout)
                 } else {
@@ -185,6 +372,13 @@ final class LiveDaemonClient: DaemonClient {
             }
             do {
                 try process.run()
+                if let inPipe, let stdin {
+                    let handle = inPipe.fileHandleForWriting
+                    if let data = stdin.data(using: .utf8) {
+                        try? handle.write(contentsOf: data)
+                    }
+                    try? handle.close()
+                }
             } catch {
                 cont.resume(throwing: error)
             }
@@ -196,17 +390,56 @@ final class LiveDaemonClient: DaemonClient {
     /// is already running. The order matches the priority `which skoga`
     /// would return for a default zsh PATH on macOS dev machines.
     private nonisolated static func resolveSkogaBinary() -> URL? {
-        let candidates = [
-            "\(NSHomeDirectory())/.cargo/bin/skoga",
-            "/opt/homebrew/bin/skoga",
-            "/usr/local/bin/skoga",
-            "/usr/bin/skoga",
+        resolveBinary(name: "skoga", extraDirs: ["\(NSHomeDirectory())/.cargo/bin"])
+    }
+
+    /// Find an installed `claude` binary. Same search order as `skoga` plus
+    /// the npm global prefix where the official CLI typically lands. Claude
+    /// is optional — if it's missing, `previewPR` falls back to the CLI's
+    /// default-message preview rather than surfacing a hard failure, so the
+    /// modal still opens for users who haven't set up the agent CLI.
+    private nonisolated static func resolveClaudeBinary() -> URL? {
+        resolveBinary(name: "claude", extraDirs: [
+            "\(NSHomeDirectory())/.claude/local",
+            "\(NSHomeDirectory())/.npm-global/bin",
+            "\(NSHomeDirectory())/.volta/bin",
+        ])
+    }
+
+    private nonisolated static func resolveBinary(name: String, extraDirs: [String]) -> URL? {
+        let standardDirs = [
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/usr/bin",
         ]
         let fm = FileManager.default
-        for path in candidates where fm.isExecutableFile(atPath: path) {
-            return URL(fileURLWithPath: path)
+        for dir in extraDirs + standardDirs {
+            let path = "\(dir)/\(name)"
+            if fm.isExecutableFile(atPath: path) {
+                return URL(fileURLWithPath: path)
+            }
         }
         return nil
+    }
+}
+
+/// Tiny lock-guarded `Data` accumulator. `runProcess` drains stdout/stderr
+/// from background `readabilityHandler` queues while another background
+/// queue fires `terminationHandler` — they touch the same buffer, so a
+/// plain `Data` would race. `NSLock` is enough; the contention window is
+/// a `Data.append` per pipe chunk.
+private final class LockedData: @unchecked Sendable {
+    private var data = Data()
+    private let lock = NSLock()
+
+    func append(_ chunk: Data) {
+        lock.lock(); defer { lock.unlock() }
+        data.append(chunk)
+    }
+
+    func snapshot() -> Data {
+        lock.lock(); defer { lock.unlock() }
+        return data
     }
 }
 
