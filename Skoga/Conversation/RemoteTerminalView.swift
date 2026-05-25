@@ -23,6 +23,14 @@ struct RemoteTerminalView: NSViewRepresentable {
         let view = TerminalView(frame: .zero)
         view.terminalDelegate = context.coordinator
         view.configureNativeColors()
+        // Keep the caret drawing as if focused even when first-responder is
+        // temporarily elsewhere. SwiftUI's focus engine occasionally yanks
+        // first-responder during arrow-key handling; without this flag the
+        // caret pops to a hollow outline (or disappears entirely under
+        // Metal) and the pane visually feels "asleep" even while bytes are
+        // still flowing. The event monitor below reclaims focus on the
+        // next keystroke, but until then we still want a live-looking caret.
+        view.caretViewTracksFocus = false
         context.coordinator.attach(view: view, sessionId: sessionId, client: client)
         return view
     }
@@ -37,10 +45,14 @@ struct RemoteTerminalView: NSViewRepresentable {
         private var sessionId: String = ""
         private var client: DaemonClient?
         /// Local event monitor that promotes the terminal to first responder
-        /// when the user clicks inside it. SwiftTerm's `mouseDown` overrides
-        /// selection handling but never makes itself first responder, so a
-        /// SwiftUI-hosted instance would otherwise never see keystrokes.
-        private var clickMonitor: Any?
+        /// when the user clicks inside it OR when a key arrives while the
+        /// pane is mounted but focus has drifted (SwiftUI's focus engine
+        /// claims arrow keys for keyboard nav, which yanks first-responder
+        /// away after the first arrow press — without reclamation, the
+        /// very next character is dropped). SwiftTerm's own `mouseDown`
+        /// handles selection but never calls `makeFirstResponder(self)`,
+        /// so this is also the only thing promoting it on first click.
+        private var eventMonitor: Any?
         /// Consumes the daemon's PTY stream. Cancelling tears down the
         /// persistent JSONRPCClient connection — the daemon notices the
         /// drop and stops broadcasting to this subscriber.
@@ -57,27 +69,55 @@ struct RemoteTerminalView: NSViewRepresentable {
             self.view = view
             self.sessionId = sessionId
             self.client = client
-            installClickMonitor()
+            installEventMonitor()
             // Stream open is deferred to the first `sizeChanged` delegate
             // callback so we hand the daemon real dimensions. SwiftUI's
             // first layout pass triggers that callback shortly after
             // `makeNSView` returns.
         }
 
-        private func installClickMonitor() {
-            guard clickMonitor == nil else { return }
-            clickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+        private func installEventMonitor() {
+            guard eventMonitor == nil else { return }
+            eventMonitor = NSEvent.addLocalMonitorForEvents(
+                matching: [.leftMouseDown, .keyDown]
+            ) { [weak self] event in
                 guard let self,
                       let view = self.view,
                       let window = view.window,
                       event.window === window
                 else { return event }
-                let pointInView = view.convert(event.locationInWindow, from: nil)
-                if view.bounds.contains(pointInView), window.firstResponder !== view {
-                    window.makeFirstResponder(view)
+                switch event.type {
+                case .leftMouseDown:
+                    let pointInView = view.convert(event.locationInWindow, from: nil)
+                    if view.bounds.contains(pointInView), window.firstResponder !== view {
+                        window.makeFirstResponder(view)
+                    }
+                case .keyDown:
+                    // The Native pane has no other text-input children, so a
+                    // keystroke arriving while first-responder is anything
+                    // OTHER than a recognized text widget is almost always
+                    // a SwiftUI focus-engine hijack (e.g. arrows for sidebar
+                    // nav). Reclaim and re-dispatch the same event into the
+                    // terminal, then swallow it so SwiftUI doesn't double-
+                    // process it. Skip when a real text input is focused —
+                    // command palette / search field — so we don't steal
+                    // keystrokes the user intended for those.
+                    if window.firstResponder !== view,
+                       !isTextInputResponder(window.firstResponder)
+                    {
+                        window.makeFirstResponder(view)
+                        view.keyDown(with: event)
+                        return nil
+                    }
+                default:
+                    break
                 }
                 return event
             }
+        }
+
+        private func isTextInputResponder(_ responder: NSResponder?) -> Bool {
+            responder is NSText || responder is NSTextField || responder is NSSearchField
         }
 
         private func openStreamIfNeeded(cols: UInt16, rows: UInt16) {
@@ -85,8 +125,9 @@ struct RemoteTerminalView: NSViewRepresentable {
             hasOpenedStream = true
             // First time we know the view is laid out AND in a window —
             // claim first responder so the user's first keystroke after
-            // opening Native mode reaches the agent. (SwiftTerm's mouseDown
-            // handles subsequent click-to-focus via FocusableTerminalView.)
+            // opening Native mode reaches the agent. (Subsequent click-to-
+            // focus and key-event focus-reclaim happen via the event
+            // monitor in `installEventMonitor`.)
             if let view, view.window?.firstResponder !== view {
                 view.window?.makeFirstResponder(view)
             }
@@ -113,7 +154,7 @@ struct RemoteTerminalView: NSViewRepresentable {
             // Tear the consumer down on the way out. The Task may already
             // be ending if the view's been removed; cancel is idempotent.
             streamTask?.cancel()
-            if let m = clickMonitor { NSEvent.removeMonitor(m) }
+            if let m = eventMonitor { NSEvent.removeMonitor(m) }
         }
 
         private func consumeStream(
