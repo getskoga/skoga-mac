@@ -6,11 +6,13 @@ struct StatusPill: View {
 
     private var color: Color {
         switch status {
-        case .running: p.amber
-        case .blocked: p.ember
-        case .review:  p.dusk
-        case .done:    p.forest
-        case .idle:    p.inkFaint
+        case .running:  p.amber
+        case .blocked:  p.ember
+        case .review:   p.dusk
+        case .done:     p.forest
+        case .idle:     p.inkFaint
+        case .stopping: p.ember
+        case .exited:   p.inkMute
         }
     }
 

@@ -17,7 +17,7 @@ final class AppState: ObservableObject {
     @Published var commandPaletteOpen: Bool = false
 
     // ── Filters ──────────────────────────────────────────────
-    enum Filter: String, CaseIterable, Hashable { case all, running, blocked, review, done, idle }
+    enum Filter: String, CaseIterable, Hashable { case all, running, blocked, review, done, idle, stopping, exited }
     @Published var filter: Filter = .all
     @Published var query: String = ""
 
@@ -154,11 +154,20 @@ final class AppState: ObservableObject {
     }
 
     private func loadConversation(_ id: String) async {
+        // Mock client never throws; the live path throws on transport / RPC
+        // failures. Empty-conversation is *not* an error (the daemon returns
+        // [] for sessions with no transcript yet) — only surface real
+        // failures so a fresh session doesn't toast on every open.
         do {
             conversation = try await client.conversation(for: id)
+        } catch {
+            conversation = []
+            showToast("Conversation load failed: \(describe(error))")
+        }
+        do {
             timeline = try await client.timeline(for: id)
         } catch {
-            // mock won't fail
+            timeline = []
         }
     }
 
@@ -171,18 +180,22 @@ final class AppState: ObservableObject {
         let review: Int
         let done: Int
         let idle: Int
+        let stopping: Int
+        let exited: Int
         let tokens: Int
     }
 
     var counts: Counts {
         Counts(
-            total:   agents.count,
-            running: agents.filter { $0.status == .running }.count,
-            blocked: agents.filter { $0.status == .blocked }.count,
-            review:  agents.filter { $0.status == .review  }.count,
-            done:    agents.filter { $0.status == .done    }.count,
-            idle:    agents.filter { $0.status == .idle    }.count,
-            tokens:  agents.reduce(0) { $0 + $1.tokens }
+            total:    agents.count,
+            running:  agents.filter { $0.status == .running  }.count,
+            blocked:  agents.filter { $0.status == .blocked  }.count,
+            review:   agents.filter { $0.status == .review   }.count,
+            done:     agents.filter { $0.status == .done     }.count,
+            idle:     agents.filter { $0.status == .idle     }.count,
+            stopping: agents.filter { $0.status == .stopping }.count,
+            exited:   agents.filter { $0.status == .exited   }.count,
+            tokens:   agents.reduce(0) { $0 + $1.tokens }
         )
     }
 
