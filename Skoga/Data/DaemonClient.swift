@@ -50,6 +50,29 @@ protocol DaemonClient: AnyObject {
     /// can't subscribe (mock, offline) return an empty stream that completes
     /// immediately so consumers fall back to polling.
     nonisolated func events() -> AsyncStream<RPCEvent>
+
+    /// Open a remote PTY stream for the agent's tmux pane. The returned
+    /// `AttachedPTYStream` carries the initial pane snapshot (feed it into
+    /// the terminal renderer first) and an `AsyncStream` of subsequent
+    /// raw byte chunks. The Mac app uses this in place of `tmux attach`
+    /// so SwiftTerm sees a real byte stream and can own scrollback /
+    /// selection / copy in native Mac fashion.
+    ///
+    /// `cols` / `rows` set the initial pane dimensions when present. Pass
+    /// the current SwiftTerm view's geometry on first attach; the daemon
+    /// translates them into a tmux `resize-window` before snapshotting.
+    func openPTYStream(sessionId: String, cols: UInt16?, rows: UInt16?) async throws -> AttachedPTYStream
+
+    /// Forward raw input bytes to the agent's tmux pane (`session.pty_write`).
+    /// Bytes are arbitrary — keystrokes, escape sequences, control codes;
+    /// the daemon ships them via `tmux send-keys -H` to preserve binary
+    /// content. For multi-line prompt text use `sendInput` instead, which
+    /// uses bracketed paste so the TUI sees it as one paste event.
+    func ptyWrite(sessionId: String, bytes: Data) async throws
+
+    /// Push a SwiftTerm view-size change down to the agent's tmux pane so
+    /// the TUI re-lays out. Cheap — issue per resize event.
+    func ptyResize(sessionId: String, cols: UInt16, rows: UInt16) async throws
 }
 
 /// Whether the app has a live connection to skogad. Drives the banner shown

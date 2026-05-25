@@ -106,6 +106,23 @@ final class LiveDaemonClient: DaemonClient {
         )
     }
 
+    func openPTYStream(sessionId: String, cols: UInt16?, rows: UInt16?) async throws -> AttachedPTYStream {
+        try await rpc.openPTYStream(sessionId: sessionId, cols: cols, rows: rows)
+    }
+
+    func ptyWrite(sessionId: String, bytes: Data) async throws {
+        let params = AnyEncodable(SessionPtyWriteParams(
+            id: sessionId,
+            bytes_b64: bytes.base64EncodedString()
+        ))
+        let _: SessionPtyWriteResponse = try await rpc.call("session.pty_write", params: params)
+    }
+
+    func ptyResize(sessionId: String, cols: UInt16, rows: UInt16) async throws {
+        let params = AnyEncodable(SessionPtyResizeParams(id: sessionId, cols: cols, rows: rows))
+        let _: SessionPtyResizeResponse = try await rpc.call("session.pty_resize", params: params)
+    }
+
     /// Forwards every `events.event` notification to the caller. The consumer
     /// is expected to debounce + refetch — payloads are too heterogeneous to
     /// apply incrementally and a full `session.list` is cheap.

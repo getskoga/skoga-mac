@@ -136,6 +136,62 @@ struct SessionSendInputResponse: Decodable {
     let session: RPCSession
 }
 
+// MARK: – PTY streaming (session.attach_stream / pty_write / pty_resize)
+
+struct SessionAttachStreamParams: Encodable {
+    let id: String
+    /// Initial pane dimensions to apply on attach. `nil` (or 0) tells the
+    /// daemon to leave the existing tmux pane size alone — useful for
+    /// cold-attach reconnects after a window resize during a disconnect,
+    /// where we want to use whatever the previous attach set.
+    let cols: UInt16?
+    let rows: UInt16?
+}
+
+struct SessionAttachStreamResponse: Decodable {
+    let session: RPCSession
+    /// Base64-encoded bytes representing the visible pane state at the
+    /// moment of attach. Clients should feed this into their terminal
+    /// renderer BEFORE processing subsequent `session.pty_data`
+    /// notifications so the cold-start view is the same as if they'd been
+    /// attached the whole time.
+    let snapshot_b64: String
+}
+
+struct SessionPtyWriteParams: Encodable {
+    let id: String
+    /// Base64-encoded raw input bytes (keystrokes, escape sequences,
+    /// control bytes) to inject into the agent's tmux pane.
+    let bytes_b64: String
+}
+
+struct SessionPtyWriteResponse: Decodable {}
+
+struct SessionPtyResizeParams: Encodable {
+    let id: String
+    let cols: UInt16
+    let rows: UInt16
+}
+
+struct SessionPtyResizeResponse: Decodable {}
+
+/// `session.pty_data` notification payload. Streamed continuously on the
+/// connection that issued `session.attach_stream` until the connection
+/// closes or the agent's tmux session exits.
+struct RPCPtyDataNotification: Decodable {
+    let id: String
+    let bytes_b64: String
+}
+
+/// Result of a successful `session.attach_stream`. The snapshot is the
+/// pane's visible state at the moment of attach — feed it into the
+/// terminal renderer first, then drain `bytes` for subsequent updates.
+struct AttachedPTYStream {
+    let snapshot: Data
+    let session: RPCSession
+    let bytes: AsyncStream<Data>
+}
+
 // MARK: – AskUserQuestion (session.pending_question / session.answer_question)
 
 struct RPCPendingQuestion: Decodable, Hashable {

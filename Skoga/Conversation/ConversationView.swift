@@ -1,9 +1,10 @@
 import SwiftUI
 
 /// Selects how the conversation surface renders. `.skoga` is the parsed
-/// transcript with the native composer; `.native` embeds the agent's own
-/// TUI via tmux (see `TerminalPaneView`). Persisted globally via AppStorage
-/// — it's a viewing preference, not per-agent state.
+/// transcript with the native composer; `.native` renders the agent's own
+/// TUI in SwiftTerm, fed by the daemon's `session.attach_stream` RPC
+/// (see `RemoteTerminalView`). Persisted globally via AppStorage — it's a
+/// viewing preference, not per-agent state.
 enum ConversationFeedMode: String, CaseIterable {
     case skoga
     case native
@@ -38,9 +39,9 @@ struct ConversationView: View {
                     // The TUI owns its own input loop, so the skoga composer
                     // is intentionally hidden here — the user types directly
                     // into the SwiftTerm pane. `id(agent.id)` forces SwiftUI
-                    // to rebuild the view (and therefore the PTY child) when
-                    // the user navigates between agents.
-                    TerminalPaneView(sessionId: agent.id)
+                    // to rebuild the view (and therefore the byte stream
+                    // subscription) when the user navigates between agents.
+                    RemoteTerminalView(sessionId: agent.id, client: state.client)
                         .id(agent.id)
                 }
             }

@@ -63,6 +63,97 @@ struct JSONRPCClient {
         }
     }
 
+    /// Open a persistent connection, issue `session.attach_stream`, await
+    /// the handshake response (which carries the initial pane snapshot),
+    /// and return an `AsyncStream` that yields raw PTY bytes for every
+    /// `session.pty_data` notification the daemon pushes afterward.
+    ///
+    /// The stream owns the socket for the duration of its consumer's
+    /// lifetime — on `onTermination` the socket is closed, the daemon
+    /// drops this connection's subscription, and the FIFO + pipe-pane
+    /// stay up only if other clients are subscribed.
+    ///
+    /// Throws synchronously if the handshake fails (socket missing,
+    /// session unknown, snapshot decode failure). Once `bytes` is
+    /// streaming, transport errors silently terminate the stream — the
+    /// view can observe the finish and decide whether to retry.
+    func openPTYStream(sessionId: String, cols: UInt16?, rows: UInt16?) async throws -> AttachedPTYStream {
+        if !FileManager.default.fileExists(atPath: socketPath.path) {
+            throw JSONRPCError.socketMissing(socketPath)
+        }
+        let params = SessionAttachStreamParams(id: sessionId, cols: cols, rows: rows)
+        let req = try Self.encodeRequest(method: "session.attach_stream", params: AnyEncodable(params), id: 1)
+        let path = socketPath.path
+
+        // Phase 1: blocking handshake on a worker, bridged to async.
+        let (snapshot, session, socket) = try await withCheckedThrowingContinuation {
+            (cont: CheckedContinuation<(Data, RPCSession, UnixSocket), Error>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let s = try UnixSocket.connect(path: path)
+                    do {
+                        try s.writeAll(req)
+                        let response = try s.readLine()
+                        let decoded: SessionAttachStreamResponse = try Self.decode(
+                            response, type: SessionAttachStreamResponse.self
+                        )
+                        guard let snapshotData = Data(base64Encoded: decoded.snapshot_b64) else {
+                            s.close()
+                            cont.resume(throwing: JSONRPCError.decode("snapshot_b64 was not valid base64"))
+                            return
+                        }
+                        cont.resume(returning: (snapshotData, decoded.session, s))
+                    } catch {
+                        s.close()
+                        cont.resume(throwing: error)
+                    }
+                } catch {
+                    cont.resume(throwing: error)
+                }
+            }
+        }
+
+        // Phase 2: long-lived notification reader.
+        // Hold the socket in a class so the read-loop and the onTermination
+        // closure both reach it; closing from termination unblocks read(2)
+        // with EBADF.
+        final class SocketHolder: @unchecked Sendable {
+            var socket: UnixSocket?
+        }
+        let holder = SocketHolder()
+        holder.socket = socket
+
+        let bytes = AsyncStream<Data> { continuation in
+            let queue = DispatchQueue(
+                label: "dev.getskoga.Skoga.PTYStream.\(sessionId)",
+                qos: .userInitiated
+            )
+            queue.async {
+                while true {
+                    let line: Data
+                    do {
+                        line = try socket.readLine()
+                    } catch {
+                        break
+                    }
+                    if line.isEmpty { continue }
+                    if let payload: RPCPtyDataNotification = try? Self.decodePtyData(line) {
+                        if let data = Data(base64Encoded: payload.bytes_b64) {
+                            continuation.yield(data)
+                        }
+                    }
+                }
+                socket.close()
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in
+                holder.socket?.close()
+            }
+        }
+
+        return AttachedPTYStream(snapshot: snapshot, session: session, bytes: bytes)
+    }
+
     /// Open a persistent connection, issue `events.subscribe`, and return an
     /// `AsyncStream` that yields one `RPCEvent` per pushed notification. The
     /// stream ends when the daemon closes the socket or the caller cancels
@@ -141,6 +232,12 @@ struct JSONRPCClient {
     static func decodeNotification(_ data: Data) throws -> RPCEvent {
         let decoder = makeDecoder()
         let envelope = try decoder.decode(RPCNotification<RPCEvent>.self, from: data)
+        return envelope.params
+    }
+
+    static func decodePtyData(_ data: Data) throws -> RPCPtyDataNotification {
+        let decoder = makeDecoder()
+        let envelope = try decoder.decode(RPCNotification<RPCPtyDataNotification>.self, from: data)
         return envelope.params
     }
 

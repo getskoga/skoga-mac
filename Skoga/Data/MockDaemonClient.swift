@@ -54,6 +54,18 @@ final class MockDaemonClient: DaemonClient {
     nonisolated func events() -> AsyncStream<RPCEvent> {
         AsyncStream { $0.finish() }
     }
+
+    func openPTYStream(sessionId: String, cols: UInt16?, rows: UInt16?) async throws -> AttachedPTYStream {
+        // Mock has no agent process — return an empty stream so the
+        // Native pane shows up blank instead of hanging on a phantom
+        // attach. Designers exercising the TUI surface should run against
+        // a real skogad.
+        throw NSError(domain: "MockDaemonClient", code: 0,
+                      userInfo: [NSLocalizedDescriptionKey: "Native pane requires a live skogad. Unset SKOGA_USE_MOCK."])
+    }
+
+    func ptyWrite(sessionId: String, bytes: Data) async throws {}
+    func ptyResize(sessionId: String, cols: UInt16, rows: UInt16) async throws {}
 }
 
 // MARK: – Seed data

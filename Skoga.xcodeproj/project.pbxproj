@@ -41,7 +41,7 @@
 		C0DCD0495C0135A8877E74D7 /* ActivityBars.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E13C9D4BF28ACDB5B9C1CC /* ActivityBars.swift */; };
 		CC3E912C7C322D76B934024D /* PRModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636564F61F4F65B4CC82B789 /* PRModal.swift */; };
 		CCFCAD5B8E9DED56CC8A7D65 /* SkogaIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */; };
-		E3E68DABB55C4B90435D3DDA /* TerminalPaneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75B3341A50FCF80A9CEE561E /* TerminalPaneView.swift */; };
+		F40CF5E71F1B6724136A191B /* RemoteTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A495BC418BAD2F865FEA74FC /* RemoteTerminalView.swift */; };
 		F953B4F6DFAD8786461DD1F8 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296A4F6E32617A28B9E035E9 /* Typography.swift */; };
 /* End PBXBuildFile section */
 
@@ -60,7 +60,6 @@
 		636564F61F4F65B4CC82B789 /* PRModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRModal.swift; sourceTree = "<group>"; };
 		70C3CDA242BE7EF87A23DDD1 /* LiveDaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDaemonClient.swift; sourceTree = "<group>"; };
 		732368285D5460AB08855A49 /* DispatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DispatchView.swift; sourceTree = "<group>"; };
-		75B3341A50FCF80A9CEE561E /* TerminalPaneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPaneView.swift; sourceTree = "<group>"; };
 		7B1B80DC49DE0A5D893A17CB /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
 		7B7ADCECFD1E01D7C8FCCBFA /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		7E6D30C0F5B11763748C1C22 /* SkogaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaApp.swift; sourceTree = "<group>"; };
@@ -72,6 +71,7 @@
 		9504CA8AFEE1742998939607 /* MainWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindow.swift; sourceTree = "<group>"; };
 		9B445CBB1DD16119CE39FCC9 /* NordicNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NordicNames.swift; sourceTree = "<group>"; };
 		9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaIcons.swift; sourceTree = "<group>"; };
+		A495BC418BAD2F865FEA74FC /* RemoteTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteTerminalView.swift; sourceTree = "<group>"; };
 		C3CC5FADA740026853822A19 /* DaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClient.swift; sourceTree = "<group>"; };
 		CAC0B12748DBA520B86EA074 /* RosterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RosterView.swift; sourceTree = "<group>"; };
 		CE7A3CA26832995CEBDFEED8 /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
@@ -128,7 +128,7 @@
 			isa = PBXGroup;
 			children = (
 				CFAFBFFB8FA9968FD7AC98FF /* ConversationView.swift */,
-				75B3341A50FCF80A9CEE561E /* TerminalPaneView.swift */,
+				A495BC418BAD2F865FEA74FC /* RemoteTerminalView.swift */,
 			);
 			path = Conversation;
 			sourceTree = "<group>";
@@ -351,6 +351,7 @@
 				3E70103B56C8294DDCA1E434 /* NordicNames.swift in Sources */,
 				CC3E912C7C322D76B934024D /* PRModal.swift in Sources */,
 				823115FEF637EEBBC6A8D163 /* PulseDot.swift in Sources */,
+				F40CF5E71F1B6724136A191B /* RemoteTerminalView.swift in Sources */,
 				55BEF74D5D6FEBD73D9E14A5 /* ReviewView.swift in Sources */,
 				6EEEECFE96A849FA50EBB981 /* RosterView.swift in Sources */,
 				4B666D2DD45E99850F918565 /* Sidebar.swift in Sources */,
@@ -360,7 +361,6 @@
 				0E1FEB24354422C20E477006 /* SkogaRPC.swift in Sources */,
 				7812EB1D772C88A505B7488B /* StatusPill.swift in Sources */,
 				86B547E02F159D1FADD8E5D9 /* TelemetryView.swift in Sources */,
-				E3E68DABB55C4B90435D3DDA /* TerminalPaneView.swift in Sources */,
 				696B8958E1B7D92FC04551DC /* Theme.swift in Sources */,
 				640853C0172CD400015511A2 /* TitleBar.swift in Sources */,
 				0440F79167C3EF08AEAB6DE2 /* Tokens.swift in Sources */,
