@@ -192,6 +192,23 @@ struct RemoteTerminalView: NSViewRepresentable {
             initialRows: UInt16
         ) async {
             do {
+                // Squeeze the pane by one row BEFORE attach_stream so the
+                // daemon's resize-back-to-initialRows is guaranteed to be a
+                // real dimension change. tmux only propagates SIGWINCH when
+                // dims actually change, and on re-attach our requested dims
+                // already match the pane's current state (we set them on
+                // the previous attach). Without a real change, Claude Code
+                // doesn't redraw and capture-pane hands us whatever wrap
+                // state was last rendered — which the user reports as
+                // broken wrapping after navigating away and back. Forcing a
+                // SIGWINCH on every attach gives us a clean repaint.
+                if initialCols > 0, initialRows > 1 {
+                    try? await client.ptyResize(
+                        sessionId: sessionId,
+                        cols: initialCols,
+                        rows: initialRows - 1
+                    )
+                }
                 let attached = try await client.openPTYStream(
                     sessionId: sessionId,
                     cols: initialCols > 0 ? initialCols : nil,
