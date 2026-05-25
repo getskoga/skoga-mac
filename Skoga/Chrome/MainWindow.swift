@@ -33,6 +33,11 @@ struct MainWindow: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
 
+            if let id = state.stopAgentId, let agent = state.agents.first(where: { $0.id == id }) {
+                StopConfirmModal(agent: agent)
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            }
+
             if state.commandPaletteOpen {
                 CommandPalette()
                     .transition(.opacity)
