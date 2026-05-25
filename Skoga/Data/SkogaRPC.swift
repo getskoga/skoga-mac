@@ -90,6 +90,13 @@ struct SessionCreateParams: Encodable {
     let base: String
     let repo_root: String
     let task_auto: Bool
+    /// When true, skogad spawns a detached `skoga _dispatch_launch <id>`
+    /// after persisting the session so the agent actually starts in a tmux
+    /// pane. The Mac app has no in-process way to spawn tmux, so it always
+    /// passes true — without it the daemon would create a worktree the
+    /// agent never enters, and the session would reap to AgentExited
+    /// 30 seconds later.
+    let auto_launch: Bool
 }
 
 struct SessionCreateResponse: Decodable {

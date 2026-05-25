@@ -87,8 +87,17 @@ final class AppState: ObservableObject {
             let created = try await client.createSession(task: task, agent: agent, base: base, repoRoot: repoRoot)
             let title = task.count > 48 ? task.prefix(48) + "…" : Substring(task)
             showToast("Dispatched \"\(title)\" → \(created.repo) (\(created.name))")
-            backToRoster()
+            // Jump straight to the new session's conversation view instead of
+            // bouncing back to the roster. Before this change, the user had
+            // to find the freshly-dispatched card and click it — and because
+            // the daemon now also spawns the agent process (auto_launch),
+            // there's a real conversation about to appear here. The view
+            // starts empty (no transcript on disk yet) and fills in once
+            // Claude's SessionStart hook records the agent_session_id, which
+            // happens within a couple of seconds of tmux bringing the pane
+            // up. The 5s session.conversation poll picks it up from there.
             await refresh()
+            openConversation(for: created.id)
         } catch {
             showToast("Dispatch failed: \(describe(error))")
         }
@@ -118,11 +127,23 @@ final class AppState: ObservableObject {
     /// user who starts skogad after launching the app doesn't have to
     /// restart — the next poll switches the banner from `.notRunning` to
     /// `.connected` and the Roster lights up.
+    ///
+    /// When a conversation is open, we also refetch its messages on the
+    /// same tick. The daemon reconstructs them from Claude's transcript
+    /// jsonl, which is append-only and ids each row by uuid, so SwiftUI's
+    /// ForEach keeps stable identity across polls — scroll position,
+    /// focus, and animations stay put. Without this, a freshly dispatched
+    /// agent never appears to "speak": loadConversation runs once on
+    /// open, when the transcript is still empty.
     private func startPollingFallback() {
         Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
-                await self?.refresh()
+                guard let self else { return }
+                await self.refresh()
+                if let id = self.openAgentId {
+                    await self.loadConversation(id)
+                }
             }
         }
     }
