@@ -111,7 +111,7 @@ struct Agent: Identifiable, Hashable {
         String(name.prefix(2))
     }
 
-    /// Short model label — "claude-sonnet" from "claude-sonnet-4.7".
+    /// Short model label — "claude-sonnet" from "claude-sonnet-4-7".
     var shortModel: String {
         let parts = model.split(separator: "-")
         return parts.prefix(2).joined(separator: "-")

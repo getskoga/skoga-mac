@@ -10,7 +10,7 @@ struct DispatchView: View {
     @State private var brief: String = ""
     @State private var repo: String = ""
     @State private var assignee: String = "auto"
-    @State private var selectedModel: ModelChoice = DispatchView.modelChoices.first(where: { $0.model == "claude-opus-4.7" }) ?? DispatchView.modelChoices[0]
+    @State private var selectedModel: ModelChoice = DispatchView.modelChoices.first(where: { $0.model == "claude-opus-4-7" }) ?? DispatchView.modelChoices[0]
 
     static let REPOS = [
         "skoga/monolith-web", "skoga/ledger-svc", "skoga/core-runtime",
@@ -40,8 +40,8 @@ struct DispatchView: View {
     /// local-provider adapter lands; the daemon's `agent_model`
     /// validator rejects the `·` and spaces anyway.
     static let modelChoices: [ModelChoice] = [
-        .init(label: "claude-sonnet-4.7", adapter: "claude", model: "claude-sonnet-4.7"),
-        .init(label: "claude-opus-4.7",   adapter: "claude", model: "claude-opus-4.7"),
+        .init(label: "claude-sonnet-4-7", adapter: "claude", model: "claude-sonnet-4-7"),
+        .init(label: "claude-opus-4-7",   adapter: "claude", model: "claude-opus-4-7"),
         .init(label: "gpt-5-codex",       adapter: "codex",  model: "gpt-5-codex"),
         .init(label: "gpt-5-mini",        adapter: "codex",  model: "gpt-5-mini"),
     ]

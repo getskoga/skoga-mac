@@ -20,7 +20,7 @@ protocol DaemonClient: AnyObject {
     /// is handed to the agent as its first message so the conversation
     /// populates immediately rather than landing on Claude's empty welcome
     /// screen. `model`, when non-nil, pins the adapter's CLI model flag
-    /// (e.g. `claude --model claude-opus-4.7`) and is persisted on the
+    /// (e.g. `claude --model claude-opus-4-7`) and is persisted on the
     /// session record so re-launches keep using it.
     func createSession(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?) async throws -> Agent
 

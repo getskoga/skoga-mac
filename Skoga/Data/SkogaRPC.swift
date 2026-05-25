@@ -72,7 +72,7 @@ struct RPCSession: Decodable {
     /// decode cleanly.
     let pending_question: RPCPendingQuestion?
     /// Specific model the adapter was launched with (e.g.
-    /// `"claude-opus-4.7"`). `nil` for legacy sessions created before
+    /// `"claude-opus-4-7"`). `nil` for legacy sessions created before
     /// #92 and for sessions where the caller didn't pin a model. The
     /// Roster prefers this over `agent` when rendering the model line.
     let agent_model: String?
@@ -119,7 +119,7 @@ struct SessionCreateParams: Encodable {
     /// initial prompt makes the whole flow look broken even when the
     /// agent is alive.
     let initial_prompt: String?
-    /// Adapter-specific model identifier (e.g. `"claude-opus-4.7"`,
+    /// Adapter-specific model identifier (e.g. `"claude-opus-4-7"`,
     /// `"gpt-5-codex"`). Persisted on the session record and forwarded
     /// to the adapter's CLI on every (re)launch — Claude becomes
     /// `claude --model <agent_model>`; the generic `exec:` adapter

@@ -53,7 +53,7 @@ final class LiveDaemonClient: DaemonClient {
         // its first message. We normalize blank-only input to nil here so
         // the daemon doesn't launch claude with an empty positional arg.
         // agent_model pins the adapter's CLI model flag (e.g. `claude
-        // --model claude-opus-4.7`) and is persisted on the session
+        // --model claude-opus-4-7`) and is persisted on the session
         // record; legacy callers / older Mac builds omit it and the
         // daemon falls back to the adapter's CLI default.
         let trimmed = initialPrompt?.trimmingCharacters(in: .whitespacesAndNewlines)
