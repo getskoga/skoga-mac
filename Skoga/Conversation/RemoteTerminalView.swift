@@ -68,6 +68,22 @@ struct RemoteTerminalView: NSViewRepresentable {
         /// escape codes (calibrated to tmux's pane size) collide with
         /// SwiftTerm's column count and the pane renders scrambled.
         private var hasOpenedStream = false
+        /// Latest cols/rows from `sizeChanged`. SwiftUI typically does
+        /// several layout passes when the conversation view first mounts
+        /// (chrome height settles, side panel reveals, …); each pass fires
+        /// a fresh `sizeChanged`. We coalesce them via `streamOpenTask`
+        /// so the daemon snapshot is captured at the FINAL dimensions
+        /// rather than an intermediate one.
+        private var latestCols: UInt16 = 0
+        private var latestRows: UInt16 = 0
+        /// Debounce timer for opening the stream. Reset on every
+        /// `sizeChanged` before `hasOpenedStream`; fires once dimensions
+        /// have been stable for `streamOpenDebounceNanos`.
+        private var streamOpenTask: Task<Void, Never>?
+        /// 150ms of layout silence is plenty for SwiftUI to settle even
+        /// when the window is mid-animation, and short enough that the
+        /// human eye reads attach as immediate.
+        private let streamOpenDebounceNanos: UInt64 = 150_000_000
 
         func attach(view: TerminalView, sessionId: String, client: DaemonClient) {
             self.view = view
@@ -156,6 +172,8 @@ struct RemoteTerminalView: NSViewRepresentable {
             Task { @MainActor [weak self] in
                 self?.streamTask?.cancel()
                 self?.streamTask = nil
+                self?.streamOpenTask?.cancel()
+                self?.streamOpenTask = nil
             }
         }
 
@@ -163,6 +181,7 @@ struct RemoteTerminalView: NSViewRepresentable {
             // Tear the consumer down on the way out. The Task may already
             // be ending if the view's been removed; cancel is idempotent.
             streamTask?.cancel()
+            streamOpenTask?.cancel()
             if let m = eventMonitor { NSEvent.removeMonitor(m) }
         }
 
@@ -254,16 +273,32 @@ struct RemoteTerminalView: NSViewRepresentable {
             let rows = UInt16(clamping: newRows)
             Task { @MainActor [weak self] in
                 guard let self, cols > 0, rows > 0 else { return }
+                self.latestCols = cols
+                self.latestRows = rows
                 if !self.hasOpenedStream {
-                    // First real dimensions — open the stream now so the
-                    // daemon's resize-then-capture happens against our
-                    // actual cell grid.
-                    self.openStreamIfNeeded(cols: cols, rows: rows)
+                    // Debounce: SwiftUI fires several `sizeChanged`s in
+                    // quick succession during initial layout (chrome
+                    // settles, side panel reveals). Opening on the FIRST
+                    // one captures a snapshot at intermediate dimensions
+                    // that won't match the final SwiftTerm cell grid —
+                    // the user then sees overlapped cells until a manual
+                    // window resize forces Claude Code to redraw.
+                    self.scheduleStreamOpen()
                 } else if let client = self.client {
                     try? await client.ptyResize(
                         sessionId: self.sessionId, cols: cols, rows: rows
                     )
                 }
+            }
+        }
+
+        private func scheduleStreamOpen() {
+            streamOpenTask?.cancel()
+            streamOpenTask = Task { @MainActor [weak self] in
+                guard let nanos = self?.streamOpenDebounceNanos else { return }
+                try? await Task.sleep(nanoseconds: nanos)
+                guard let self, !Task.isCancelled else { return }
+                self.openStreamIfNeeded(cols: self.latestCols, rows: self.latestRows)
             }
         }
 
