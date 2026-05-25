@@ -83,9 +83,9 @@ final class AppState: ObservableObject {
         }
     }
 
-    func dispatch(task: String, agent: String, base: String, repoRoot: URL, initialPrompt: String?) async {
+    func dispatch(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?) async {
         do {
-            let created = try await client.createSession(task: task, agent: agent, base: base, repoRoot: repoRoot, initialPrompt: initialPrompt)
+            let created = try await client.createSession(task: task, agent: agent, model: model, base: base, repoRoot: repoRoot, initialPrompt: initialPrompt)
             let title = task.count > 48 ? task.prefix(48) + "…" : Substring(task)
             showToast("Dispatched \"\(title)\" → \(created.repo) (\(created.name))")
             // Jump straight to the new session's conversation view instead of
