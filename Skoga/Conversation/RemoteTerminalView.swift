@@ -40,20 +40,35 @@ struct RemoteTerminalView: NSViewRepresentable {
         /// persistent JSONRPCClient connection — the daemon notices the
         /// drop and stops broadcasting to this subscriber.
         private var streamTask: Task<Void, Never>?
+        /// Set once `sizeChanged` first delivers real dimensions and we've
+        /// opened the daemon stream. We defer opening until then so the
+        /// daemon resizes tmux to our actual SwiftTerm cell grid BEFORE
+        /// capturing the snapshot — otherwise the agent's absolute-cursor
+        /// escape codes (calibrated to tmux's pane size) collide with
+        /// SwiftTerm's column count and the pane renders scrambled.
+        private var hasOpenedStream = false
 
         func attach(view: TerminalView, sessionId: String, client: DaemonClient) {
             self.view = view
             self.sessionId = sessionId
             self.client = client
-            let initialCols = UInt16(clamping: view.terminal?.cols ?? 0)
-            let initialRows = UInt16(clamping: view.terminal?.rows ?? 0)
+            // Stream open is deferred to the first `sizeChanged` delegate
+            // callback so we hand the daemon real dimensions. SwiftUI's
+            // first layout pass triggers that callback shortly after
+            // `makeNSView` returns.
+        }
+
+        private func openStreamIfNeeded(cols: UInt16, rows: UInt16) {
+            guard !hasOpenedStream, cols > 0, rows > 0, let client else { return }
+            hasOpenedStream = true
+            let sid = sessionId
             streamTask?.cancel()
             streamTask = Task { [weak self] in
                 await self?.consumeStream(
-                    sessionId: sessionId,
+                    sessionId: sid,
                     client: client,
-                    initialCols: initialCols,
-                    initialRows: initialRows
+                    initialCols: cols,
+                    initialRows: rows
                 )
             }
         }
@@ -118,8 +133,17 @@ struct RemoteTerminalView: NSViewRepresentable {
             let cols = UInt16(clamping: newCols)
             let rows = UInt16(clamping: newRows)
             Task { @MainActor [weak self] in
-                guard let self, let client = self.client, cols > 0, rows > 0 else { return }
-                try? await client.ptyResize(sessionId: self.sessionId, cols: cols, rows: rows)
+                guard let self, cols > 0, rows > 0 else { return }
+                if !self.hasOpenedStream {
+                    // First real dimensions — open the stream now so the
+                    // daemon's resize-then-capture happens against our
+                    // actual cell grid.
+                    self.openStreamIfNeeded(cols: cols, rows: rows)
+                } else if let client = self.client {
+                    try? await client.ptyResize(
+                        sessionId: self.sessionId, cols: cols, rows: rows
+                    )
+                }
             }
         }
 
