@@ -9,17 +9,25 @@ struct PulseDot: View {
 
     private var color: Color {
         switch status {
-        case .running: p.amber
-        case .blocked: p.ember
-        case .review:  p.dusk
-        case .done:    p.forest
-        case .idle:    p.inkFaint
+        case .running:  p.amber
+        case .blocked:  p.ember
+        case .review:   p.dusk
+        case .done:     p.forest
+        case .idle:     p.inkFaint
+        case .stopping: p.ember
+        case .exited:   p.inkMute
         }
     }
 
+    /// Statuses that don't represent active work — no pulse animation.
+    /// `.stopping` keeps the pulse because mid-teardown is still in-flight
+    /// (and a card that's been stopping for >1s is the kind of thing the
+    /// user wants their eye drawn to).
+    private var isQuiet: Bool { status == .idle || status == .exited }
+
     var body: some View {
         ZStack {
-            if status != .idle {
+            if !isQuiet {
                 Circle()
                     .stroke(color, lineWidth: 1)
                     .frame(width: 7, height: 7)
@@ -32,6 +40,6 @@ struct PulseDot: View {
                 .frame(width: 7, height: 7)
         }
         .frame(width: 7, height: 7)
-        .onAppear { if status != .idle { pulse = true } }
+        .onAppear { if !isQuiet { pulse = true } }
     }
 }

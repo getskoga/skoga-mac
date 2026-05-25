@@ -16,10 +16,19 @@ final class LiveDaemonClient: DaemonClient {
     }
 
     func conversation(for agentId: String) async throws -> [ConversationMessage] {
-        // skogad does not expose conversation history as an RPC yet (the agent's
-        // tmux pane is the only source of truth). Return empty so the UI shows
-        // its empty state rather than mock-data drift.
-        []
+        // skogad reconstructs the conversation by parsing Claude Code's own
+        // transcript jsonl for the session. If the session has no recorded
+        // agent_session_id yet (very fresh) or the daemon is older than this
+        // RPC, the call returns empty / method-not-found — both fall back to
+        // the UI's empty state rather than surfacing as a hard error.
+        let params = AnyEncodable(SessionConversationParams(id: agentId))
+        do {
+            let resp: SessionConversationResponse = try await rpc.call("session.conversation", params: params)
+            return resp.messages.compactMap { $0.toDomain() }
+        } catch let JSONRPCError.rpc(rpcError) where rpcError.code == -32601 {
+            // Older daemon doesn't know session.conversation yet — show empty.
+            return []
+        }
     }
 
     func activitySeries() async throws -> [Double] { [] }
@@ -110,11 +119,23 @@ private extension AgentStatus {
         }
         switch state {
         case .running:
+            // .idle here means "Claude finished a turn, awaiting next prompt"
+            // — the process is alive, just dormant. Distinct from .exited.
             self = (idle != nil) ? .idle : .running
         case .conflicted, .syncBroken:
             self = .blocked
-        case .agentExited, .killing, .killed:
-            self = .idle
+        case .killing:
+            // .stopping is the transitional teardown state: process is being
+            // wound down but cleanup hasn't completed. Kept distinct from
+            // .exited so a card stuck mid-teardown (cleanup hung) is visibly
+            // different from a cleanly-exited agent.
+            self = .stopping
+        case .agentExited, .killed:
+            // .exited means the Claude process is gone (Ctrl-C, crash, or
+            // post-teardown). The session/worktree may still be around, so
+            // it's not the same as terminal .done. Renders distinct from .idle
+            // because the user can't just "send another message" to wake it.
+            self = .exited
         case .prOpen, .prMerged, .shipping:
             self = .review
         case .done:

@@ -248,7 +248,7 @@ struct DispatchView: View {
     }
 
     private var idleOrLight: [Agent] {
-        state.agents.filter { $0.status == .idle || $0.status == .done }.prefix(6).map { $0 }
+        state.agents.filter { $0.status == .idle || $0.status == .done || $0.status == .exited }.prefix(6).map { $0 }
     }
 
     @ViewBuilder

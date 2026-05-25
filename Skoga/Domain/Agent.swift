@@ -1,26 +1,34 @@
 import Foundation
 
 enum AgentStatus: String, CaseIterable, Codable, Hashable {
-    case running, blocked, review, done, idle
+    case running, blocked, review, done, idle, stopping, exited
 
     var label: String {
         switch self {
-        case .running: "Running"
-        case .blocked: "Blocked"
-        case .review:  "PR up"
-        case .done:    "Done"
-        case .idle:    "Idle"
+        case .running:  "Running"
+        case .blocked:  "Blocked"
+        case .review:   "PR up"
+        case .done:     "Done"
+        case .idle:     "Idle"
+        case .stopping: "Stopping"
+        case .exited:   "Exited"
         }
     }
 
     /// Ordering used by the Roster — blocked first because it needs the manager.
+    /// `.stopping` sits between `.running` and `.review` because a card that
+    /// gets stuck mid-teardown is something the user needs to *see* and act on.
+    /// `.exited` lands after `.idle` — both are "agent isn't doing anything"
+    /// but exited carries less urgency (process is gone, not just paused).
     var sortRank: Int {
         switch self {
-        case .blocked: 0
-        case .running: 1
-        case .review:  2
-        case .done:    3
-        case .idle:    4
+        case .blocked:  0
+        case .running:  1
+        case .stopping: 2
+        case .review:   3
+        case .done:     4
+        case .idle:     5
+        case .exited:   6
         }
     }
 }

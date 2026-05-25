@@ -111,3 +111,74 @@ struct RPCEvent: Decodable {
     let type: String
     let session_id: String?
 }
+
+// MARK: – session.conversation
+
+struct SessionConversationParams: Encodable {
+    let id: String
+}
+
+struct SessionConversationResponse: Decodable {
+    let messages: [RPCConversationMessage]
+}
+
+/// Wire shape of one conversation entry. Discriminated by `kind` to mirror
+/// the daemon's `ConversationMessage` enum. Converted to the Mac's domain
+/// `ConversationMessage` at the boundary because the domain type isn't
+/// directly Codable.
+///
+/// `id` is critical: the daemon sources it from the Claude transcript's
+/// per-record uuid (with a block-index suffix for assistant records that
+/// emit multiple entries), so repeated polls produce the same id for the
+/// same logical row. Without that, SwiftUI's `ForEach` would see every
+/// cell as new on every refetch and tear down scroll position / focus.
+struct RPCConversationMessage: Decodable {
+    let id: String
+    let kind: Kind
+    let from: String?
+    let when: String?
+    let text: [String]?
+    let runtime_label: String?
+    let tool: String?
+    let path: String?
+    let cmd: String?
+    let lines: String?
+    let result: String?
+    let adds: Int?
+    let rems: Int?
+
+    enum Kind: String, Decodable {
+        case msg, tool, write
+    }
+
+    /// Map a wire entry to a domain `ConversationMessage`. Returns nil for
+    /// malformed entries (missing required fields) so the UI doesn't have
+    /// to handle partial rows.
+    func toDomain() -> ConversationMessage? {
+        switch kind {
+        case .msg:
+            guard let from, let when, let text else { return nil }
+            return .msg(.init(
+                id: id,
+                from: from,
+                when: when,
+                text: text,
+                runtimeLabel: runtime_label,
+                initialOverride: nil
+            ))
+        case .tool:
+            guard let tool else { return nil }
+            return .tool(.init(
+                id: id,
+                tool: tool,
+                path: path,
+                lines: lines,
+                cmd: cmd,
+                result: result
+            ))
+        case .write:
+            guard let path, let adds, let rems else { return nil }
+            return .write(.init(id: id, path: path, adds: adds, rems: rems))
+        }
+    }
+}
