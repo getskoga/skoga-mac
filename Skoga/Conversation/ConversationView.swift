@@ -1,16 +1,48 @@
 import SwiftUI
 
+/// Selects how the conversation surface renders. `.skoga` is the parsed
+/// transcript with the native composer; `.native` embeds the agent's own
+/// TUI via tmux (see `TerminalPaneView`). Persisted globally via AppStorage
+/// — it's a viewing preference, not per-agent state.
+enum ConversationFeedMode: String, CaseIterable {
+    case skoga
+    case native
+
+    var label: String {
+        switch self {
+        case .skoga:  "Skoga"
+        case .native: "Native"
+        }
+    }
+}
+
 struct ConversationView: View {
     @Environment(\.palette) private var p
     @EnvironmentObject private var state: AppState
+    @AppStorage("skoga.conversationFeedMode") private var feedModeRaw: String = ConversationFeedMode.skoga.rawValue
     let agent: Agent
+
+    private var feedMode: ConversationFeedMode {
+        ConversationFeedMode(rawValue: feedModeRaw) ?? .skoga
+    }
 
     var body: some View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
-                ConvHeader(agent: agent)
-                ConvFeed(agent: agent, messages: state.conversation)
-                ConvComposer(agent: agent)
+                ConvHeader(agent: agent, feedModeRaw: $feedModeRaw)
+                switch feedMode {
+                case .skoga:
+                    ConvFeed(agent: agent, messages: state.conversation)
+                    ConvComposer(agent: agent)
+                case .native:
+                    // The TUI owns its own input loop, so the skoga composer
+                    // is intentionally hidden here — the user types directly
+                    // into the SwiftTerm pane. `id(agent.id)` forces SwiftUI
+                    // to rebuild the view (and therefore the PTY child) when
+                    // the user navigates between agents.
+                    TerminalPaneView(sessionId: agent.id)
+                        .id(agent.id)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay(alignment: .trailing) {
@@ -29,6 +61,7 @@ private struct ConvHeader: View {
     @Environment(\.palette) private var p
     @EnvironmentObject private var state: AppState
     let agent: Agent
+    @Binding var feedModeRaw: String
 
     var body: some View {
         HStack(spacing: 14) {
@@ -69,6 +102,7 @@ private struct ConvHeader: View {
 
             Spacer(minLength: 0)
 
+            FeedModeToggle(raw: $feedModeRaw)
             actionButtons
         }
         .padding(.horizontal, Tokens.Pad.viewX)
@@ -91,6 +125,43 @@ private struct ConvHeader: View {
                 GhostPillButton(label: "Stop", icon: .stop, color: p.ember) {}
             }
         }
+    }
+}
+
+// MARK: – Feed mode toggle
+
+private struct FeedModeToggle: View {
+    @Environment(\.palette) private var p
+    @Binding var raw: String
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(ConversationFeedMode.allCases, id: \.self) { mode in
+                segment(mode)
+            }
+        }
+        .background(p.paper2)
+        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.chip))
+        .overlay(
+            RoundedRectangle(cornerRadius: Tokens.Radius.chip)
+                .stroke(p.rule, lineWidth: Tokens.Hairline.width)
+        )
+    }
+
+    @ViewBuilder
+    private func segment(_ mode: ConversationFeedMode) -> some View {
+        let selected = raw == mode.rawValue
+        Button {
+            raw = mode.rawValue
+        } label: {
+            Text(mode.label)
+                .font(SkogaFont.smallMedium(11.5))
+                .foregroundStyle(selected ? p.paper : p.inkMute)
+                .padding(.horizontal, 10)
+                .frame(height: 26)
+                .background(selected ? p.ink : .clear)
+        }
+        .buttonStyle(.plain)
     }
 }
 

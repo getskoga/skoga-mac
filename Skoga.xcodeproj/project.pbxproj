@@ -29,6 +29,7 @@
 		823115FEF637EEBBC6A8D163 /* PulseDot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C6D36A05B968E62F7CB7BF /* PulseDot.swift */; };
 		86B547E02F159D1FADD8E5D9 /* TelemetryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F47F1D8A4A2158D854110144 /* TelemetryView.swift */; };
 		8C054293BB4CF2C9E24828CD /* SkogaGlyph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81F8C2B09E59496FB397779E /* SkogaGlyph.swift */; };
+		8CBBD98E93187465395A1945 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 2487F63BFDB1A053428B8A66 /* SwiftTerm */; };
 		8D5B6940D68D2D386C81D000 /* MainWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9504CA8AFEE1742998939607 /* MainWindow.swift */; };
 		9525F4D036722C7A08ACF65D /* MockDaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED68B708D3D45C9366760F38 /* MockDaemonClient.swift */; };
 		958EA9D087B23C21A7A0845A /* AgentCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3AEE547F6633CF2722E23E2 /* AgentCard.swift */; };
@@ -40,6 +41,7 @@
 		C0DCD0495C0135A8877E74D7 /* ActivityBars.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E13C9D4BF28ACDB5B9C1CC /* ActivityBars.swift */; };
 		CC3E912C7C322D76B934024D /* PRModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636564F61F4F65B4CC82B789 /* PRModal.swift */; };
 		CCFCAD5B8E9DED56CC8A7D65 /* SkogaIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */; };
+		E3E68DABB55C4B90435D3DDA /* TerminalPaneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75B3341A50FCF80A9CEE561E /* TerminalPaneView.swift */; };
 		F953B4F6DFAD8786461DD1F8 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296A4F6E32617A28B9E035E9 /* Typography.swift */; };
 /* End PBXBuildFile section */
 
@@ -58,6 +60,7 @@
 		636564F61F4F65B4CC82B789 /* PRModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRModal.swift; sourceTree = "<group>"; };
 		70C3CDA242BE7EF87A23DDD1 /* LiveDaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDaemonClient.swift; sourceTree = "<group>"; };
 		732368285D5460AB08855A49 /* DispatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DispatchView.swift; sourceTree = "<group>"; };
+		75B3341A50FCF80A9CEE561E /* TerminalPaneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPaneView.swift; sourceTree = "<group>"; };
 		7B1B80DC49DE0A5D893A17CB /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
 		7B7ADCECFD1E01D7C8FCCBFA /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		7E6D30C0F5B11763748C1C22 /* SkogaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaApp.swift; sourceTree = "<group>"; };
@@ -81,6 +84,17 @@
 		FA33B6515A779BB69660B110 /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
 		FAD982A7CF77B3D772232722 /* Sidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sidebar.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		17E5F041FEB0C0130B77FEB0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8CBBD98E93187465395A1945 /* SwiftTerm in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		11ABE4C162A4CDFD3D4BF3EA /* Review */ = {
@@ -114,6 +128,7 @@
 			isa = PBXGroup;
 			children = (
 				CFAFBFFB8FA9968FD7AC98FF /* ConversationView.swift */,
+				75B3341A50FCF80A9CEE561E /* TerminalPaneView.swift */,
 			);
 			path = Conversation;
 			sourceTree = "<group>";
@@ -261,6 +276,7 @@
 			buildConfigurationList = 6C8CF5621CCE22C1FBEEAF8B /* Build configuration list for PBXNativeTarget "Skoga" */;
 			buildPhases = (
 				729AC11EABFEE9968EF21B10 /* Sources */,
+				17E5F041FEB0C0130B77FEB0 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -268,6 +284,7 @@
 			);
 			name = Skoga;
 			packageProductDependencies = (
+				2487F63BFDB1A053428B8A66 /* SwiftTerm */,
 			);
 			productName = Skoga;
 			productReference = 62CC800A856A8D28FA8CB11E /* Skoga.app */;
@@ -296,6 +313,9 @@
 			);
 			mainGroup = F5AFB0703AD1E792E5CE7948;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				4A07DCD1B127F5A10A300476 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FCF484051ACC79D04A676AF0 /* Products */;
 			projectDirPath = "";
@@ -340,6 +360,7 @@
 				0E1FEB24354422C20E477006 /* SkogaRPC.swift in Sources */,
 				7812EB1D772C88A505B7488B /* StatusPill.swift in Sources */,
 				86B547E02F159D1FADD8E5D9 /* TelemetryView.swift in Sources */,
+				E3E68DABB55C4B90435D3DDA /* TerminalPaneView.swift in Sources */,
 				696B8958E1B7D92FC04551DC /* Theme.swift in Sources */,
 				640853C0172CD400015511A2 /* TitleBar.swift in Sources */,
 				0440F79167C3EF08AEAB6DE2 /* Tokens.swift in Sources */,
@@ -542,6 +563,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		4A07DCD1B127F5A10A300476 /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.2.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2487F63BFDB1A053428B8A66 /* SwiftTerm */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4A07DCD1B127F5A10A300476 /* XCRemoteSwiftPackageReference "SwiftTerm" */;
+			productName = SwiftTerm;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 5D7DBDAEB8892D4A079B475A /* Project object */;
 }
