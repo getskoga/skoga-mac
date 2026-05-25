@@ -10,13 +10,41 @@ struct DispatchView: View {
     @State private var brief: String = ""
     @State private var repo: String = ""
     @State private var assignee: String = "auto"
-    @State private var model: String = "claude-opus-4.7"
+    @State private var selectedModel: ModelChoice = DispatchView.modelChoices.first(where: { $0.model == "claude-opus-4.7" }) ?? DispatchView.modelChoices[0]
 
     static let REPOS = [
         "skoga/monolith-web", "skoga/ledger-svc", "skoga/core-runtime",
         "skoga/search-svc", "skoga/etl", "skoga/infra", "skoga/pkg-clients", "skoga/docs",
     ]
     private var REPOS: [String] { Self.REPOS }
+
+    /// One option in the Model dropdown. `label` is the user-facing
+    /// string, `adapter` is the skoga agent id (passed as `agent` to
+    /// session.create), and `model` is the adapter's CLI model flag
+    /// (passed as `agent_model`). Keeping the three apart means the
+    /// dropdown can read prettily without us having to parse it back
+    /// out at dispatch time — which is what the old `split("-").first`
+    /// trick was trying to do and getting wrong for non-claude entries.
+    struct ModelChoice: Hashable {
+        let label: String
+        let adapter: String
+        let model: String
+    }
+
+    /// Dropdown entries. `claude` adapter ships today; `codex` is
+    /// planned (issue #92 surfaces the dropdown but the codex adapter
+    /// itself hasn't landed in `skoga-agents` yet — selecting one
+    /// today persists the session but the daemon's `_dispatch_launch`
+    /// fails at `lookup("codex")` and no tmux pane comes up). The
+    /// `local · qwen3-coder-32b` entry is hidden until a real
+    /// local-provider adapter lands; the daemon's `agent_model`
+    /// validator rejects the `·` and spaces anyway.
+    static let modelChoices: [ModelChoice] = [
+        .init(label: "claude-sonnet-4.7", adapter: "claude", model: "claude-sonnet-4.7"),
+        .init(label: "claude-opus-4.7",   adapter: "claude", model: "claude-opus-4.7"),
+        .init(label: "gpt-5-codex",       adapter: "codex",  model: "gpt-5-codex"),
+        .init(label: "gpt-5-mini",        adapter: "codex",  model: "gpt-5-mini"),
+    ]
 
     enum Template: String, CaseIterable, Identifiable {
         case feature, fix, refactor, test, perf, docs
@@ -300,12 +328,12 @@ struct DispatchView: View {
 
     private var modelSelect: some View {
         Menu {
-            ForEach(["claude-sonnet-4.7", "claude-opus-4.7", "gpt-5-codex", "gpt-5-mini", "local · qwen3-coder-32b"], id: \.self) { m in
-                Button(m) { model = m }
+            ForEach(Self.modelChoices, id: \.self) { choice in
+                Button(choice.label) { selectedModel = choice }
             }
         } label: {
             HStack {
-                Text(model).font(SkogaFont.body(13.5))
+                Text(selectedModel.label).font(SkogaFont.body(13.5))
                 Spacer()
                 Image(skoga: .chevron).skogaIconSize(10)
                     .rotationEffect(.degrees(90))
@@ -337,7 +365,6 @@ struct DispatchView: View {
         panel.message = "Pick the host clone skoga should create a session worktree against."
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        let agentName = model.split(separator: "-").first.map(String.init) ?? "claude"
         let taskText = title.trimmingCharacters(in: .whitespacesAndNewlines)
         // Combine the headline and the brief into a single prompt: title as a
         // one-line header, then the body. The body alone usually has all the
@@ -354,7 +381,14 @@ struct DispatchView: View {
             }
         }()
         Task {
-            await state.dispatch(task: taskText, agent: agentName, base: "main", repoRoot: url, initialPrompt: prompt)
+            await state.dispatch(
+                task: taskText,
+                agent: selectedModel.adapter,
+                model: selectedModel.model,
+                base: "main",
+                repoRoot: url,
+                initialPrompt: prompt
+            )
         }
     }
 
@@ -463,7 +497,7 @@ struct DispatchView: View {
             kvRow("repo", repo, mono: true)
             kvRow("branch", branchName, mono: true)
             kvRow("assignee", assigneeLabel, mono: false)
-            kvRow("model", model, mono: true)
+            kvRow("model", selectedModel.model, mono: true)
         }
         .padding(.top, 8)
     }

@@ -42,7 +42,7 @@ final class LiveDaemonClient: DaemonClient {
         return resp.version
     }
 
-    func createSession(task: String, agent: String, base: String, repoRoot: URL, initialPrompt: String?) async throws -> Agent {
+    func createSession(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?) async throws -> Agent {
         // auto_launch tells skogad to spawn the detached `skoga
         // _dispatch_launch` subprocess that actually starts the agent in
         // tmux. The Mac dashboard has no other way to bring the agent up —
@@ -52,6 +52,10 @@ final class LiveDaemonClient: DaemonClient {
         // forwards it to _dispatch_launch which passes it to the agent as
         // its first message. We normalize blank-only input to nil here so
         // the daemon doesn't launch claude with an empty positional arg.
+        // agent_model pins the adapter's CLI model flag (e.g. `claude
+        // --model claude-opus-4.7`) and is persisted on the session
+        // record; legacy callers / older Mac builds omit it and the
+        // daemon falls back to the adapter's CLI default.
         let trimmed = initialPrompt?.trimmingCharacters(in: .whitespacesAndNewlines)
         let params = AnyEncodable(SessionCreateParams(
             task: task,
@@ -60,7 +64,8 @@ final class LiveDaemonClient: DaemonClient {
             repo_root: repoRoot.path,
             task_auto: false,
             auto_launch: true,
-            initial_prompt: (trimmed?.isEmpty ?? true) ? nil : trimmed
+            initial_prompt: (trimmed?.isEmpty ?? true) ? nil : trimmed,
+            agent_model: model
         ))
         let resp: SessionCreateResponse = try await rpc.call("session.create", params: params)
         return Agent.from(rpc: resp.session)
@@ -270,7 +275,10 @@ extension Agent {
             id: s.id,
             name: prettyName(from: s.id),
             role: s.agent,
-            model: s.agent,
+            // Legacy sessions (pre-#92) didn't persist a model, so fall
+            // back to the adapter name to keep the Roster's model line
+            // populated — same string the old code used to show.
+            model: s.agent_model ?? s.agent,
             status: status,
             task: s.task,
             repo: prettyRepo(from: s.repo_root),
