@@ -18,6 +18,7 @@
 		4B666D2DD45E99850F918565 /* Sidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAD982A7CF77B3D772232722 /* Sidebar.swift */; };
 		540A532678F1E33044D42AFF /* DaemonStatusBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B326243F9BABD1BAF92FE67 /* DaemonStatusBanner.swift */; };
 		55BEF74D5D6FEBD73D9E14A5 /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6164A630675637301F36D4 /* ReviewView.swift */; };
+		5ADEB87BA0B54787FB5E2F22 /* StopConfirmModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8D5A2A540B7469A07861F7F /* StopConfirmModal.swift */; };
 		640853C0172CD400015511A2 /* TitleBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5310DF4FE0BF1441CA5B5858 /* TitleBar.swift */; };
 		661CD394C01C7CDCEA758DEE /* CommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1B80DC49DE0A5D893A17CB /* CommandPalette.swift */; };
 		696B8958E1B7D92FC04551DC /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F594D7BABF3680BF59BBE69 /* Theme.swift */; };
@@ -83,6 +84,7 @@
 		ED68B708D3D45C9366760F38 /* MockDaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDaemonClient.swift; sourceTree = "<group>"; };
 		EF6164A630675637301F36D4 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
 		F47F1D8A4A2158D854110144 /* TelemetryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryView.swift; sourceTree = "<group>"; };
+		F8D5A2A540B7469A07861F7F /* StopConfirmModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StopConfirmModal.swift; sourceTree = "<group>"; };
 		FA33B6515A779BB69660B110 /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
 		FAD982A7CF77B3D772232722 /* Sidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sidebar.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -122,6 +124,7 @@
 			children = (
 				7B1B80DC49DE0A5D893A17CB /* CommandPalette.swift */,
 				636564F61F4F65B4CC82B789 /* PRModal.swift */,
+				F8D5A2A540B7469A07861F7F /* StopConfirmModal.swift */,
 			);
 			path = Modals;
 			sourceTree = "<group>";
@@ -364,6 +367,7 @@
 				CCFCAD5B8E9DED56CC8A7D65 /* SkogaIcons.swift in Sources */,
 				0E1FEB24354422C20E477006 /* SkogaRPC.swift in Sources */,
 				7812EB1D772C88A505B7488B /* StatusPill.swift in Sources */,
+				5ADEB87BA0B54787FB5E2F22 /* StopConfirmModal.swift in Sources */,
 				86B547E02F159D1FADD8E5D9 /* TelemetryView.swift in Sources */,
 				696B8958E1B7D92FC04551DC /* Theme.swift in Sources */,
 				640853C0172CD400015511A2 /* TitleBar.swift in Sources */,

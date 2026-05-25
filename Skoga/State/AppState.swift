@@ -14,6 +14,7 @@ final class AppState: ObservableObject {
     @Published var view: AppView = .roster
     @Published var openAgentId: String? = nil
     @Published var prAgentId: String? = nil
+    @Published var stopAgentId: String? = nil
     @Published var commandPaletteOpen: Bool = false
 
     // ── Filters ──────────────────────────────────────────────
@@ -110,6 +111,21 @@ final class AppState: ObservableObject {
             await refresh()
         } catch {
             showToast("Kill failed: \(describe(error))")
+        }
+    }
+
+    /// Interrupt the agent's current turn without tearing the session down.
+    /// We send a single ESC into the tmux pane — Claude Code's TUI treats
+    /// that as "stop generating", which is the closest thing the agent has
+    /// to a pause. The session, worktree, and conversation history all
+    /// remain intact and the user can send a follow-up message to resume.
+    func pause(agentId: String) async {
+        do {
+            try await client.ptyWrite(sessionId: agentId, bytes: Data([0x1b]))
+            let name = agents.first(where: { $0.id == agentId })?.name ?? "agent"
+            showToast("Paused \(name).")
+        } catch {
+            showToast("Pause failed: \(describe(error))")
         }
     }
 

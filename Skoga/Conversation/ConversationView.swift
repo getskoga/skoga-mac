@@ -103,26 +103,42 @@ private struct ConvHeader: View {
             }
 
             Spacer(minLength: 0)
+
+            if hasRunControls {
+                GhostPillButton(label: "Pause", icon: .pause) {
+                    Task { await state.pause(agentId: agent.id) }
+                }
+                GhostPillButton(label: "Stop", icon: .stop, color: p.ember) {
+                    state.stopAgentId = agent.id
+                }
+            }
         }
         .padding(.horizontal, Tokens.Pad.viewX)
         .padding(.top, 16).padding(.bottom, 14)
         .background(p.paper)
         .overlay(alignment: .bottom) { Hairline() }
     }
+
+    /// Pause/Stop ride along while the agent still has work to interrupt
+    /// (`.running` / `.blocked` / `.idle` / `.stopping`). Terminal states
+    /// (`.exited`, `.done`, `.prOpen`) omit them — there's nothing left to
+    /// pause and a kill would no-op on a process that's already gone.
+    private var hasRunControls: Bool {
+        guard agent.prUrl == nil else { return false }
+        switch agent.status {
+        case .running, .blocked, .idle, .stopping: return true
+        case .prOpen, .done, .exited:              return false
+        }
+    }
 }
 
 // MARK: – Actions footer
 
-/// Footer sits below the embedded TUI and hosts the "Open as PR" CTA
-/// (plus Pause/Stop while the agent still has work to interrupt). The CTA
-/// is decoupled from `agent.status` so the manager can always reach for
-/// it; the only gating fact is whether a PR already exists for this
-/// session (`prUrl != nil`) — when one does we swap the CTA for "View PR
-/// on GitHub" so a second click doesn't try to re-land.
-///
-/// Pause/Stop ride alongside while the agent is in `.running` /
-/// `.blocked` / `.idle` / `.stopping`. Terminal states (`.exited`,
-/// `.done`) omit them — there's nothing left to pause.
+/// Footer sits below the embedded TUI and hosts the "Open as PR" CTA.
+/// The CTA is decoupled from `agent.status` so the manager can always
+/// reach for it; the only gating fact is whether a PR already exists for
+/// this session (`prUrl != nil`) — when one does we swap the CTA for
+/// "View PR on GitHub" so a second click doesn't try to re-land.
 private struct ConvActionsFooter: View {
     @Environment(\.palette) private var p
     @EnvironmentObject private var state: AppState
@@ -136,10 +152,6 @@ private struct ConvActionsFooter: View {
                     openPRURL(url)
                 }
             } else {
-                if hasRunControls {
-                    GhostPillButton(label: "Pause", icon: .pause) {}
-                    GhostPillButton(label: "Stop", icon: .stop, color: p.ember) {}
-                }
                 PrimaryButton(label: "Open as PR", icon: .github, tint: .forest) {
                     state.prAgentId = agent.id
                 }
@@ -149,13 +161,6 @@ private struct ConvActionsFooter: View {
         .padding(.vertical, 12)
         .background(p.paper)
         .overlay(alignment: .top) { Hairline() }
-    }
-
-    private var hasRunControls: Bool {
-        switch agent.status {
-        case .running, .blocked, .idle, .stopping: true
-        case .prOpen, .done, .exited:              false
-        }
     }
 
     /// Open the PR's GitHub URL in the user's default browser. Mock seed
