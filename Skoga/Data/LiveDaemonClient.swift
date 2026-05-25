@@ -313,6 +313,14 @@ final class LiveDaemonClient: DaemonClient {
         let process = Process()
         process.executableURL = executable
         process.arguments = args
+        // A macOS app launched from Finder/Dock inherits a minimal PATH
+        // (/usr/bin:/bin:/usr/sbin:/sbin). `git` lives in /usr/bin so
+        // `skoga land`'s push step works, but `gh` lives in homebrew —
+        // without augmenting PATH the subsequent `gh pr create` step
+        // silently fails and the user sees a pushed branch with no PR.
+        // Applied to every subprocess (skoga / git / claude) so each one
+        // gets the same dev-shell-like view of the toolchain.
+        process.environment = LiveDaemonClient.subprocessEnvironment()
         if let cwd { process.currentDirectoryURL = URL(fileURLWithPath: cwd) }
         let outPipe = Pipe()
         let errPipe = Pipe()
@@ -412,19 +420,38 @@ final class LiveDaemonClient: DaemonClient {
     }
 
     private nonisolated static func resolveBinary(name: String, extraDirs: [String]) -> URL? {
-        let standardDirs = [
-            "/opt/homebrew/bin",
-            "/usr/local/bin",
-            "/usr/bin",
-        ]
         let fm = FileManager.default
-        for dir in extraDirs + standardDirs {
+        for dir in extraDirs + standardSearchDirs {
             let path = "\(dir)/\(name)"
             if fm.isExecutableFile(atPath: path) {
                 return URL(fileURLWithPath: path)
             }
         }
         return nil
+    }
+
+    /// Dirs checked for tool binaries and prepended to the spawn PATH so
+    /// `skoga land`'s shell-outs (`gh`, etc.) resolve under a Finder-
+    /// launched app. Single source of truth — the binary lookup and the
+    /// env augmentation must stay in sync or one of them will silently
+    /// regress. `/usr/bin` is included for the binary lookup but doesn't
+    /// need re-prepending to PATH (it's on the default already).
+    private nonisolated static let standardSearchDirs: [String] = [
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/usr/bin",
+    ]
+
+    /// Build the env for `skoga` / `git` / `claude` subprocesses: inherit
+    /// the app's env, then prepend `standardSearchDirs` plus the cargo
+    /// install location so `gh` (and anything else the CLI shells out to)
+    /// is reachable on the Finder-launched app's stripped-down PATH.
+    private nonisolated static func subprocessEnvironment() -> [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        let prepend = ["\(NSHomeDirectory())/.cargo/bin"] + standardSearchDirs
+        let existing = env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"
+        env["PATH"] = (prepend + [existing]).joined(separator: ":")
+        return env
     }
 }
 

@@ -361,9 +361,20 @@ struct PRModal: View {
         phase = .submitting
         do {
             try await state.client.landPR(for: agent.id, title: title, body: bodyText)
-            state.prAgentId = nil
-            state.showToast("Opened PR for \(agent.name). Routing review back to the agent.")
+            // `skoga land` can exit 0 even when its internal `gh pr create`
+            // step fails (e.g. `gh` missing, token expired) — the push
+            // succeeds but no PR is opened. Refresh and verify the daemon
+            // now reports a prUrl before claiming success; otherwise keep
+            // the modal open with an actionable error so the user isn't
+            // left believing a PR exists when none does.
             await state.refresh()
+            let updated = state.agents.first(where: { $0.id == agent.id })
+            if let url = updated?.prUrl, url != "#" {
+                state.prAgentId = nil
+                state.showToast("Opened PR for \(agent.name). Routing review back to the agent.")
+            } else {
+                phase = .failed("skoga land reported success but no PR URL came back. The branch was pushed — check that `gh` is installed (`brew install gh`) and authenticated (`gh auth status`), then retry.")
+            }
         } catch {
             phase = .failed(error.localizedDescription)
         }
