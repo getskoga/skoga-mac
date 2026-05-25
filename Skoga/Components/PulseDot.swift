@@ -14,12 +14,16 @@ struct PulseDot: View {
         case .review:  p.dusk
         case .done:    p.forest
         case .idle:    p.inkFaint
+        case .exited:  p.inkMute
         }
     }
 
+    /// Statuses that don't represent active work — no pulse animation.
+    private var isQuiet: Bool { status == .idle || status == .exited }
+
     var body: some View {
         ZStack {
-            if status != .idle {
+            if !isQuiet {
                 Circle()
                     .stroke(color, lineWidth: 1)
                     .frame(width: 7, height: 7)
@@ -32,6 +36,6 @@ struct PulseDot: View {
                 .frame(width: 7, height: 7)
         }
         .frame(width: 7, height: 7)
-        .onAppear { if status != .idle { pulse = true } }
+        .onAppear { if !isQuiet { pulse = true } }
     }
 }

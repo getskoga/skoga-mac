@@ -31,6 +31,8 @@ struct FilterRail: View {
             chip(.done,    label: "Done",    dot: .done)
             divider
             chip(.idle,    label: "Idle",    dot: .idle)
+            divider
+            chip(.exited,  label: "Exited",  dot: .exited)
         }
         .background(
             RoundedRectangle(cornerRadius: Tokens.Radius.chip)
@@ -55,6 +57,7 @@ struct FilterRail: View {
             case .review: state.counts.review
             case .done: state.counts.done
             case .idle: state.counts.idle
+            case .exited: state.counts.exited
             }
         }()
 

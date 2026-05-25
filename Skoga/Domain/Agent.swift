@@ -1,7 +1,7 @@
 import Foundation
 
 enum AgentStatus: String, CaseIterable, Codable, Hashable {
-    case running, blocked, review, done, idle
+    case running, blocked, review, done, idle, exited
 
     var label: String {
         switch self {
@@ -10,10 +10,13 @@ enum AgentStatus: String, CaseIterable, Codable, Hashable {
         case .review:  "PR up"
         case .done:    "Done"
         case .idle:    "Idle"
+        case .exited:  "Exited"
         }
     }
 
     /// Ordering used by the Roster — blocked first because it needs the manager.
+    /// `.exited` lands after `.idle` because both are "agent isn't doing anything"
+    /// but exited carries less urgency (process is gone, not just paused).
     var sortRank: Int {
         switch self {
         case .blocked: 0
@@ -21,6 +24,7 @@ enum AgentStatus: String, CaseIterable, Codable, Hashable {
         case .review:  2
         case .done:    3
         case .idle:    4
+        case .exited:  5
         }
     }
 }

@@ -11,6 +11,7 @@ struct StatusPill: View {
         case .review:  p.dusk
         case .done:    p.forest
         case .idle:    p.inkFaint
+        case .exited:  p.inkMute
         }
     }
 

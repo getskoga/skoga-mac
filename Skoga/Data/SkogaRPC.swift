@@ -111,3 +111,65 @@ struct RPCEvent: Decodable {
     let type: String
     let session_id: String?
 }
+
+// MARK: – session.conversation
+
+struct SessionConversationParams: Encodable {
+    let id: String
+}
+
+struct SessionConversationResponse: Decodable {
+    let messages: [RPCConversationMessage]
+}
+
+/// Wire shape of one conversation entry. Discriminated by `kind` to mirror
+/// the daemon's `ConversationMessage` enum. Converted to the Mac's domain
+/// `ConversationMessage` (which carries its own UUID for SwiftUI identity)
+/// at the boundary, since the domain type isn't directly Codable.
+struct RPCConversationMessage: Decodable {
+    let kind: Kind
+    let from: String?
+    let when: String?
+    let text: [String]?
+    let runtime_label: String?
+    let tool: String?
+    let path: String?
+    let cmd: String?
+    let lines: String?
+    let result: String?
+    let adds: Int?
+    let rems: Int?
+
+    enum Kind: String, Decodable {
+        case msg, tool, write
+    }
+
+    /// Map a wire entry to a domain `ConversationMessage`. Returns nil for
+    /// malformed entries (missing required fields) so the UI doesn't have
+    /// to handle partial rows.
+    func toDomain() -> ConversationMessage? {
+        switch kind {
+        case .msg:
+            guard let from, let when, let text else { return nil }
+            return .msg(.init(
+                from: from,
+                when: when,
+                text: text,
+                runtimeLabel: runtime_label,
+                initialOverride: nil
+            ))
+        case .tool:
+            guard let tool else { return nil }
+            return .tool(.init(
+                tool: tool,
+                path: path,
+                lines: lines,
+                cmd: cmd,
+                result: result
+            ))
+        case .write:
+            guard let path, let adds, let rems else { return nil }
+            return .write(.init(path: path, adds: adds, rems: rems))
+        }
+    }
+}

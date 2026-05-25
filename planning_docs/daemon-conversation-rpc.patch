@@ -1,0 +1,463 @@
+# Patch: session.conversation RPC (daemon side)
+#
+# Apply in /Users/andrewpierce/dev/getskoga/skoga on a fresh branch
+# (suggested: `skoga/session-conversation-rpc`). Three files touched:
+#   1. crates/skoga-core/src/protocol.rs  (+~60 lines, append at EOF)
+#   2. crates/skogad/src/conversation.rs  (new file)
+#   3. crates/skogad/src/main.rs          (+1 line: `mod conversation;`)
+#   4. crates/skogad/src/rpc.rs           (+1 import line, +1 dispatch arm, +1 handler fn)
+#
+# After applying, the Mac client (this branch) calls `session.conversation`
+# with `{ id }` and gets back `{ messages: [...] }` where each entry is
+# tagged `kind`: "msg" | "tool" | "write".
+
+# ─── 1. crates/skoga-core/src/protocol.rs ────────────────────────────
+# Append at the bottom of the file (after `QueueRemoveResponse`):
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SessionConversationParams {
+    pub id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SessionConversationResponse {
+    pub messages: Vec<ConversationMessage>,
+}
+
+/// One entry in a session's reconstructed conversation. Tagged-union shape
+/// mirrors the Mac app's `ConversationMessage` enum so the wire format maps
+/// cleanly to the SwiftUI feed (text bubbles, tool chips, write rows).
+///
+/// The daemon synthesizes this from the Claude Code transcript jsonl at
+/// `~/.claude/projects/<encoded-cwd>/<agent_session_id>.jsonl`; the source
+/// of truth lives outside skogad's own state, so this is a read-only
+/// projection of whatever Claude has written so far.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ConversationMessage {
+    /// Free-form text turn from either side. `from` is "you" for the
+    /// human and "assistant" for the agent; the Mac client substitutes
+    /// the agent's display name on render.
+    Msg {
+        from: String,
+        when: String,
+        text: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        runtime_label: Option<String>,
+    },
+    /// A non-mutating tool invocation (Read, Bash, Grep, etc.). `result`
+    /// is filled when the matching tool_result later appears in the
+    /// transcript.
+    Tool {
+        tool: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        path: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cmd: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        lines: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        result: Option<String>,
+    },
+    /// A mutating file edit (Write, Edit, NotebookEdit). `adds`/`rems`
+    /// are best-effort line counts derived from the tool input — we
+    /// don't run a diff against the worktree.
+    Write {
+        path: String,
+        adds: u32,
+        rems: u32,
+    },
+}
+
+
+# ─── 2. crates/skogad/src/conversation.rs ────────────────────────────
+# New file. Full contents:
+
+//! Reads a session's Claude Code transcript jsonl and projects it into
+//! the Mac dashboard's ConversationMessage shape. Read-only — the
+//! transcript is owned by Claude Code, we just translate it.
+
+use std::collections::HashMap;
+use std::fs;
+use std::io::{BufRead, BufReader};
+use std::path::{Path, PathBuf};
+
+use anyhow::{anyhow, Context, Result};
+use serde_json::Value;
+use skoga_core::protocol::ConversationMessage;
+use skoga_core::session;
+
+const ASSISTANT_LABEL: &str = "assistant";
+const YOU_LABEL: &str = "you";
+
+/// Translate a session's Claude Code transcript into a ConversationMessage
+/// stream. Returns an empty vec (not an error) when the session has no
+/// recorded `agent_session_id` or the transcript file doesn't exist yet —
+/// fresh sessions that haven't logged a turn shouldn't surface as RPC
+/// failures.
+pub fn read(session_id: &str) -> Result<Vec<ConversationMessage>> {
+    let sessions = session::list_all().context("listing sessions")?;
+    let session = sessions
+        .into_iter()
+        .find(|s| s.id == session_id)
+        .ok_or_else(|| anyhow!("session {session_id} not found"))?;
+
+    let Some(agent_session_id) = session.agent_session_id else {
+        return Ok(Vec::new());
+    };
+    let Some(transcript_path) = transcript_path(&session.worktree, &agent_session_id) else {
+        return Ok(Vec::new());
+    };
+    if !transcript_path.exists() {
+        return Ok(Vec::new());
+    }
+
+    parse_transcript(&transcript_path)
+}
+
+/// `~/.claude/projects/<encoded-cwd>/<agent_session_id>.jsonl`. Claude
+/// encodes the cwd by replacing both `/` and `.` with `-`, so
+/// `/Users/foo/.skoga/sandbox/sessions/abc` becomes
+/// `-Users-foo--skoga-sandbox-sessions-abc`. Returns None when $HOME is
+/// unset or the worktree path isn't UTF-8.
+fn transcript_path(worktree: &Path, agent_session_id: &str) -> Option<PathBuf> {
+    let home = std::env::var_os("HOME").map(PathBuf::from)?;
+    let encoded = encode_cwd(worktree)?;
+    Some(
+        home.join(".claude/projects")
+            .join(encoded)
+            .join(format!("{agent_session_id}.jsonl")),
+    )
+}
+
+fn encode_cwd(path: &Path) -> Option<String> {
+    let s = path.to_str()?;
+    let mut encoded = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '/' | '.' => encoded.push('-'),
+            _ => encoded.push(ch),
+        }
+    }
+    Some(encoded)
+}
+
+fn parse_transcript(path: &Path) -> Result<Vec<ConversationMessage>> {
+    let file = fs::File::open(path)
+        .with_context(|| format!("opening transcript {}", path.display()))?;
+    let reader = BufReader::new(file);
+
+    let mut messages: Vec<ConversationMessage> = Vec::new();
+    // tool_use_id → index in `messages`. Lets us back-fill `result` on the
+    // Tool entry when its matching tool_result appears later in the stream.
+    let mut tool_index: HashMap<String, usize> = HashMap::new();
+
+    for (lineno, line) in reader.lines().enumerate() {
+        let line = match line {
+            Ok(l) => l,
+            Err(e) => {
+                tracing::warn!(error = %e, lineno, "transcript line read error; skipping");
+                continue;
+            }
+        };
+        if line.trim().is_empty() {
+            continue;
+        }
+        let v: Value = match serde_json::from_str(&line) {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!(error = %e, lineno, "transcript parse error; skipping");
+                continue;
+            }
+        };
+
+        match v.get("type").and_then(Value::as_str).unwrap_or("") {
+            "user" => handle_user(&v, &mut messages, &tool_index),
+            "assistant" => handle_assistant(&v, &mut messages, &mut tool_index),
+            // Skip permission-mode, ai-title, last-prompt, attachment,
+            // file-history-snapshot, summary, etc. — none of them carry
+            // conversational content.
+            _ => continue,
+        }
+    }
+
+    Ok(messages)
+}
+
+fn handle_user(v: &Value, messages: &mut Vec<ConversationMessage>, tool_index: &HashMap<String, usize>) {
+    let when = v
+        .get("timestamp")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let Some(content) = v.get("message").and_then(|m| m.get("content")) else { return };
+
+    // Plain user text comes through as `content: "string"`; tool_result and
+    // image/system blocks come through as `content: [{...}]`.
+    if let Some(text) = content.as_str() {
+        if is_command_artifact(text) {
+            return;
+        }
+        messages.push(ConversationMessage::Msg {
+            from: YOU_LABEL.into(),
+            when: format_when(&when),
+            text: split_paragraphs(text),
+            runtime_label: None,
+        });
+        return;
+    }
+
+    if let Some(blocks) = content.as_array() {
+        for block in blocks {
+            if block.get("type").and_then(Value::as_str) != Some("tool_result") {
+                continue;
+            }
+            let Some(id) = block.get("tool_use_id").and_then(Value::as_str) else { continue };
+            let Some(&idx) = tool_index.get(id) else { continue };
+            let result_str = extract_tool_result_text(block);
+            if let Some(ConversationMessage::Tool { result, .. }) = messages.get_mut(idx) {
+                *result = result_str;
+            }
+        }
+    }
+}
+
+fn extract_tool_result_text(block: &Value) -> Option<String> {
+    let content = block.get("content")?;
+    let raw = if let Some(s) = content.as_str() {
+        s.to_string()
+    } else if let Some(arr) = content.as_array() {
+        arr.iter()
+            .filter_map(|c| c.get("text").and_then(Value::as_str))
+            .collect::<Vec<_>>()
+            .join("\n")
+    } else {
+        return None;
+    };
+    Some(summarize_result(&raw))
+}
+
+/// One-line preview for the Tool chip's trailing slot. Full output stays in
+/// the transcript; the UI just needs a hint of what came back.
+fn summarize_result(s: &str) -> String {
+    let trimmed = s.trim();
+    if trimmed.is_empty() {
+        return "ok".into();
+    }
+    let line_count = trimmed.lines().count();
+    let first_line = trimmed.lines().next().unwrap_or("");
+    if line_count > 1 {
+        let preview: String = first_line.chars().take(80).collect();
+        format!("{preview}… ({line_count} lines)")
+    } else {
+        first_line.chars().take(120).collect()
+    }
+}
+
+fn handle_assistant(
+    v: &Value,
+    messages: &mut Vec<ConversationMessage>,
+    tool_index: &mut HashMap<String, usize>,
+) {
+    let when = v
+        .get("timestamp")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let model = v
+        .get("message")
+        .and_then(|m| m.get("model"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let Some(content) = v
+        .get("message")
+        .and_then(|m| m.get("content"))
+        .and_then(Value::as_array)
+    else {
+        return;
+    };
+
+    for block in content {
+        match block.get("type").and_then(Value::as_str).unwrap_or("") {
+            "text" => {
+                let text = block.get("text").and_then(Value::as_str).unwrap_or("");
+                if text.trim().is_empty() {
+                    continue;
+                }
+                messages.push(ConversationMessage::Msg {
+                    from: ASSISTANT_LABEL.into(),
+                    when: format_when(&when),
+                    text: split_paragraphs(text),
+                    runtime_label: model.clone(),
+                });
+            }
+            "tool_use" => {
+                let id = block.get("id").and_then(Value::as_str).unwrap_or("").to_string();
+                let name = block.get("name").and_then(Value::as_str).unwrap_or("Tool");
+                let input = block.get("input").cloned().unwrap_or(Value::Null);
+                let entry = tool_to_message(name, &input);
+                let idx = messages.len();
+                messages.push(entry);
+                if !id.is_empty() {
+                    tool_index.insert(id, idx);
+                }
+            }
+            // Skip "thinking" (private), server_tool_use, redacted_thinking, etc.
+            _ => {}
+        }
+    }
+}
+
+/// Map a Claude tool invocation to the Mac UI's chip shape. Edit/Write/
+/// NotebookEdit become Write rows (with line-count adds/rems); everything
+/// else becomes a generic Tool row keyed off the tool name.
+fn tool_to_message(name: &str, input: &Value) -> ConversationMessage {
+    match name {
+        "Read" => ConversationMessage::Tool {
+            tool: "read".into(),
+            path: input
+                .get("file_path")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            cmd: None,
+            lines: read_lines_label(input),
+            result: None,
+        },
+        "Bash" => ConversationMessage::Tool {
+            tool: "shell".into(),
+            path: None,
+            cmd: input
+                .get("command")
+                .and_then(Value::as_str)
+                .map(|c| truncate(c, 100)),
+            lines: None,
+            result: None,
+        },
+        "Edit" | "NotebookEdit" => ConversationMessage::Write {
+            path: input
+                .get("file_path")
+                .or_else(|| input.get("notebook_path"))
+                .and_then(Value::as_str)
+                .unwrap_or("(unknown)")
+                .to_string(),
+            adds: count_lines(input.get("new_string").and_then(Value::as_str).unwrap_or("")),
+            rems: count_lines(input.get("old_string").and_then(Value::as_str).unwrap_or("")),
+        },
+        "Write" => ConversationMessage::Write {
+            path: input
+                .get("file_path")
+                .and_then(Value::as_str)
+                .unwrap_or("(unknown)")
+                .to_string(),
+            adds: count_lines(input.get("content").and_then(Value::as_str).unwrap_or("")),
+            rems: 0,
+        },
+        other => ConversationMessage::Tool {
+            tool: other.to_lowercase(),
+            path: input
+                .get("file_path")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            cmd: input
+                .get("command")
+                .and_then(Value::as_str)
+                .map(|c| truncate(c, 100)),
+            lines: None,
+            result: None,
+        },
+    }
+}
+
+fn read_lines_label(input: &Value) -> Option<String> {
+    let offset = input.get("offset").and_then(Value::as_u64);
+    let limit = input.get("limit").and_then(Value::as_u64);
+    match (offset, limit) {
+        (Some(o), Some(l)) => Some(format!("{o}-{}", o + l)),
+        (None, Some(l)) => Some(format!("1-{l}")),
+        _ => None,
+    }
+}
+
+fn count_lines(s: &str) -> u32 {
+    if s.is_empty() {
+        return 0;
+    }
+    s.lines().count() as u32
+}
+
+fn truncate(s: &str, n: usize) -> String {
+    if s.chars().count() <= n {
+        s.to_string()
+    } else {
+        let mut t: String = s.chars().take(n).collect();
+        t.push('…');
+        t
+    }
+}
+
+fn split_paragraphs(text: &str) -> Vec<String> {
+    text.split("\n\n")
+        .map(|p| p.trim().to_string())
+        .filter(|p| !p.is_empty())
+        .collect()
+}
+
+/// Pull "HH:MM" off an ISO8601 timestamp. The Mac UI's `when` slot is
+/// space-constrained — full timestamps wouldn't fit in the metadata row.
+fn format_when(iso: &str) -> String {
+    iso.split('T')
+        .nth(1)
+        .and_then(|t| t.get(..5))
+        .unwrap_or(iso)
+        .to_string()
+}
+
+/// Claude Code surfaces slash-command bodies and system reminders as
+/// synthetic user messages wrapped in `<command-*>` / `<system-reminder>`
+/// tags. Those are plumbing, not conversation — drop them so the feed
+/// reads as the human/agent dialogue.
+fn is_command_artifact(text: &str) -> bool {
+    let trimmed = text.trim_start();
+    trimmed.starts_with("<command-")
+        || trimmed.starts_with("<local-command-")
+        || trimmed.starts_with("<system-reminder>")
+}
+
+
+# ─── 3. crates/skogad/src/main.rs ────────────────────────────────────
+# Add `mod conversation;` near the other `mod` declarations.
+
+mod conversation;
+
+
+# ─── 4. crates/skogad/src/rpc.rs ─────────────────────────────────────
+# (a) Add to the existing protocol imports near the top:
+
+    SessionConversationParams, SessionConversationResponse,
+
+# (b) Add to the existing crate-local imports:
+
+use crate::conversation;
+
+# (c) Add a dispatch arm in `dispatch()` next to the other session.* methods:
+
+        "session.conversation" => session_conversation(req.params),
+
+# (d) Add the handler function (next to session_list / session_record_agent_session):
+
+fn session_conversation(params: Option<Value>) -> Result<Value, ErrorObject> {
+    let params: SessionConversationParams = parse_params(params)?;
+    let messages = conversation::read(&params.id).map_err(|e| {
+        ErrorObject::new(
+            error_codes::INTERNAL_ERROR,
+            format!("reading conversation: {e:#}"),
+        )
+    })?;
+    Ok(json!(SessionConversationResponse { messages }))
+}
+
+
+# ─── Build & test ────────────────────────────────────────────────────
+# cargo build -p skogad
+# Restart skogad (kill the running pid and re-run the daemon).
+# The Mac app will then get real data when it opens a conversation.

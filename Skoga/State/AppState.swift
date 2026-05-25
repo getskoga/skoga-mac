@@ -17,7 +17,7 @@ final class AppState: ObservableObject {
     @Published var commandPaletteOpen: Bool = false
 
     // ── Filters ──────────────────────────────────────────────
-    enum Filter: String, CaseIterable, Hashable { case all, running, blocked, review, done, idle }
+    enum Filter: String, CaseIterable, Hashable { case all, running, blocked, review, done, idle, exited }
     @Published var filter: Filter = .all
     @Published var query: String = ""
 
@@ -171,6 +171,7 @@ final class AppState: ObservableObject {
         let review: Int
         let done: Int
         let idle: Int
+        let exited: Int
         let tokens: Int
     }
 
@@ -182,6 +183,7 @@ final class AppState: ObservableObject {
             review:  agents.filter { $0.status == .review  }.count,
             done:    agents.filter { $0.status == .done    }.count,
             idle:    agents.filter { $0.status == .idle    }.count,
+            exited:  agents.filter { $0.status == .exited  }.count,
             tokens:  agents.reduce(0) { $0 + $1.tokens }
         )
     }
