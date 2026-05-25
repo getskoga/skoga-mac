@@ -20,40 +20,32 @@ enum ConversationFeedMode: String, CaseIterable {
 struct ConversationView: View {
     @Environment(\.palette) private var p
     @EnvironmentObject private var state: AppState
-    @AppStorage("skoga.conversationFeedMode") private var feedModeRaw: String = ConversationFeedMode.skoga.rawValue
     let agent: Agent
-
-    private var feedMode: ConversationFeedMode {
-        ConversationFeedMode(rawValue: feedModeRaw) ?? .skoga
-    }
 
     var body: some View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
-                ConvHeader(agent: agent, feedModeRaw: $feedModeRaw)
-                switch feedMode {
-                case .skoga:
-                    ConvFeed(agent: agent, messages: state.conversation)
-                    ConvComposer(agent: agent)
-                case .native:
-                    // The TUI owns its own input loop, so the skoga composer
-                    // is intentionally hidden here — the user types directly
-                    // into the SwiftTerm pane. `id(agent.id)` forces SwiftUI
-                    // to rebuild the view (and therefore the byte stream
-                    // subscription) when the user navigates between agents.
-                    // The chrome frames the terminal as its own "embedded
-                    // app" with traffic-light buttons + title bar, so it
-                    // reads as a distinct thing inside Skoga.
-                    EmbeddedTUIChrome(
-                        title: "\(agent.model) — \(agent.branch)",
-                        subtitle: agent.runtime
-                    ) {
-                        RemoteTerminalView(sessionId: agent.id, client: state.client)
-                            .id(agent.id)
-                    }
-                    .padding(.horizontal, 22)
-                    .padding(.vertical, 18)
+                ConvHeader(agent: agent)
+                // The TUI owns its own input loop, so the skoga composer is
+                // intentionally hidden here — the user types directly into
+                // the SwiftTerm pane. `id(agent.id)` forces SwiftUI to
+                // rebuild the view (and therefore the byte stream
+                // subscription) when the user navigates between agents.
+                // The chrome frames the terminal as its own "embedded app"
+                // with traffic-light buttons + title bar, so it reads as a
+                // distinct thing inside Skoga.
+                EmbeddedTUIChrome(
+                    title: "\(agent.model) — \(agent.branch)",
+                    subtitle: agent.runtime
+                ) {
+                    RemoteTerminalView(sessionId: agent.id, client: state.client)
+                        .id(agent.id)
                 }
+                .padding(.horizontal, 22)
+                .padding(.top, 18)
+                .padding(.bottom, 12)
+
+                ConvActionsFooter(agent: agent)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay(alignment: .trailing) {
@@ -72,7 +64,6 @@ private struct ConvHeader: View {
     @Environment(\.palette) private var p
     @EnvironmentObject private var state: AppState
     let agent: Agent
-    @Binding var feedModeRaw: String
 
     var body: some View {
         HStack(spacing: 14) {
@@ -112,27 +103,34 @@ private struct ConvHeader: View {
             }
 
             Spacer(minLength: 0)
-
-            FeedModeToggle(raw: $feedModeRaw)
-            actionButtons
         }
         .padding(.horizontal, Tokens.Pad.viewX)
         .padding(.top, 16).padding(.bottom, 14)
         .background(p.paper)
         .overlay(alignment: .bottom) { Hairline() }
     }
+}
 
-    /// Header buttons are decoupled from `agent.status` so the manager can
-    /// always reach for "Open as PR" regardless of what state the agent is in.
-    /// The only gating fact is whether a PR already exists for this session
-    /// (`prUrl != nil`) — when one does we swap the CTA for "View PR on
-    /// GitHub" so a second click doesn't try to re-land.
-    ///
-    /// Pause/Stop ride alongside while the agent has work to interrupt
-    /// (`.running` / `.blocked` / `.idle` / `.stopping`). Terminal states
-    /// (`.exited`, `.done`) omit them — there's nothing left to pause.
-    @ViewBuilder private var actionButtons: some View {
+// MARK: – Actions footer
+
+/// Footer sits below the embedded TUI and hosts the "Open as PR" CTA
+/// (plus Pause/Stop while the agent still has work to interrupt). The CTA
+/// is decoupled from `agent.status` so the manager can always reach for
+/// it; the only gating fact is whether a PR already exists for this
+/// session (`prUrl != nil`) — when one does we swap the CTA for "View PR
+/// on GitHub" so a second click doesn't try to re-land.
+///
+/// Pause/Stop ride alongside while the agent is in `.running` /
+/// `.blocked` / `.idle` / `.stopping`. Terminal states (`.exited`,
+/// `.done`) omit them — there's nothing left to pause.
+private struct ConvActionsFooter: View {
+    @Environment(\.palette) private var p
+    @EnvironmentObject private var state: AppState
+    let agent: Agent
+
+    var body: some View {
         HStack(spacing: 8) {
+            Spacer(minLength: 0)
             if let url = agent.prUrl {
                 GhostPillButton(label: "View PR on GitHub", icon: .github) {
                     openPRURL(url)
@@ -147,6 +145,10 @@ private struct ConvHeader: View {
                 }
             }
         }
+        .padding(.horizontal, Tokens.Pad.viewX)
+        .padding(.vertical, 12)
+        .background(p.paper)
+        .overlay(alignment: .top) { Hairline() }
     }
 
     private var hasRunControls: Bool {
@@ -162,43 +164,6 @@ private struct ConvHeader: View {
     private func openPRURL(_ url: String) {
         guard url != "#", let parsed = URL(string: url) else { return }
         NSWorkspace.shared.open(parsed)
-    }
-}
-
-// MARK: – Feed mode toggle
-
-private struct FeedModeToggle: View {
-    @Environment(\.palette) private var p
-    @Binding var raw: String
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(ConversationFeedMode.allCases, id: \.self) { mode in
-                segment(mode)
-            }
-        }
-        .background(p.paper2)
-        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.chip))
-        .overlay(
-            RoundedRectangle(cornerRadius: Tokens.Radius.chip)
-                .stroke(p.rule, lineWidth: Tokens.Hairline.width)
-        )
-    }
-
-    @ViewBuilder
-    private func segment(_ mode: ConversationFeedMode) -> some View {
-        let selected = raw == mode.rawValue
-        Button {
-            raw = mode.rawValue
-        } label: {
-            Text(mode.label)
-                .font(SkogaFont.smallMedium(11.5))
-                .foregroundStyle(selected ? p.paper : p.inkMute)
-                .padding(.horizontal, 10)
-                .frame(height: 26)
-                .background(selected ? p.ink : .clear)
-        }
-        .buttonStyle(.plain)
     }
 }
 
