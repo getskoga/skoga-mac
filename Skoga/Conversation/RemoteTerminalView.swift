@@ -20,7 +20,11 @@ struct RemoteTerminalView: NSViewRepresentable {
     let client: DaemonClient
 
     func makeNSView(context: Context) -> TerminalView {
-        let view = TerminalView(frame: .zero)
+        // 11pt matches `SkogaFont.mono`, the app's standard monospace size
+        // for code-shaped text. SwiftTerm's default font is noticeably
+        // larger and clashes with the surrounding chrome.
+        let font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        let view = TerminalView(frame: .zero, font: font)
         view.terminalDelegate = context.coordinator
         view.configureNativeColors()
         // Keep the caret drawing as if focused even when first-responder is
@@ -97,17 +101,22 @@ struct RemoteTerminalView: NSViewRepresentable {
                     // keystroke arriving while first-responder is anything
                     // OTHER than a recognized text widget is almost always
                     // a SwiftUI focus-engine hijack (e.g. arrows for sidebar
-                    // nav). Reclaim and re-dispatch the same event into the
-                    // terminal, then swallow it so SwiftUI doesn't double-
-                    // process it. Skip when a real text input is focused —
-                    // command palette / search field — so we don't steal
-                    // keystrokes the user intended for those.
+                    // nav). Reclaim focus, then let AppKit dispatch the
+                    // event via its normal sendEvent path — that routes it
+                    // to whichever responder is current AT dispatch time,
+                    // which is now our view. Skip when a real text input is
+                    // focused (command palette / search field) so we don't
+                    // steal keystrokes the user meant for those.
+                    //
+                    // Don't manually call `view.keyDown(with:)` here: it
+                    // bypasses NSWindow's responder bookkeeping for the
+                    // NSTextInputClient bridge that SwiftTerm relies on,
+                    // and printable characters then arrive at the view
+                    // without ever invoking `send(source:data:)`.
                     if window.firstResponder !== view,
                        !isTextInputResponder(window.firstResponder)
                     {
                         window.makeFirstResponder(view)
-                        view.keyDown(with: event)
-                        return nil
                     }
                 default:
                     break
@@ -169,6 +178,16 @@ struct RemoteTerminalView: NSViewRepresentable {
                     cols: initialCols > 0 ? initialCols : nil,
                     rows: initialRows > 0 ? initialRows : nil
                 )
+                // Wipe SwiftTerm's buffer before feeding the snapshot so
+                // any stray cells from a prior attach (or from the
+                // default-sized warm-up before our first sizeChanged)
+                // don't bleed through. The snapshot from `tmux capture-pane`
+                // doesn't always begin with an explicit clear, so without
+                // this the top of the pane can hold stale content the
+                // agent never overwrites until its next full redraw.
+                if let clear = "\u{1b}[2J\u{1b}[H".data(using: .utf8) {
+                    feed(clear)
+                }
                 feed(attached.snapshot)
                 for await chunk in attached.bytes {
                     if Task.isCancelled { break }
