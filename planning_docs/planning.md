@@ -46,14 +46,20 @@ The minimum to ship a credible OSS tool that AI-native developers want to instal
 - **Auto-checkpoint commits.** Skoga commits a `wip:` checkpoint every N minutes (default 5) if there are uncommitted changes; squashed away at land. Bounds work-loss to a few minutes.
 - **Squash-at-land merge policy.** All session commits squashed into one tidy commit when landing.
 - **Agent summary at session end.** Structured summary (Goal, Approach, Files, Tests, Open items) produced by the agent and surfaced in review/TUI.
-- **Session state machine.** States: `planning`, `running`, `waiting-for-review`, `merging`, `conflicted`, `done`, `failed`, `abandoned`, `suspended`, `stale`. Transitions are explicit and drive cleanup policy.
+- **Session state machine.** States: `running`, `conflicted`, `agent-exited`, `pr-open`, `pr-merged`, `shipping`, `killing`, `done`, `killed`, `sync-broken`. Transitions are explicit and drive cleanup policy. The shape evolved away from a single `waiting-for-review` toward a GitHub-reconciled pipeline (`pr-open` → `pr-merged` → `shipping` → `done`); `agent-exited` covers "process gone, work intact" without requiring a `suspended`/`stale` distinction; `sync-broken` is a real terminal-ish error state the sync layer can promote a session into.
 - **Cleanup policy.** Worktrees removed on terminal transitions; branches retained longer than worktrees; disk pressure warnings.
+- **Queue.** Kickoff messages can be enqueued (`skoga queue "<message>"`) when the active-session count is at the cockpit's pane cap; the daemon dequeues and launches a detached agent with the message as its first prompt when capacity opens up.
+- **Cockpit.** A single tmux window combining the skoga dashboard with one nested-attach pane per running agent, tiled. The OSS-only feature for "I'm running N agents at once and want to see them all." See [developer-experience.md → The cockpit](developer-experience.md#the-cockpit).
 - **Local audit emission.** Structured event stream per [audit-schema.md](audit-schema.md). Local-only in v1; substrate for the eventual commercial control plane.
 
 ### V1 surfaces
 
-- **CLI (`skoga`).** Primary interface. Verbs: `init`, `doctor`, `uninstall`, `start`, `list`, `show`, `review`, `diff`, `revise`, `checkout`, `absorb`, `attach`, `shell`, `land`, `kill`, `export`, `logs`, `recover`, `prune`, `sandbox`, `config`. See [developer-experience.md → The CLI](developer-experience.md#the-cli) for details.
-- **TUI (`skoga`, no args).** Live dashboard view of all sessions, sorted by urgency (human-needed first). Keyboard-driven, single-pane navigation, live updates from daemon subscriptions. See [developer-experience.md → The TUI](developer-experience.md#the-tui).
+Two surfaces ship together at v1 launch, each aimed at a different audience and each first-class — the runtime is shared:
+
+- **Skoga Mac app (Skoga Solo).** The primary surface for paying users. Native SwiftUI cockpit talking to `skogad` over the Unix-socket JSON-RPC API. Roster, conversation view, dispatch, review queue, command palette. This is the product surface most real users will live in; design quality and polish are load-bearing. See [Skoga Solo in the roadmap](private/roadmap.md#tier-1-skoga-solo-24month-30-day-free-trial-free-for-non-commercial-use).
+- **Skoga OSS CLI (`skoga`).** The runtime engine, the OSS funnel, and the power-user escape hatch. Same daemon, same protocol; without it the Mac app has nothing to talk to. Verbs: `init`, `doctor`, `uninstall`, `start`, `list`, `history`, `show`, `review`, `diff`, `revise`, `checkout`, `absorb`, `attach`, `revisit`, `shell`, `push`, `land`, `ship`, `kill`, `export`, `prune`, `rename`, `cockpit`, `queue`, `sync`, `logs`, `sandbox`, `config`, `daemon`, `audit-schema`. See [developer-experience.md → The CLI](developer-experience.md#the-cli) for details.
+  - **`skoga cockpit`** is the OSS-side parallel-agents experience: one tmux window with a dashboard pane on top and one nested-attach pane per running agent. It is the practical answer to "I'm running 5 agents and want to see them all" without the Mac app.
+  - **`skoga` with no args** runs a minimal ratatui dashboard for the CLI-only user. The dashboard is also the top pane inside `skoga cockpit`.
 
 ### Agent integrations for v1
 
@@ -63,27 +69,30 @@ Above tmux, Skoga ships an `Agent` adapter contract (see [architecture.md → Ag
 
 **Built-in adapters in v1:**
 
-- **Claude Code** — reference adapter; exercises every optional capability via `.claude/settings.local.json` hooks.
-- **Codex CLI** — capabilities depend on Codex's extension surface; minimum is launch + pipe-pane + commits.
-- **Generic `--exec` wrapper** — degenerate adapter (launch only). Any CLI agent works at this tier.
+- **Claude Code** — the v1 reference adapter and the only one shipped. Exercises every optional capability via `.claude/settings.local.json` hooks: structured event audit, waiting-on-user, boundary check (PreToolUse), session summary, attention indicator.
 
-**User-declared adapters:** any agent can be added via `[agents.<name>]` in `~/.skoga/config.toml` without recompiling. See the architecture doc for the config schema.
+**Deferred to v1.1:**
 
-JetBrains AI, Cursor's agent mode, and other IDE-embedded agents are out of scope for v1 because they don't run as standalone CLIs — tmux doesn't help them. The CLI-agent abstraction does not preclude future IDE integrations.
+- **Generic `exec` adapter** — launch-only, no in-worktree config. Cheap to add (~50 lines) and the right move when we're ready to claim "any CLI agent works." The `Agent` trait and capability surface are already shaped for this; the registry just needs the new variant plus a `[agents.<name>]` config-driven loader.
+- **Codex CLI** — capability surface depends on Codex's extension API; was scoped for v1 in earlier drafts but pushed because there's no Codex user pulling for it yet.
+
+JetBrains AI, Cursor's agent mode, and other IDE-embedded agents are out of scope because they don't run as standalone CLIs — tmux doesn't help them. The CLI-agent abstraction does not preclude future IDE integrations.
 
 ## V1 explicit non-goals
 
 These are NOT in v1. Do not build them. Do not architect around them in a way that makes them harder to add later — but actively resist scope creep.
 
 - **IDE plugins.** v2.
-- **Linux or Windows support.** Future.
+- **Linux or Windows support.** Future. The Mac app is Mac-only by design; OSS CLI is also macOS-first because of `sandbox-exec` and the heavy-mode user-account work, though the CLI's core is portable in principle.
 - **Team / multi-machine features.** Commercial product, no daemon-to-daemon communication, no remote state.
 - **Web UI.** Not v1, not v2.
-- **Cloud sync of any kind.** No phone-home, no telemetry, no accounts.
+- **Cloud sync of any kind.** No phone-home, no telemetry, no accounts. The Mac app's analytics view is local-only.
 - **Custom secret storage.** No vault features. Agents inherit env from the developer's shell for now; team-scale credential brokering is commercial.
 - **Policy enforcement.** No "agents can't do X" rules. Sandbox isolation is the enforcement primitive in v1; policy distribution is commercial.
 - **Multi-repo / monorepo-specific optimizations.** Sparse checkouts, shared node_modules caches, etc. Document limitations, don't solve them yet.
 - **Submodule / LFS first-class support.** Acknowledge in docs, defer.
+- **Persistent (user-defined) agents in v1.** The deterministic Norse-name display in both the CLI and Mac app is name-only; "save Astrid as a permanent agent" is deferred to v1.1, likely arriving as `[agents.<name>]` config blocks rather than a separate persistence layer.
+- **Heavy-mode tmux-as-sandbox-user.** The heavy-mode sandbox provisioning steps exist behind `SKOGA_ENABLE_HEAVY_APPLY` but routing tmux itself through `sudo -u skoga-$USER` is deferred. Lite mode is the v1 default; heavy mode ships when it has been exercised through full install/uninstall matrix testing on clean VMs.
 
 ## V2 — IDE integration (post-OSS-launch)
 
@@ -125,15 +134,16 @@ These are *eventual* concerns that should not be solved in v1 but should be thou
 
 These don't need to be answered now but should be tracked:
 
-- Should `skoga` and `skogad` be separate binaries or one binary with a daemon mode? (Leaning: one binary, simpler distribution.)
+- ~~Should `skoga` and `skogad` be separate binaries or one binary with a daemon mode?~~ **Resolved:** separate binaries. `skogad` is the long-running daemon; `skoga` is the CLI client. The Mac app talks directly to `skogad`'s socket. Distribution is "two binaries in one Homebrew formula."
+- ~~What's the right default for the sandbox user count — one shared across all sessions, or one per session?~~ **Resolved:** one shared user (`skoga-$USER`) when heavy mode ships; lite mode is the default for v1.
+- ~~Should the agent summary at session end be required (a session cannot reach `waiting-for-review` without one)?~~ **Stale question:** there is no `waiting-for-review` state any more. Summary capture is lazy: `agent.summary` is requested via `claude -p` on demand when the user opens `skoga show`/`skoga review` on an inactive session. The session does not block on it.
+- ~~Should the polling-only sync trigger model survive into v1.1, or is event-driven (git hooks) worth the added code paths sooner?~~ **Punted:** polling is 2s and has held up. Revisit only if real users complain about commit-to-host-visible latency.
 - How aggressive should the opportunistic-rebase loop be? (Tuning problem; start conservative, watch real usage.)
-- What's the right default for the sandbox user count — one shared across all sessions, or one per session? (Leaning: one shared, simpler.)
 - How do we handle agent CLIs that change their tool-call interfaces between versions? (Probably: pin supported versions, test against them, fail loudly on unknown versions.)
 - What happens if the developer manually edits a worktree the agent is working in? (Probably: detect, warn, let them proceed at their own risk. Don't try to prevent.)
-- Should the polling-only sync trigger model survive into v1.1, or is event-driven (git hooks) worth the added code paths sooner? Latency is the question — 2-second polling means a 1-2s lag between agent commit and host visibility. Probably fine; revisit if real users complain.
 - Should `[review] precheck = "<command>"` (auto-run tests before showing the review screen) ship in v1, or wait for v1.5? Leaning: v1.5 — keep v1 review cheap.
-- Should the agent summary at session end be required (a session cannot reach `waiting-for-review` without one) or optional? Leaning: required when the agent adapter declares the `session_summary` capability, optional otherwise. Adapters that can't produce a structured summary still reach `waiting-for-review`, falling back to commits + recent pipe-pane output as the review signal.
 - Line-anchored review comments (GitHub-style "comment on line 42 → revise"): v1.5 or later? V1 supports natural-language feedback only.
+- Should daemon RPCs grow real action endpoints (`session.land`, `session.absorb`, `session.diff`) so the Mac app can drive operations end-to-end, or should the Mac app shell out to the CLI for those? Today the CLI does all action work and notifies the daemon via narrow state RPCs (`session.mark_pr_open` etc.). The Mac app currently can only `create`, `kill`, `list`, and read conversation/version. Resolving this is the gating decision for what Skoga Solo can actually do.
 
 ## Success criteria for v1
 

@@ -68,13 +68,13 @@ Per-session-per-day granularity enables easy retention, easy `skoga logs <id>`, 
 ## Event categories
 
 ### Session lifecycle
-- `session.created` — user issued `skoga start`. Payload: `{task, agent, base, cwd}`.
+- `session.created` — user issued `skoga start` (or the daemon's `session.create` RPC). Payload: `{task, agent, base, cwd}`.
 - `session.started` — agent process spawned, worktree ready. Payload: `{worktree, branch, base_sha}`.
-- `session.state_changed` — any state transition. Payload: `{from, to, reason}`.
-- `session.suspended` — paused by user or system. Payload: `{reason}`.
-- `session.resumed` — un-suspended.
-- `session.landed` — `skoga land` completed. Payload: `{final_sha, branch, pr_url?}`.
-- `session.killed` — `skoga kill` completed.
+- `session.launch_failed` — `auto_launch=true` was requested but the detached `_dispatch_launch` subprocess failed before the agent came up. Payload: `{error}`.
+- `session.state_changed` — any state transition. Payload: `{from, to, reason}`. This is the canonical signal for `session.killed` / `session.shipped` / `session.synced_broken` — those don't get their own event types; subscribers project on the `to` field.
+- `session.landed` — `skoga land` completed (PR opened). Payload: `{final_sha, branch, pr_url?}`.
+
+There are no `session.suspended` / `session.resumed` events in v1 — the state machine doesn't have a `suspended` state. An agent that has stopped working is either `agent-exited` (process gone) or `running` with `idle_since` / `waiting_since` markers set, both of which surface via the next `session.state_changed` or the `agent.idle` / waiting marker on the session record.
 
 ### Agent activity
 - `agent.tool_call` — agent invoked a tool (read, edit, write, bash, etc.). Payload: `{tool, args}`. **Metadata only** — file contents are NOT captured; only path, size, line counts.
@@ -100,18 +100,20 @@ What's NOT captured by default: full chat transcript. Tool calls + summary are s
 
 ### User actions
 - `user.start_session` — `skoga start` issued. Payload: `{task, agent, base}`.
-- `user.review_opened` — `skoga review` invoked.
+- `user.review_opened` — `skoga review` or `skoga show` invoked. Payload: `{session_id, surface}`.
 - `user.revise` — `skoga revise` with feedback. Payload: `{feedback}`.
 - `user.checkout` — `skoga checkout` invoked.
 - `user.land_initiated` — `skoga land` invoked.
+- `user.push` — `skoga push` invoked.
 - `user.absorb` — `skoga absorb` invoked.
 - `user.kill` — `skoga kill` invoked.
+- `user.export` — `skoga export` invoked. Payload: `{session_id, format: "patch"|"bundle", output}`.
 
 ### System events (no session_id)
 - `daemon.started`
 - `daemon.stopped`
 - `daemon.crashed`
-- `daemon.rpc.rejected` — incoming RPC peer's uid didn't match the daemon's. Payload: `{peer_uid, daemon_uid, reason}`.
+- `daemon.rpc.rejected` — incoming RPC peer's uid didn't match the daemon's. Payload: `{peer_uid, daemon_uid, reason}`. Emitted at accept time before the connection is dropped.
 - `doctor.run`
 - `doctor.repair`
 - `error.*` — system-level errors with categorized subtypes.

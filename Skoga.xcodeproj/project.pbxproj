@@ -13,6 +13,7 @@
 		24FB5C42B6D8667D132CE1CD /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA33B6515A779BB69660B110 /* Conversation.swift */; };
 		303029A15B9017AA387563AB /* DaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3CC5FADA740026853822A19 /* DaemonClient.swift */; };
 		31BC5CD04C1B7237C7B5CB6E /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFAFBFFB8FA9968FD7AC98FF /* ConversationView.swift */; };
+		3E70103B56C8294DDCA1E434 /* NordicNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B445CBB1DD16119CE39FCC9 /* NordicNames.swift */; };
 		4639FEBCD92E5073935BB33D /* JSONRPCConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3457E04866B98C322F63CCB3 /* JSONRPCConnection.swift */; };
 		4B666D2DD45E99850F918565 /* Sidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAD982A7CF77B3D772232722 /* Sidebar.swift */; };
 		540A532678F1E33044D42AFF /* DaemonStatusBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B326243F9BABD1BAF92FE67 /* DaemonStatusBanner.swift */; };
@@ -30,7 +31,6 @@
 		8C054293BB4CF2C9E24828CD /* SkogaGlyph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81F8C2B09E59496FB397779E /* SkogaGlyph.swift */; };
 		8D5B6940D68D2D386C81D000 /* MainWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9504CA8AFEE1742998939607 /* MainWindow.swift */; };
 		9525F4D036722C7A08ACF65D /* MockDaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED68B708D3D45C9366760F38 /* MockDaemonClient.swift */; };
-		D7E51A4F8C2B96E034BD90A1 /* NordicNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B6C24E809A75D3E4F8A1C2 /* NordicNames.swift */; };
 		958EA9D087B23C21A7A0845A /* AgentCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3AEE547F6633CF2722E23E2 /* AgentCard.swift */; };
 		AA24C55FF75AB355861514D0 /* Agent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3148BC8738DB0F36AA1A85E9 /* Agent.swift */; };
 		B038B3D3555C717A97F1D66A /* CockpitStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA9FE95C049FA34A02C1F2E1 /* CockpitStrip.swift */; };
@@ -67,6 +67,7 @@
 		90E13C9D4BF28ACDB5B9C1CC /* ActivityBars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityBars.swift; sourceTree = "<group>"; };
 		94DE9B05F7B39ED2F2A214B4 /* SkogaRPC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaRPC.swift; sourceTree = "<group>"; };
 		9504CA8AFEE1742998939607 /* MainWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindow.swift; sourceTree = "<group>"; };
+		9B445CBB1DD16119CE39FCC9 /* NordicNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NordicNames.swift; sourceTree = "<group>"; };
 		9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaIcons.swift; sourceTree = "<group>"; };
 		C3CC5FADA740026853822A19 /* DaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClient.swift; sourceTree = "<group>"; };
 		CAC0B12748DBA520B86EA074 /* RosterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RosterView.swift; sourceTree = "<group>"; };
@@ -75,7 +76,6 @@
 		D3AEE547F6633CF2722E23E2 /* AgentCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCard.swift; sourceTree = "<group>"; };
 		EA9FE95C049FA34A02C1F2E1 /* CockpitStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitStrip.swift; sourceTree = "<group>"; };
 		ED68B708D3D45C9366760F38 /* MockDaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDaemonClient.swift; sourceTree = "<group>"; };
-		F1B6C24E809A75D3E4F8A1C2 /* NordicNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NordicNames.swift; sourceTree = "<group>"; };
 		EF6164A630675637301F36D4 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
 		F47F1D8A4A2158D854110144 /* TelemetryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryView.swift; sourceTree = "<group>"; };
 		FA33B6515A779BB69660B110 /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
@@ -96,7 +96,7 @@
 			children = (
 				3148BC8738DB0F36AA1A85E9 /* Agent.swift */,
 				FA33B6515A779BB69660B110 /* Conversation.swift */,
-				F1B6C24E809A75D3E4F8A1C2 /* NordicNames.swift */,
+				9B445CBB1DD16119CE39FCC9 /* NordicNames.swift */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -328,7 +328,7 @@
 				7F7DEE61027F4C8E7978EE88 /* LiveDaemonClient.swift in Sources */,
 				8D5B6940D68D2D386C81D000 /* MainWindow.swift in Sources */,
 				9525F4D036722C7A08ACF65D /* MockDaemonClient.swift in Sources */,
-				D7E51A4F8C2B96E034BD90A1 /* NordicNames.swift in Sources */,
+				3E70103B56C8294DDCA1E434 /* NordicNames.swift in Sources */,
 				CC3E912C7C322D76B934024D /* PRModal.swift in Sources */,
 				823115FEF637EEBBC6A8D163 /* PulseDot.swift in Sources */,
 				55BEF74D5D6FEBD73D9E14A5 /* ReviewView.swift in Sources */,

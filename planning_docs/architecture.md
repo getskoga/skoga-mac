@@ -18,66 +18,120 @@ Key crates to evaluate:
 
 The daemon is a service that operates on persistent state, not the holder of that state. The filesystem and git are the source of truth.
 
-- All session metadata is written to SQLite synchronously on state transitions. The daemon never relies on in-memory state surviving longer than a single operation.
-- Audit events flush to NDJSON at least every few seconds.
-- Worktrees and git refs in the sandbox are independently authoritative. On daemon restart, scan worktrees, read SQLite, reconcile.
-- Agent processes run inside per-session tmux sessions named `skoga-<id>`. They survive daemon restart, terminal close, and laptop sleep. On daemon restart the daemon does not "reattach" — tmux has been supervising the whole time; the daemon just rebuilds its in-memory map from `tmux list-sessions` and reconciles against SQLite. No agent PIDs in SQLite.
-- On daemon restart, never auto-delete. Orphaned worktrees (not in SQLite) are surfaced via `skoga recover` for explicit user decision.
-- Manual recovery never requires the daemon. A developer can always `sudo -u skoga-$USER` into a worktree and extract their work with standard git, even if Skoga is permanently broken.
+- All session metadata is written to JSON files at `~/.skoga/state/sessions/<id>.json` synchronously on state transitions, with `0o600` mode (see [Security & file permissions](#security--file-permissions)). The daemon never relies on in-memory state surviving longer than a single operation.
+- A SQLite database file (`~/.skoga/state.db`) is opened and migrated but **not** the source of truth in v1 — it's a forward-compatible placeholder for when the audit/events table needs indexed querying. The session JSON files are authoritative today.
+- Audit events flush to NDJSON at least every few seconds. The daemon's broadcast channel also fans out every event to live `events.subscribe` clients (the Mac app and `skoga logs --follow`).
+- Worktrees and git refs in the sandbox are independently authoritative. On daemon restart, scan worktrees, read the session JSON, reconcile.
+- Agent processes run inside per-session tmux sessions named `skoga-<id>`. They survive daemon restart, terminal close, and laptop sleep. On daemon restart the daemon does not "reattach" — tmux has been supervising the whole time; the daemon just rebuilds its in-memory map from `tmux list-sessions` and reconciles against the on-disk sessions. No agent PIDs are persisted as primary state.
+- On daemon restart, never auto-delete. Orphaned worktrees (no matching session JSON) are surfaced via `skoga prune` for explicit user decision; orphaned tmux sessions are reaped on a grace timer.
+- Manual recovery never requires the daemon. A developer can always drop into a worktree (heavy mode: `sudo -u skoga-$USER`) and extract their work with standard git, even if Skoga is permanently broken. `skoga export <id>` (patch by default, `--bundle` for a git bundle) is the escape hatch when the session itself should go away.
 
 ## Component layout
 
 ```
 skoga/
-├── skogad/          # The daemon. Owns all state. Long-running process.
-├── skoga-cli/       # The CLI. Thin client of skogad.
-├── skoga-tui/       # The TUI. Thin client of skogad. (Could be merged with CLI binary.)
-├── skoga-core/      # Shared types, protocol definitions, common logic.
-├── skoga-sandbox/   # Sandbox user provisioning and management.
-├── skoga-git/       # Git worktree and branch orchestration.
-└── skoga-agents/    # Agent integrations (Claude Code, Codex, generic).
+├── skogad/          # The daemon. Owns persistent state, the event bus, and
+│                    # background loops (sync, rebase, checkpoint, cleanup,
+│                    # queue, conversation reconstruction).
+├── skoga-cli/       # The CLI. Thin client of skogad for state lookups +
+│                    # subscriptions; runs all *action* verbs (land, push,
+│                    # absorb, diff, checkout, …) in-process. The Mac app
+│                    # is the second client of the same socket.
+├── skoga-tui/       # Minimal ratatui dashboard. Runs as `skoga` (no args)
+│                    # and as the top pane inside `skoga cockpit`.
+├── skoga-core/      # Shared types, protocol definitions, audit log, paths,
+│                    # session/queue/config persistence helpers. Used by
+│                    # skogad and skoga-cli alike.
+├── skoga-sandbox/   # Lite + heavy sandbox provisioning, launchd plist
+│                    # rendering, sudoers drop-in, sandbox-exec profile.
+├── skoga-git/       # Git command wrappers (sudo-aware for heavy mode),
+│                    # worktree and branch orchestration primitives.
+├── skoga-agents/    # `Agent` trait + the Claude Code adapter. The trait
+│                    # already supports the capability surface for future
+│                    # adapters (exec, Codex, …) — registry is the
+│                    # gating piece, not the trait shape.
+└── skoga-tmux/      # Thin wrappers around tmux subcommands (new-session,
+                     # pipe-pane, send-keys, load-buffer/paste-buffer,
+                     # list-sessions, kill-session). The single supervision
+                     # substrate for every agent.
 ```
+
+A separate Swift/SwiftUI Xcode project (`skoga-mac`) consumes the same `skogad` socket via JSON-RPC; it is not a Cargo workspace member. See [the Skoga roadmap](private/roadmap.md#9-repository-and-technology-architecture).
 
 ## The local API (daemon ↔ clients)
 
-This is the contract that everything hangs off. Get this right early.
+This is the contract that everything hangs off.
 
-Transport: Unix domain socket at `/tmp/skoga.$USER.sock` or `~/.skoga/sock`.
+Transport: Unix domain socket at `~/.skoga/sock`, mode `0o600`, peer-uid checked on every accept (same-uid only; root rejected too). Foreign-uid attempts emit a `daemon.rpc.rejected` audit event.
 
-Format: JSON-RPC 2.0. Why: human-readable, easy to debug with `socat`, well-supported in every language (which matters for eventual IDE plugins).
+Format: JSON-RPC 2.0 over newline-delimited lines. Why: human-readable, debuggable with `socat`, well-supported in every language (the Mac app implements it directly over Darwin sockets to bypass `NWConnection`'s peer-credential quirks).
 
-**Commands (request/response):**
-- `session.start(task, base?, scope?, agent?, cwd?)` → SessionId
-- `session.list(filter?)` → [SessionSummary]
-- `session.get(id)` → SessionDetail
-- `session.attach(id)` → stream of agent I/O
-- `session.input(id, text)` → ack
-- `session.land(id)` → result (PR URL or merge SHA)
-- `session.kill(id)` → ack
-- `session.diff(id)` → unified diff
-- `session.logs(id)` → audit events
-- `config.get()`, `config.set()`
-- `daemon.health()`, `daemon.version()`
+### Design principle: daemon holds state, CLI does work
 
-**Subscriptions (server-sent events):**
-- `events.sessions` — all session state changes
-- `events.session(id)` — events for a specific session (activity, commits, output)
-- `events.conflicts` — when sessions need human attention
+A v1 architectural fact worth stating loudly: **the daemon is a state and event bus, not the orchestrator**. Actions like `skoga land` / `push` / `absorb` / `diff` run inside the CLI process (which inherits the dev's TTY, `gh`, `ssh`, editor) and notify the daemon via narrow state-update RPCs (`session.mark_pr_open`, `session.set_host_worktree`, …). The daemon owns:
+
+- persistent state (session JSON, queue items, config)
+- background loops (sync, rebase, checkpoint, cleanup, queue dequeue)
+- the audit log writer
+- the event broadcast channel that feeds `events.subscribe` consumers
+
+This shape made the Mac app possible without code-sharing pain (it's a second client of the same socket). It also means the Mac app today can `create` / `kill` / `list` / read conversation but cannot yet `land` from the UI — see the open question in [planning.md](planning.md#open-questions-to-revisit-during-build) about whether daemon RPCs should grow real action endpoints.
+
+### RPC methods (request/response)
+
+Session state and orchestration:
+
+- `session.list(include_terminal?)` → `[Session]`
+- `session.create(task, agent, base, repo_root, task_auto?, auto_launch?, initial_prompt?)` → `{ session }`. With `auto_launch: true`, the daemon spawns a detached `skoga _dispatch_launch` subprocess that installs the adapter's in-worktree config and starts the agent in tmux. (`skoga start` invokes the launch path itself; the Mac app's Dispatch view sets `auto_launch: true`.)
+- `session.conversation(id)` → `{ messages }`. Reconstructs the conversation by parsing the Claude Code transcript jsonl for the session. Stable per-record `id`s so subscribers' lists preserve scroll position across refetches.
+- `session.attach(id)` → resolves the tmux session name + (if alive) prepares any pending revise/feedback paste-buffer. The CLI side then exec's `tmux attach-session`; the daemon does not stream PTY.
+- `session.revisit(id)` → revive a past session's agent against today's `main` in a fresh worktree.
+- `session.kill(id)` → mark `Killing`, async teardown.
+- `session.ship(id)` → mark `Shipping`, async teardown after PR merge.
+- `session.rename(id, new_task)` → re-label + branch rename.
+- `session.record_agent_session`, `session.mark_waiting`, `session.clear_waiting`, `session.mark_idle`, `session.clear_idle`, `session.set_host_worktree`, `session.set_agent_summary`, `session.mark_pr_open`, `session.mark_pr_merged`, `session.mark_done` — narrow state-update calls invoked by CLI verbs and Claude Code hooks.
+
+Audit, queue, config, daemon:
+
+- `audit.emit(session_id?, type, actor, payload, correlation_id?)` — emit one event through the daemon's writer (keeps per-scope `seq` monotonic).
+- `queue.add(message, agent, base?, task?)` / `queue.list()` / `queue.remove(id)` — kickoff queue management.
+- `config.get(key)` / `config.set(key, value)` / `config.list()` / `config.snapshot()` / `config.unset(key)`.
+- `daemon.health()` / `daemon.version()`.
+
+### Subscriptions (server push on the same socket)
+
+A single subscription method that upgrades the connection to a server-push stream:
+
+- `events.subscribe` → `{ "subscribed": true }`, after which the daemon writes `events.event` notifications (JSON-RPC notifications, no `id`) for every event that lands in the audit log. Subscribers debounce + refetch as needed; the Mac app treats any event as a "refetch `session.list`" trigger.
+
+There is no separate `events.sessions` / `events.session(id)` / `events.conflicts` method — one stream, filtered client-side. Lagging subscribers drop oldest events (Tokio broadcast semantics) rather than blocking the daemon.
 
 ## State storage
 
 The daemon needs persistent state across restarts:
-- **Session metadata** in SQLite at `~/.skoga/state.db` (sessions table, events table for recent activity).
-- **Audit events** as append-only NDJSON files at `~/.skoga/audit/` (see [audit-schema.md](audit-schema.md)).
-- **Config** as TOML at `~/.skoga/config.toml`.
-- **Sandbox-side repo clones** under `<sandbox_root>/repos/<proj>/`.
+- **Session metadata** as JSON files under `~/.skoga/state/sessions/<id>.json`, written with `0o600` mode via `paths::write_secure`. The schema lives in `skoga_core::session::Session`.
+- **Queue items** under `~/.skoga/state/queue/` as JSON, same mode.
+- **Audit events** as append-only NDJSON files at `~/.skoga/audit/sessions/<id>/<YYYY-MM-DD>.ndjson` and `~/.skoga/audit/system/<YYYY-MM-DD>.ndjson` (see [audit-schema.md](audit-schema.md)). Files are `chmod 0o600` after each append for the migration case.
+- **Config** as TOML at `~/.skoga/config.toml`, also `0o600`.
+- **SQLite** at `~/.skoga/state.db` is opened with WAL but currently unused for primary state. Reserved for the audit/events query workload (`skoga logs --since` over months of data) when that becomes a real need.
+- **Sandbox-side repo clones** under `<sandbox_root>/repos/<proj>-<hash>/`.
 - **Sandbox-side session worktrees** (where the agent edits) under `<sandbox_root>/sessions/<id>/`.
 - **Host-side review worktrees** (opt-in; created by `skoga checkout`) under `~/.skoga/host-worktrees/<id>/`.
-- **tmux server socket** at `<sandbox_root>/run/tmux.sock` (heavy mode; readable to dev via ACL) or the default tmux path (lite mode). Per-agent tmux sessions named `skoga-<id>`. See [Agent process lifecycle](#agent-process-lifecycle).
+- **tmux server socket** — default tmux path in lite mode (daemon, tmux, agent all the dev's UID). Heavy mode routes through `sudo -u skoga-$USER` to a sandbox-owned socket; that path is implemented for the sandbox provisioning steps but tmux-as-sandbox-user is deferred (see the heavy-mode caveat in [planning.md](planning.md#v1-explicit-non-goals)).
 
 `<sandbox_root>` resolves to `/Users/skoga-$USER` in **heavy** mode (separate macOS user) and `~/.skoga/sandbox` in **lite** mode (sandbox-exec only, dev's user). Both modes use two clones; the sync layer runs in both. Lite mode trades the UID-level isolation of heavy mode for ~2× `.git` disk and the file-/network-level restrictions described under [Sandbox provisioning](#sandbox-provisioning) below.
 
-SQLite for state, NDJSON for audit. Don't get fancy.
+JSON for state, NDJSON for audit. Don't get fancy.
+
+## Security & file permissions
+
+The daemon and its on-disk state are local-only, but Skoga ships under threat models that include (B) colocated unprivileged users on the same machine and (A) prompt-injected agents running inside a worktree. Concrete invariants:
+
+- Unix socket at `~/.skoga/sock` is `chmod 0o600`. Every connection runs through a `getpeereid` (macOS) / `SO_PEERCRED` (Linux) check; only the daemon's own uid is accepted. Foreign uids (including root) are rejected at accept time and the rejection is recorded as a `daemon.rpc.rejected` audit event.
+- `~/.skoga/` and every directory created under it are `chmod 0o700` (`paths::ensure_dir_0700`).
+- Every state, queue, config, and audit file is `chmod 0o600` at write time. New writes go through `paths::write_secure` (truncate-create-secure) or `paths::chmod_0600_if_exists` (append). Older world-readable files written by a previous version are migrated to `0o600` on next write.
+- `--yes` on `skoga land` / `skoga push` is refused when the invocation comes from inside a Skoga-managed agent tmux session (detected via `$TMUX` + `tmux display-message -p '#S'`). Without this guard, a prompt-injected agent running as the dev's UID in lite mode could shell out to `skoga push --yes` against its own worktree and bypass the human-in-the-loop confirmation.
+- The git credential helper template for the read-only PAT is interpolated through a POSIX single-quote escaper (`posix_single_quote`) so a `'` in `$SKOGA_HOME` or `$HOME` cannot break out of the quoted `$(cat '…')` slot.
 
 ## Sandbox provisioning
 
@@ -150,32 +204,47 @@ State is in-memory only. On daemon restart, re-read from the two repos. Git refs
 
 ### State machine: who can write when
 
+The sync layer keys off the actual session state machine ([`skoga_core::session::State`](../crates/skoga-core/src/session.rs)). The shape:
+
 ```
-running:
-  Authority: agent (sandbox only)
+running | agent-exited:
+  Authority: sandbox is the writer; host receives updates.
   Allowed:   sandbox → host  (advance remote-tracking ref always;
                               fast-forward host local branch IF it exists
                               and FF is possible; otherwise leave it alone)
+             host → sandbox  IF the agent is quiescent (running but idle,
+                              or agent-exited) AND host_local_sha is
+                              ahead AND FF works
   Detected:  host_local_sha diverging from sandbox_sha
-             → surface divergence warning, do not propagate
+             → emit `sync.divergence_detected`, do not propagate
 
-waiting-for-review:
-  Authority: either (agent done; dev may make small fixes)
+pr-open | pr-merged:
+  Authority: either (agent paused awaiting review; dev may make small fixes).
   Allowed:   sandbox → host  (same as running)
-             host → sandbox  IF host_local_sha is ahead of sandbox_sha
-                             AND fast-forward sandbox → host_local_sha works
+             host → sandbox  IF host_local_sha is ahead AND FF works
   Detected:  true divergence (each side has commits the other doesn't)
-             → emit conflict, no auto-resolution
+             → emit `sync.divergence_detected`, no auto-resolution
 
-conflicted | suspended:
-  Authority: nobody (both sides frozen)
-  Allowed:   only explicit `skoga absorb` or `skoga sync --force`
+conflicted:
+  Authority: nobody — most recent opportunistic rebase aborted in a
+             sidecar worktree; agent worktree is on the pre-rebase tip.
+  Allowed:   no sync writes; next rebase tick retries.
+  Recovery:  agent fix-up (`skoga revise` / `skoga attach`) or manual.
 
-done | failed | abandoned:
-  Sync stops. Branches retained per cleanup policy.
+sync-broken:
+  Authority: nobody — sync layer hit repeated hard faults (disk, ACL,
+             repo corruption).
+  Allowed:   only `skoga sync --rebuild <id>` (exports the branch as a
+             recovery bundle, re-fetches the host side).
+
+shipping | killing:
+  Async teardown is in flight. Sync stops; cleanup decides ref fates.
+
+done | killed:
+  Terminal. Sync stops. Branches retained per cleanup policy until prune.
 ```
 
-This state machine is the heart of the sync layer. Everything else is plumbing.
+This state machine is the heart of the sync layer. Everything else is plumbing. (Earlier drafts of this doc described a `waiting-for-review` state and an explicit `suspended` state — those collapsed during implementation into the `pr-open` / `pr-merged` / `agent-exited` trio, which proved a cleaner mapping to "what is git seeing right now.")
 
 ### Bootstrap
 
@@ -383,8 +452,10 @@ These form the stable contract that agent-side glue (Claude's `.claude/settings.
 | Adapter | Launch | In-worktree config | Hooks | Waiting | Boundary | Summary |
 |---|---|---|---|---|---|---|
 | `claude` (Claude Code) | `claude` + flags | `.claude/settings.local.json` | ✅ | ✅ | ✅ | ✅ (lazy via `claude --resume -p`) |
-| `codex` (Codex CLI) | `codex` + flags | TBD per Codex's extension surface | depends | maybe (pipe-pane heuristic) | ❌ | planned |
 | `exec` (generic wrapper) | user-supplied command | none | ❌ | ❌ | ❌ | ❌ |
+| `codex` (Codex CLI) | `codex` + flags | TBD | depends | maybe | ❌ | planned |
+
+**v1 ships `claude` only.** The trait and capability surface are designed for the other two — `exec` is ~50 lines of glue plus the `[agents.<name>]` config-driven registry; `codex` is a real integration effort that depends on Codex's extension API. Both are scoped for v1.1.
 
 Capability gaps are *features*, not blockers. An agent that supports only `launch_command` still gets the full workflow (sandbox isolation, commits, sync, land, audit); the optional layers (attention, waiting, summary) are graceful absences.
 

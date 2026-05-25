@@ -153,35 +153,60 @@ Status lines are informational only — the agent is not asked to act on them; t
 
 ## The CLI
 
+The CLI is one of two first-class surfaces. The Mac app (Skoga Solo) is where most paying users will live; the CLI is the runtime engine, the OSS funnel, and the power-user escape hatch. The Mac app talks to the same `skogad` over the same socket; CLI verbs and Mac app actions converge on the same state.
+
 Verb-by-verb:
 
-- `skoga init` — set up Skoga on this machine. Defaults to the heavy path (system user + sandbox-exec, admin prompt once). `--lite` for sandbox-exec only without admin. `--dry-run` to preview. `--repair` to re-run failed setup steps.
-- `skoga doctor` — verify install state; report drift; offer `--repair`.
-- `skoga uninstall` — remove Skoga's managed state. Refuses by default if non-terminal sessions exist (`--force` overrides). Backs up `~/.skoga/` before deletion. Does not remove the brew binary.
-- `skoga sandbox <upgrade|downgrade>` — switch isolation backends after install. `upgrade` (light → heavy) creates the system user and migrates worktrees. `downgrade` (heavy → light) requires all sessions in terminal states.
-- `skoga start <task>` — create a session and exec into the agent. Optional `--agent <name>`, `--base <branch>`, `--cwd <dir>`.
-- `skoga list` — list active and recent sessions. `--all` includes terminal/archived.
-- `skoga show <id>` — non-interactive session details (one-shot, scriptable).
-- `skoga review <id>` — interactive review (the canonical evaluation entry point — see below).
-- `skoga diff <id>` — print diff (plain git diff format; pipes to `delta`, `bat`, etc.).
-- `skoga revise <id> <feedback>` — resume the session with a new instruction. Returns immediately.
-- `skoga checkout <id>` — `git worktree add` in the host clone so the dev can run the code locally without disturbing their main worktree.
-- `skoga absorb <id>` — explicitly pull dev's host-clone commits into the session (see divergence behavior).
-- `skoga attach <id>` — attach to the agent's tmux session. Detach with `Ctrl-b d` (tmux default); the agent keeps running. See [architecture.md → Agent process lifecycle](architecture.md#agent-process-lifecycle).
-- `skoga shell <id>` — drop into a shell in the sandbox worktree (as the dev's user, read-only).
-- `skoga land <id>` — squash, push, open PR. Confirmation prompt unless `--yes`.
-- `skoga kill <id>` — abandon the session. Confirmation prompt. `--export <path>` writes the session's work as a patch first.
-- `skoga export <id>` — write a session's work as a patch file (default) or full git bundle (`--bundle`). Escape hatch for "I want my work but I don't want this tool / session anymore."
-- `skoga logs <id>` — dump the audit log (structured; `--format json` for machine-readable). See [audit-schema.md](audit-schema.md).
-- `skoga recover` — list orphaned worktrees and adopt or delete them.
-- `skoga prune` — clean up sessions per retention policy.
-- `skoga config <get|set|list>` — read or modify config.
+**Setup & lifecycle**
+- `skoga init` (alias: `skoga secure`) — provision the sandbox backend. Lite (sandbox-exec only) is the v1 default and runs without admin. `--repair` re-applies failed steps; `--dry-run` previews; `--yes` skips the confirm.
+- `skoga doctor` — verify install state and report drift.
+- `skoga uninstall` (alias: `skoga unsecure`) — tear down lite-mode state. Detects what's installed and prompts for the choices that matter; does not remove the brew binary itself.
+- `skoga sandbox <upgrade|downgrade>` — switch backends after install. Hidden in v1 while heavy-mode apply steps stay gated behind `SKOGA_ENABLE_HEAVY_APPLY`.
+- `skoga daemon <status|start|stop|restart|paths>` — control `skogad`.
+- `skoga config <get|set|list|path|unset>` — read or modify config (`~/.skoga/config.toml`).
+- `skoga audit-schema` — dump the machine-readable audit schema embedded in the binary.
+
+**Session lifecycle**
+- `skoga start [task]` — create a session, install adapter hooks, exec into the agent. `--agent` defaults to `claude`; `--base` defaults to the current branch.
+- `skoga list` — active sessions. `--all` includes terminal.
+- `skoga history` — past sessions (done/killed/pr-open/agent-exited), newest first; `--grep` substring filter. Companion to `skoga revisit`.
+- `skoga show [query]` — non-interactive details for a session.
+- `skoga review [query]` — interactive review screen (composes diff/shell/revise/land).
+- `skoga diff [query]` — `git diff base..HEAD` in the worktree (`--stat` for stats only).
+- `skoga revise <query> <feedback>` — push a new instruction. If the agent's tmux is alive, the feedback is pasted into the running pane; if it exited, a fresh agent is started with the feedback as initial prompt.
+- `skoga attach [query]` — re-attach to a session's agent (relaunches a fresh agent if the prior tmux is gone).
+- `skoga revisit [query]` — revive a past session's agent against today's `main` in a fresh worktree.
+- `skoga rename [query] [new_task]` — relabel a session (and its branch). `--all` re-runs the auto-labeler against current transcripts for every still-auto-named open session.
+- `skoga checkout [query]` — materialize a host-side review worktree under `~/.skoga/host-worktrees/<id>/`; `--remove` tears it down.
+- `skoga absorb [query]` — pull dev-side commits into the session. `--prefer-host`, `--prefer-sandbox`, `--merge` resolve true divergence.
+- `skoga sync <query> --debug|--rebuild` — inspect or repair the sync layer; `--rebuild` exports a bundle and re-fetches after `sync-broken`.
+- `skoga shell [query]` — drop into a shell in the worktree as the dev's user.
+
+**Land / push / ship (the PR pipeline)**
+- `skoga push [query]` — `git push -u` for a session's branch as-is. No squash, no PR. Use this after an agent revises a PR; use `skoga land` instead if there is no PR yet.
+- `skoga land [query]` — squash, rebase, push, open PR via `gh`. Transitions to `pr-open`. `--yes` for non-interactive (refused if invoked from inside the agent's own tmux), `--merge` for no-PR direct merge, `--all` to land every active session in batch.
+- `skoga ship [query]` — finalize a `pr-merged` session: terminate the agent, tear down the worktree, transition to `done`. The daemon also reconciles `pr-open` → `pr-merged` automatically by polling `gh`, so `skoga ship` is the explicit "I'm done with this one" verb.
+- `skoga pr feedback [query]` — bundle review comments + failing CI from the session's PR into a prompt and inject it into the agent. Pair with `skoga push` once the agent revises.
+
+**Cleanup & escape hatches**
+- `skoga kill [query]` — abandon a session and remove its worktree. Confirmation prompt; `--yes` for batch.
+- `skoga export [query]` — write the session's committed work as a patch (default; stdout) or a `git bundle` (`--bundle`; defaults to `./skoga-<id>.bundle`). Read-only. Escape hatch for "I want my work but not this session."
+- `skoga prune` — sweep stale sessions and orphaned worktrees in one pass. `--age 3d`, `--include-pr-open`, `--audit` (also prune `~/.skoga/audit/`).
+- `skoga logs <query>` — dump the audit log for a session (`--since`, `--type`, `--format json`, `--follow`). Reads NDJSON directly so it works even when the daemon is down.
+
+**Cockpit & queue**
+- `skoga cockpit` — single tmux window with the dashboard on top and one nested-attach pane per running agent (see [The cockpit](#the-cockpit) below). `skoga cockpit refresh` / `skoga cockpit down` for control.
+- `skoga queue "<message>"` — enqueue a kickoff message; the daemon dequeues and launches a detached agent when the active-session count is below the cockpit pane cap. `skoga queue list` / `skoga queue remove <id>` for management.
 
 Shell completion for bash/zsh/fish ships with v1. Every verb has good `--help`.
 
-## The TUI
+## The TUI and the cockpit
 
-`skoga` with no args launches the TUI dashboard. Single-pane navigation (drill in, drill out).
+`skoga` with no args launches a minimal ratatui dashboard — a session table with keyboard nav, attach/shell exec-outs, and a live polling header. It is intentionally small. The Mac app is where the "rich, sorted-by-urgency, attention-feed" experience lives; the TUI is the OSS-CLI baseline so users who never install the Mac app still have a dashboard.
+
+For the parallel-agents case (the OSS power-user story), the real entry point is **`skoga cockpit`** — a single tmux window with three rows: the TUI dashboard on top, one nested-attach pane per running `skoga-*` agent in the middle (tiled, with a configurable pane cap derived from RAM), and a launcher shell at the bottom for typing `skoga start <task>` without leaving the cockpit. A background watcher rebuilds the agent row when sessions appear or disappear.
+
+The TUI as a standalone view:
 
 **Sessions list** (main view) — live, sorted by urgency:
 ```
@@ -279,22 +304,47 @@ When the developer checks out a session branch in their host clone (via `skoga c
   running. Absorbing now would risk conflicts.
 
 Options:
-  skoga suspend abc1234              # pause agent, then absorb
-  skoga absorb abc1234 --force       # absorb anyway (warns agent on resume)
-  git branch my-take skoga/abc1234   # fork off to your own branch
+  skoga absorb abc1234 --prefer-host       # rewind sandbox to host tip
+  skoga absorb abc1234 --prefer-sandbox    # rewind host to sandbox tip
+  skoga absorb abc1234 --merge             # 3-way merge in the host worktree
+  git branch my-take skoga/abc1234         # fork off to your own branch
 ```
 
-**Dev commits while session is `waiting-for-review`** — absorbed cleanly. The dev's commit becomes part of the session; at land time it is part of the squash, with the dev as committer of that portion. This is the natural "small fix during review" path and should feel seamless.
+**Dev commits while session is `agent-exited`, `pr-open`, or `pr-merged`** — absorbed cleanly via the sync layer when host is a strict descendant of sandbox; on true divergence the same `skoga absorb` triage applies. The agent is no longer actively writing, so a small fix landing through the host worktree and propagating sandbox-ward is the natural "small fix during review" path.
 
-**Dev commits while session is `conflicted` or `suspended`** — neither side moves automatically. Explicit `skoga absorb` required.
+**Dev commits while session is `conflicted` or `sync-broken`** — neither side moves automatically. Explicit `skoga absorb` (or `skoga sync --rebuild` for `sync-broken`) required.
 
 For substantive dev work (rewriting modules, exploring alternate approaches), the convention remains: **fork off to your own branch.** Skoga is not trying to manage the dev's separate work, only collaboration with the agent on the session branch.
 
-## The `skoga land` flow
+## The land → ship pipeline
 
-`skoga land <id>` performs deterministic git plumbing. Per Positioning Principle #7 ([planning.md](planning.md#positioning-principles)), the agent is not involved in pushing or PR creation.
+The plan's single `skoga land` verb split during implementation into three verbs plus a daemon-side reconciliation step. The split keeps each verb a single deterministic git plumbing op:
 
-Steps:
+```
+running/agent-exited
+        │
+        │  skoga land    (squash → rebase → push → open PR via `gh`)
+        ▼
+     pr-open
+        │
+        │  daemon polls `gh pr view` and detects merge automatically
+        ▼
+     pr-merged
+        │
+        │  skoga ship    (terminate agent → remove worktree)
+        ▼
+       done
+```
+
+A side branch handles the "PR open, agent revising in response to review" case:
+
+- `skoga push` — `git push -u` for the current branch as-is. Use this to update an already-open PR after an agent revises. No squash, no PR creation; agent commits ride along (the daemon's auto-checkpoint `wip:` commits will be squashed at a future `skoga land`, but `push` is intentionally a no-rewrite verb so the open PR stays stable on the reviewer's side).
+- `skoga pr feedback` — bundle review comments + failing CI into a prompt and inject it into the agent. Compose with `skoga push` to ship the response.
+
+Per Positioning Principle #7 ([planning.md](planning.md#positioning-principles)), the agent is not involved in pushing or PR creation. All three verbs run as the dev's UID with the dev's credentials.
+
+### `skoga land` steps
+
 1. Verify session state (branch exists, no in-flight rebase, no fatal divergence with host).
 2. Auto-checkpoint any uncommitted agent changes (a final `wip:` commit).
 3. **Sync pre-flight**: require `host_local_sha == host_tracking_sha` (sync converged). If the dev's host-side worktree has a fix that hasn't propagated to sandbox yet, run a synchronous host → sandbox tick and verify convergence. Shows a brief "syncing..." line; bounded by one tick interval (~2s). This preserves the invariant that every commit being pushed has existed in the sandbox at some point — relevant for the audit story and for `skoga revise` after land.
@@ -303,7 +353,13 @@ Steps:
 6. Rename the branch from `skoga/<session-id>` to a human-readable name (configurable template).
 7. Push to the dev's `origin` using the dev's git credentials.
 8. Open a PR via `gh` CLI (fallback: print compare URL).
-9. Mark session done; trigger cleanup per retention policy.
+9. Transition the session to `pr-open`. The agent and worktree stay alive so the dev can iterate on review feedback via `skoga pr feedback` + `skoga push`.
+
+### `skoga ship` steps
+
+1. Confirm the session is `pr-open` or `pr-merged`. (`pr-open` re-checks via `gh pr view`; if the PR is merged, the daemon's reconciler will have moved the session to `pr-merged` anyway.)
+2. Transition to `shipping` and return immediately — the rest is the daemon's async teardown task.
+3. (Async) terminate the agent's tmux session, remove the worktree (heavy mode: through `sudo`), and emit `session.state_changed` → `done`.
 
 **Commit message and PR body** — three sources, default to A:
 - **A: Deterministic from session metadata.** Title from task description; body from the list of pre-squash commit messages plus the agent summary.
