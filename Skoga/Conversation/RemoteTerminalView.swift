@@ -36,6 +36,11 @@ struct RemoteTerminalView: NSViewRepresentable {
         private weak var view: TerminalView?
         private var sessionId: String = ""
         private var client: DaemonClient?
+        /// Local event monitor that promotes the terminal to first responder
+        /// when the user clicks inside it. SwiftTerm's `mouseDown` overrides
+        /// selection handling but never makes itself first responder, so a
+        /// SwiftUI-hosted instance would otherwise never see keystrokes.
+        private var clickMonitor: Any?
         /// Consumes the daemon's PTY stream. Cancelling tears down the
         /// persistent JSONRPCClient connection — the daemon notices the
         /// drop and stops broadcasting to this subscriber.
@@ -52,15 +57,39 @@ struct RemoteTerminalView: NSViewRepresentable {
             self.view = view
             self.sessionId = sessionId
             self.client = client
+            installClickMonitor()
             // Stream open is deferred to the first `sizeChanged` delegate
             // callback so we hand the daemon real dimensions. SwiftUI's
             // first layout pass triggers that callback shortly after
             // `makeNSView` returns.
         }
 
+        private func installClickMonitor() {
+            guard clickMonitor == nil else { return }
+            clickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+                guard let self,
+                      let view = self.view,
+                      let window = view.window,
+                      event.window === window
+                else { return event }
+                let pointInView = view.convert(event.locationInWindow, from: nil)
+                if view.bounds.contains(pointInView), window.firstResponder !== view {
+                    window.makeFirstResponder(view)
+                }
+                return event
+            }
+        }
+
         private func openStreamIfNeeded(cols: UInt16, rows: UInt16) {
             guard !hasOpenedStream, cols > 0, rows > 0, let client else { return }
             hasOpenedStream = true
+            // First time we know the view is laid out AND in a window —
+            // claim first responder so the user's first keystroke after
+            // opening Native mode reaches the agent. (SwiftTerm's mouseDown
+            // handles subsequent click-to-focus via FocusableTerminalView.)
+            if let view, view.window?.firstResponder !== view {
+                view.window?.makeFirstResponder(view)
+            }
             let sid = sessionId
             streamTask?.cancel()
             streamTask = Task { [weak self] in
@@ -84,6 +113,7 @@ struct RemoteTerminalView: NSViewRepresentable {
             // Tear the consumer down on the way out. The Task may already
             // be ending if the view's been removed; cancel is idempotent.
             streamTask?.cancel()
+            if let m = clickMonitor { NSEvent.removeMonitor(m) }
         }
 
         private func consumeStream(
@@ -124,8 +154,38 @@ struct RemoteTerminalView: NSViewRepresentable {
         nonisolated func send(source: TerminalView, data: ArraySlice<UInt8>) {
             let payload = Data(data)
             Task { @MainActor [weak self] in
-                guard let self, let client = self.client else { return }
-                try? await client.ptyWrite(sessionId: self.sessionId, bytes: payload)
+                self?.enqueueWrite(payload)
+            }
+        }
+
+        /// Pending bytes waiting to ship to the daemon. We coalesce because
+        /// each keystroke arrives via its own `send` delegate call; without
+        /// coalescing, every keystroke spawns its own `ptyWrite` Task and
+        /// they race during the network await (the daemon dispatches them
+        /// in whatever order they land, scrambling input order — e.g.
+        /// "UN" becomes "NU"). A single flushing Task drains the buffer
+        /// in order, so multi-byte input is delivered as one tmux
+        /// `send-keys -H` invocation per network roundtrip.
+        private var pendingWriteBuffer = Data()
+        private var writeFlushing = false
+
+        private func enqueueWrite(_ bytes: Data) {
+            pendingWriteBuffer.append(bytes)
+            if !writeFlushing {
+                writeFlushing = true
+                Task { @MainActor [weak self] in
+                    await self?.flushWrites()
+                }
+            }
+        }
+
+        private func flushWrites() async {
+            defer { writeFlushing = false }
+            while !pendingWriteBuffer.isEmpty {
+                guard let client else { return }
+                let chunk = pendingWriteBuffer
+                pendingWriteBuffer.removeAll(keepingCapacity: true)
+                try? await client.ptyWrite(sessionId: sessionId, bytes: chunk)
             }
         }
 
