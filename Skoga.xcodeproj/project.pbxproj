@@ -22,6 +22,7 @@
 		661CD394C01C7CDCEA758DEE /* CommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1B80DC49DE0A5D893A17CB /* CommandPalette.swift */; };
 		696B8958E1B7D92FC04551DC /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F594D7BABF3680BF59BBE69 /* Theme.swift */; };
 		6EEEECFE96A849FA50EBB981 /* RosterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAC0B12748DBA520B86EA074 /* RosterView.swift */; };
+		73E10F6654C9374EC0A04E83 /* EmbeddedTUIChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6997044FC6F3201B3B5DFA7D /* EmbeddedTUIChrome.swift */; };
 		7580499EE0EB855F91C98963 /* DispatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732368285D5460AB08855A49 /* DispatchView.swift */; };
 		7812EB1D772C88A505B7488B /* StatusPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EAA1E89343E9FE80E819AE0 /* StatusPill.swift */; };
 		781F301DA5B2BD2BE473938D /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B7ADCECFD1E01D7C8FCCBFA /* AppState.swift */; };
@@ -58,6 +59,7 @@
 		5310DF4FE0BF1441CA5B5858 /* TitleBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleBar.swift; sourceTree = "<group>"; };
 		62CC800A856A8D28FA8CB11E /* Skoga.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Skoga.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		636564F61F4F65B4CC82B789 /* PRModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRModal.swift; sourceTree = "<group>"; };
+		6997044FC6F3201B3B5DFA7D /* EmbeddedTUIChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddedTUIChrome.swift; sourceTree = "<group>"; };
 		70C3CDA242BE7EF87A23DDD1 /* LiveDaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDaemonClient.swift; sourceTree = "<group>"; };
 		732368285D5460AB08855A49 /* DispatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DispatchView.swift; sourceTree = "<group>"; };
 		7B1B80DC49DE0A5D893A17CB /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
@@ -128,6 +130,7 @@
 			isa = PBXGroup;
 			children = (
 				CFAFBFFB8FA9968FD7AC98FF /* ConversationView.swift */,
+				6997044FC6F3201B3B5DFA7D /* EmbeddedTUIChrome.swift */,
 				A495BC418BAD2F865FEA74FC /* RemoteTerminalView.swift */,
 			);
 			path = Conversation;
@@ -343,6 +346,7 @@
 				303029A15B9017AA387563AB /* DaemonClient.swift in Sources */,
 				540A532678F1E33044D42AFF /* DaemonStatusBanner.swift in Sources */,
 				7580499EE0EB855F91C98963 /* DispatchView.swift in Sources */,
+				73E10F6654C9374EC0A04E83 /* EmbeddedTUIChrome.swift in Sources */,
 				BFF1C77E6332943D4D93EEA1 /* FilterRail.swift in Sources */,
 				4639FEBCD92E5073935BB33D /* JSONRPCConnection.swift in Sources */,
 				7F7DEE61027F4C8E7978EE88 /* LiveDaemonClient.swift in Sources */,

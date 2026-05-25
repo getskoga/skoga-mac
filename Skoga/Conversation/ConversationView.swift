@@ -41,8 +41,18 @@ struct ConversationView: View {
                     // into the SwiftTerm pane. `id(agent.id)` forces SwiftUI
                     // to rebuild the view (and therefore the byte stream
                     // subscription) when the user navigates between agents.
-                    RemoteTerminalView(sessionId: agent.id, client: state.client)
-                        .id(agent.id)
+                    // The chrome frames the terminal as its own "embedded
+                    // app" with traffic-light buttons + title bar, so it
+                    // reads as a distinct thing inside Skoga.
+                    EmbeddedTUIChrome(
+                        title: "\(agent.model) — \(agent.branch)",
+                        subtitle: agent.runtime
+                    ) {
+                        RemoteTerminalView(sessionId: agent.id, client: state.client)
+                            .id(agent.id)
+                    }
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 18)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
