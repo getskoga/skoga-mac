@@ -5,36 +5,39 @@ struct PRModal: View {
     @EnvironmentObject private var state: AppState
     let agent: Agent
 
-    @State private var title: String
-    @State private var bodyText: String
+    /// Title and body start empty and get populated once `skoga land
+    /// --preview` round-trips. The previous mock template (hardcoded
+    /// "## Summary / ## What changed / ## Tests") was at odds with the
+    /// CLI's actual default-message logic — pre-filling with what the
+    /// CLI would itself produce keeps the modal a true preview rather
+    /// than a parallel source of truth.
+    @State private var title: String = ""
+    @State private var bodyText: String = ""
+    @State private var phase: Phase = .loading
+    @State private var didCancelDismiss = false
 
-    init(agent: Agent) {
-        self.agent = agent
-        let cleanTitle = agent.task.hasSuffix(".") ? String(agent.task.dropLast()) : agent.task
-        _title = State(initialValue: cleanTitle)
-        _bodyText = State(initialValue: """
-        ## Summary
-        \(agent.task)
-
-        ## What changed
-        - Added `RefreshableScope` wrapper around the Stripe scope cache
-        - On 401 from Stripe, transparently re-issues against the current secret and retries once
-        - Removed stale 60s scope-token cache (made invalid by rotates)
-
-        ## Tests
-        - 11 new tests covering rotate-mid-flight + repeated 401s
-        - All `pnpm -w test auth` passing (57/57)
-
-        ## Notes
-        Co-authored-by: Skoga / \(agent.name) <\(agent.id)@agents.skoga.dev>
-        """)
+    /// Lifecycle phases for the modal. Drives the submit button (label /
+    /// disabled state), the inline error row, and whether the fields are
+    /// editable. `failed` keeps the user's edits — the error is shown
+    /// alongside an enabled Retry, not behind a wipe.
+    enum Phase: Equatable {
+        case loading
+        case ready
+        case submitting
+        case failed(String)
     }
 
     var body: some View {
         ZStack {
             p.modalScrim
                 .ignoresSafeArea()
-                .onTapGesture { state.prAgentId = nil }
+                .onTapGesture {
+                    // Tapping the scrim during an in-flight land would
+                    // strand the CLI subprocess — `skoga land` doesn't get
+                    // a SIGTERM from us closing the modal. Block dismissal
+                    // there until the call resolves.
+                    if phase != .submitting { state.prAgentId = nil }
+                }
 
             VStack(spacing: 0) {
                 head
@@ -51,6 +54,7 @@ struct PRModal: View {
             .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.modal))
             .shadow(color: .black.opacity(0.35), radius: 30, y: 20)
         }
+        .task { await loadPreview() }
     }
 
     private var head: some View {
@@ -211,44 +215,131 @@ struct PRModal: View {
     }
 
     private var foot: some View {
-        HStack(spacing: 8) {
-            Text("PR feedback will route back to \(agent.name) automatically.")
-                .font(SkogaFont.monoSmall(10.5))
-                .foregroundStyle(p.inkFaint)
-            Spacer()
-            Button {
-                state.prAgentId = nil
-            } label: {
-                Text("Cancel")
-                    .font(SkogaFont.smallMedium(11.5))
-                    .foregroundStyle(p.ink2)
-                    .padding(.horizontal, 12)
-                    .frame(height: 28)
-                    .background(
-                        RoundedRectangle(cornerRadius: Tokens.Radius.chip)
-                            .fill(p.paper)
-                            .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
-                    )
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                state.prAgentId = nil
-                state.showToast("Opened PR for \(agent.name). Routing review back to the agent.")
-            } label: {
-                HStack(spacing: 6) {
-                    Image(skoga: .github).skogaIconSize(12)
-                    Text("Open PR on GitHub").font(SkogaFont.bodyMedium(12))
+        VStack(spacing: 0) {
+            if case .failed(let msg) = phase {
+                // Cap the error block so a long stderr (e.g. a multi-line
+                // git failure) doesn't push the Cancel / Retry buttons
+                // off-screen. ScrollView preserves the full message —
+                // useful since CLI errors carry the actual diagnostic
+                // (e.g. "nothing to commit, working tree clean") that the
+                // user needs to act on.
+                ScrollView {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(skoga: .alert)
+                            .skogaIconSize(11)
+                            .foregroundStyle(p.ember)
+                            .padding(.top, 2)
+                        Text(msg)
+                            .font(SkogaFont.monoSmall(10.5))
+                            .foregroundStyle(p.ember)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 22).padding(.vertical, 10)
                 }
-                .padding(.horizontal, 14)
-                .frame(height: 28)
-                .foregroundStyle(.white)
-                .background(RoundedRectangle(cornerRadius: Tokens.Radius.chip).fill(p.forest))
+                .frame(maxHeight: 120)
+                .background(p.emberSoft.opacity(0.35))
+                .overlay(alignment: .top) { Hairline() }
             }
-            .buttonStyle(.plain)
+
+            HStack(spacing: 8) {
+                Text("PR feedback will route back to \(agent.name) automatically.")
+                    .font(SkogaFont.monoSmall(10.5))
+                    .foregroundStyle(p.inkFaint)
+                Spacer()
+                Button {
+                    state.prAgentId = nil
+                } label: {
+                    Text("Cancel")
+                        .font(SkogaFont.smallMedium(11.5))
+                        .foregroundStyle(p.ink2)
+                        .padding(.horizontal, 12)
+                        .frame(height: 28)
+                        .background(
+                            RoundedRectangle(cornerRadius: Tokens.Radius.chip)
+                                .fill(p.paper)
+                                .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(phase == .submitting)
+
+                Button {
+                    Task { await submit() }
+                } label: {
+                    HStack(spacing: 6) {
+                        if phase == .submitting {
+                            ProgressView()
+                                .controlSize(.small)
+                                .progressViewStyle(.circular)
+                                .tint(.white)
+                        } else {
+                            Image(skoga: .github).skogaIconSize(12)
+                        }
+                        Text(submitLabel).font(SkogaFont.bodyMedium(12))
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 28)
+                    .foregroundStyle(.white)
+                    .background(RoundedRectangle(cornerRadius: Tokens.Radius.chip).fill(p.forest))
+                    .opacity(submitDisabled ? 0.55 : 1)
+                }
+                .buttonStyle(.plain)
+                .disabled(submitDisabled)
+            }
+            .padding(.horizontal, 22).padding(.vertical, 14)
+            .background(p.paper2)
+            .overlay(alignment: .top) { Hairline() }
         }
-        .padding(.horizontal, 22).padding(.vertical, 14)
-        .background(p.paper2)
-        .overlay(alignment: .top) { Hairline() }
+    }
+
+    private var submitLabel: String {
+        switch phase {
+        case .submitting: return "Opening PR…"
+        case .failed:     return "Retry"
+        default:          return "Open PR on GitHub"
+        }
+    }
+
+    /// Disable Open PR while we don't yet have a real preview to send, or
+    /// while a land is in flight. We don't gate on title/body emptiness —
+    /// the CLI would reject an empty commit message anyway, and surfacing
+    /// the error inline (with the user's text preserved) is better than
+    /// silently disabling the button.
+    private var submitDisabled: Bool {
+        phase == .loading || phase == .submitting
+    }
+
+    private func loadPreview() async {
+        // Avoid re-fetching when the user retries — `phase` is already
+        // `.failed` and we keep their edits intact; only run on the very
+        // first appear or after an explicit cancel + reopen.
+        guard phase == .loading else { return }
+        do {
+            let preview = try await state.client.previewPR(for: agent.id)
+            title = preview.title
+            bodyText = preview.body
+            phase = .ready
+        } catch {
+            // Pre-fill from session.task as a best-effort fallback so the
+            // user can still type something into a useful starting state
+            // even if `--preview` failed (older CLI, no commits yet, etc.).
+            let clean = agent.task.hasSuffix(".") ? String(agent.task.dropLast()) : agent.task
+            if title.isEmpty { title = clean }
+            phase = .failed(error.localizedDescription)
+        }
+    }
+
+    private func submit() async {
+        phase = .submitting
+        do {
+            try await state.client.landPR(for: agent.id, title: title, body: bodyText)
+            state.prAgentId = nil
+            state.showToast("Opened PR for \(agent.name). Routing review back to the agent.")
+            await state.refresh()
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
     }
 }

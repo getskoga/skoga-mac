@@ -11,7 +11,7 @@ struct PulseDot: View {
         switch status {
         case .running:  p.amber
         case .blocked:  p.ember
-        case .review:   p.dusk
+        case .prOpen:   p.dusk
         case .done:     p.forest
         case .idle:     p.inkFaint
         case .stopping: p.ember

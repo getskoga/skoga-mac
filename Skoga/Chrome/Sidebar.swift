@@ -18,7 +18,7 @@ struct Sidebar: View {
             NavItem(icon: .dispatch,  label: "Dispatch",  count: nil, active: state.view == .dispatch) {
                 state.view = .dispatch; state.openAgentId = nil
             }
-            NavItem(icon: .review,    label: "Review",    count: "\(state.counts.review)", active: state.view == .review) {
+            NavItem(icon: .review,    label: "Review",    count: "\(state.counts.prOpen)", active: state.view == .review) {
                 state.view = .review; state.openAgentId = nil
             }
             NavItem(icon: .telemetry, label: "Telemetry", count: nil, active: state.view == .telemetry) {

@@ -17,7 +17,7 @@ final class AppState: ObservableObject {
     @Published var commandPaletteOpen: Bool = false
 
     // ── Filters ──────────────────────────────────────────────
-    enum Filter: String, CaseIterable, Hashable { case all, running, blocked, review, done, idle, stopping, exited }
+    enum Filter: String, CaseIterable, Hashable { case all, running, blocked, prOpen, done, idle, stopping, exited }
     @Published var filter: Filter = .all
     @Published var query: String = ""
 
@@ -249,7 +249,7 @@ final class AppState: ObservableObject {
         let total: Int
         let running: Int
         let blocked: Int
-        let review: Int
+        let prOpen: Int
         let done: Int
         let idle: Int
         let stopping: Int
@@ -262,7 +262,7 @@ final class AppState: ObservableObject {
             total:    agents.count,
             running:  agents.filter { $0.status == .running  }.count,
             blocked:  agents.filter { $0.status == .blocked  }.count,
-            review:   agents.filter { $0.status == .review   }.count,
+            prOpen:   agents.filter { $0.status == .prOpen   }.count,
             done:     agents.filter { $0.status == .done     }.count,
             idle:     agents.filter { $0.status == .idle     }.count,
             stopping: agents.filter { $0.status == .stopping }.count,
@@ -296,7 +296,7 @@ final class AppState: ObservableObject {
         case .roster:       "Roster · \(counts.total) agents"
         case .conversation: openAgent.map { "1:1 with \($0.name)" } ?? "Conversation"
         case .dispatch:     "Dispatch · new run"
-        case .review:       "Review · \(counts.review) ready"
+        case .review:       "Review · \(counts.prOpen) open"
         case .telemetry:    "Telemetry"
         }
     }

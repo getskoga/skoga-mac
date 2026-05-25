@@ -4,8 +4,14 @@ struct ReviewView: View {
     @Environment(\.palette) private var p
     @EnvironmentObject private var state: AppState
 
+    /// Review surface = agents with a PR open on GitHub. We *intentionally*
+    /// don't list agents that the manager hasn't landed yet — there's no
+    /// reliable "agent thinks it's done" signal, and surfacing every idle
+    /// run here would bury the things that actually need a reviewer's eye.
+    /// Manager-driven: the moment `skoga land` succeeds and `prUrl` lands
+    /// on the session, the card shows up here.
     private var inReview: [Agent] {
-        state.agents.filter { $0.status == .review }
+        state.agents.filter { $0.prUrl != nil }
     }
 
     var body: some View {
@@ -14,7 +20,7 @@ struct ReviewView: View {
                 Text("Up for review")
                     .font(SkogaFont.serifTitle(26))
                     .foregroundStyle(p.ink)
-                Text("These agents finished their runs. Open as PRs on GitHub — review feedback loops back to the agent.")
+                Text("Agents with an open pull request. Review feedback loops back to the agent automatically.")
                     .font(SkogaFont.body(13))
                     .foregroundStyle(p.inkMute)
                     .lineSpacing(13 * 0.5)

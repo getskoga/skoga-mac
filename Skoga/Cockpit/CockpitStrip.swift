@@ -35,10 +35,10 @@ struct CockpitStrip: View {
 
             Instrument(
                 label: "Up for review",
-                value: "\(counts.review)",
+                value: "\(counts.prOpen)",
                 unit: "PRs",
                 sub: "avg age 1h 12m",
-                dot: .review,
+                dot: .prOpen,
                 attention: false
             )
 

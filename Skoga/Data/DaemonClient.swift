@@ -73,6 +73,30 @@ protocol DaemonClient: AnyObject {
     /// Push a SwiftTerm view-size change down to the agent's tmux pane so
     /// the TUI re-lays out. Cheap — issue per resize event.
     func ptyResize(sessionId: String, cols: UInt16, rows: UInt16) async throws
+
+    /// Ask the CLI what title + body it would use for this session's PR if
+    /// `skoga land` ran right now. Used to pre-fill the PR modal so the user
+    /// edits real defaults instead of placeholder text. Shells out to
+    /// `skoga land <id> --preview`, which is read-only — no git, no daemon
+    /// writes, no audit emission.
+    func previewPR(for sessionId: String) async throws -> PRPreview
+
+    /// Drive a full `skoga land <id> --title ... --body ... --yes` flow:
+    /// squash, rebase, push, open PR via `gh`. The Mac app deliberately
+    /// shells out to the CLI rather than reimplementing the flow in Swift —
+    /// the architecture explicitly keeps git/gh side effects in the CLI
+    /// process (it inherits the dev's TTY, credentials, and gh auth).
+    /// Throws on any pre-flight failure (no commits, conflicts) or push/PR
+    /// failure. On success the session's `landed_pr_url` is set by the
+    /// daemon; callers refresh to see it.
+    func landPR(for sessionId: String, title: String, body: String) async throws
+}
+
+/// CLI-derived PR title + body used to pre-fill the PR modal. Mirrors the
+/// stdout shape of `skoga land --preview` (`{session_id, title, body}`).
+struct PRPreview: Equatable {
+    let title: String
+    let body: String
 }
 
 /// Whether the app has a live connection to skogad. Drives the banner shown

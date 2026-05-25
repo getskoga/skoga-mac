@@ -122,20 +122,46 @@ private struct ConvHeader: View {
         .overlay(alignment: .bottom) { Hairline() }
     }
 
+    /// Header buttons are decoupled from `agent.status` so the manager can
+    /// always reach for "Open as PR" regardless of what state the agent is in.
+    /// The only gating fact is whether a PR already exists for this session
+    /// (`prUrl != nil`) — when one does we swap the CTA for "View PR on
+    /// GitHub" so a second click doesn't try to re-land.
+    ///
+    /// Pause/Stop ride alongside while the agent has work to interrupt
+    /// (`.running` / `.blocked` / `.idle` / `.stopping`). Terminal states
+    /// (`.exited`, `.done`) omit them — there's nothing left to pause.
     @ViewBuilder private var actionButtons: some View {
         HStack(spacing: 8) {
-            switch agent.status {
-            case .review:
+            if let url = agent.prUrl {
+                GhostPillButton(label: "View PR on GitHub", icon: .github) {
+                    openPRURL(url)
+                }
+            } else {
+                if hasRunControls {
+                    GhostPillButton(label: "Pause", icon: .pause) {}
+                    GhostPillButton(label: "Stop", icon: .stop, color: p.ember) {}
+                }
                 PrimaryButton(label: "Open as PR", icon: .github, tint: .forest) {
                     state.prAgentId = agent.id
                 }
-            case .done:
-                GhostPillButton(label: "Already open", icon: .github) {}
-            default:
-                GhostPillButton(label: "Pause", icon: .pause) {}
-                GhostPillButton(label: "Stop", icon: .stop, color: p.ember) {}
             }
         }
+    }
+
+    private var hasRunControls: Bool {
+        switch agent.status {
+        case .running, .blocked, .idle, .stopping: true
+        case .prOpen, .done, .exited:              false
+        }
+    }
+
+    /// Open the PR's GitHub URL in the user's default browser. Mock seed
+    /// uses "#" as a placeholder — skip the open when we'd otherwise hand
+    /// `NSWorkspace` a garbage URL.
+    private func openPRURL(_ url: String) {
+        guard url != "#", let parsed = URL(string: url) else { return }
+        NSWorkspace.shared.open(parsed)
     }
 }
 

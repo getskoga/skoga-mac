@@ -129,6 +129,116 @@ final class LiveDaemonClient: DaemonClient {
     nonisolated func events() -> AsyncStream<RPCEvent> {
         rpc.eventStream()
     }
+
+    func previewPR(for sessionId: String) async throws -> PRPreview {
+        let out = try await runSkoga(args: ["land", sessionId, "--preview"])
+        let trimmed = out.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let data = trimmed.data(using: .utf8) else {
+            throw SkogaCLIError.unexpectedOutput("preview returned non-utf8 output")
+        }
+        let payload = try JSONDecoder().decode(SkogaLandPreviewPayload.self, from: data)
+        return PRPreview(title: payload.title, body: payload.body)
+    }
+
+    func landPR(for sessionId: String, title: String, body: String) async throws {
+        // `--yes` skips the confirm prompt. Title/body win over the CLI's
+        // default-message derivation, so the modal's edits make it all the
+        // way through the squash + push + gh-pr-create pipeline.
+        _ = try await runSkoga(args: [
+            "land", sessionId,
+            "--title", title,
+            "--body", body,
+            "--yes",
+        ])
+    }
+
+    /// Spawn `skoga <args>`, await termination, capture stdout. Stderr is
+    /// folded into the error message on failure so the user sees the same
+    /// preflight-failure / conflict text the terminal would surface.
+    private nonisolated func runSkoga(args: [String]) async throws -> String {
+        guard let bin = LiveDaemonClient.resolveSkogaBinary() else {
+            throw SkogaCLIError.binaryNotFound
+        }
+        let process = Process()
+        process.executableURL = bin
+        process.arguments = args
+        let outPipe = Pipe()
+        let errPipe = Pipe()
+        process.standardOutput = outPipe
+        process.standardError = errPipe
+
+        return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<String, Error>) in
+            process.terminationHandler = { p in
+                let outData = (try? outPipe.fileHandleForReading.readToEnd()) ?? nil ?? Data()
+                let errData = (try? errPipe.fileHandleForReading.readToEnd()) ?? nil ?? Data()
+                let stdout = String(data: outData, encoding: .utf8) ?? ""
+                let stderr = String(data: errData, encoding: .utf8) ?? ""
+                if p.terminationStatus == 0 {
+                    cont.resume(returning: stdout)
+                } else {
+                    let detail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+                    cont.resume(throwing: SkogaCLIError.commandFailed(
+                        status: p.terminationStatus,
+                        stderr: detail.isEmpty ? stdout : detail
+                    ))
+                }
+            }
+            do {
+                try process.run()
+            } catch {
+                cont.resume(throwing: error)
+            }
+        }
+    }
+
+    /// Find an installed `skoga` binary. Checked at call-time rather than
+    /// cached at boot because the user may install the CLI while the app
+    /// is already running. The order matches the priority `which skoga`
+    /// would return for a default zsh PATH on macOS dev machines.
+    private nonisolated static func resolveSkogaBinary() -> URL? {
+        let candidates = [
+            "\(NSHomeDirectory())/.cargo/bin/skoga",
+            "/opt/homebrew/bin/skoga",
+            "/usr/local/bin/skoga",
+            "/usr/bin/skoga",
+        ]
+        let fm = FileManager.default
+        for path in candidates where fm.isExecutableFile(atPath: path) {
+            return URL(fileURLWithPath: path)
+        }
+        return nil
+    }
+}
+
+/// Failure modes for `skoga <verb>` shell-outs from the Mac app. Surfaced
+/// to the user via toasts / modal error states — they're the only useful
+/// signal when the CLI fails inside a non-interactive run.
+enum SkogaCLIError: LocalizedError {
+    case binaryNotFound
+    case commandFailed(status: Int32, stderr: String)
+    case unexpectedOutput(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .binaryNotFound:
+            return "Couldn't find the `skoga` CLI on disk. Install it (e.g. `cargo install --path crates/skoga-cli`) and try again."
+        case .commandFailed(let status, let stderr):
+            let detail = stderr.isEmpty ? "no stderr output" : stderr
+            return "skoga exited \(status): \(detail)"
+        case .unexpectedOutput(let msg):
+            return msg
+        }
+    }
+}
+
+/// Decodes the JSON payload `skoga land --preview` writes to stdout. The
+/// CLI emits a single line with `session_id`, `title`, and `body`; we
+/// ignore `session_id` (the caller already knows which session it asked
+/// about) but decode it for forward compatibility.
+private struct SkogaLandPreviewPayload: Decodable {
+    let session_id: String
+    let title: String
+    let body: String
 }
 
 // MARK: – RPCSession → Agent
@@ -208,7 +318,7 @@ private extension AgentStatus {
             // because the user can't just "send another message" to wake it.
             self = .exited
         case .prOpen, .prMerged, .shipping:
-            self = .review
+            self = .prOpen
         case .done:
             self = .done
         }

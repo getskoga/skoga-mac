@@ -26,7 +26,7 @@ struct FilterRail: View {
             divider
             chip(.blocked, label: "Blocked", dot: .blocked)
             divider
-            chip(.review,  label: "Review",  dot: .review)
+            chip(.prOpen,  label: "PR open", dot: .prOpen)
             divider
             chip(.done,    label: "Done",    dot: .done)
             divider
@@ -54,7 +54,7 @@ struct FilterRail: View {
             case .all: state.counts.total
             case .running: state.counts.running
             case .blocked: state.counts.blocked
-            case .review: state.counts.review
+            case .prOpen: state.counts.prOpen
             case .done: state.counts.done
             case .idle: state.counts.idle
             case .stopping: state.counts.stopping
