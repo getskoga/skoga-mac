@@ -113,6 +113,20 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Deliver a composed reply to the running agent. The daemon pastes it
+    /// into the agent's tmux pane; the message will surface in the feed on
+    /// the next conversation poll (a few seconds), since the transcript
+    /// jsonl is the source of truth for what's displayed.
+    func sendReply(to agentId: String, text: String) async {
+        do {
+            try await client.sendInput(sessionId: agentId, text: text)
+            let name = agents.first(where: { $0.id == agentId })?.name ?? "agent"
+            showToast("Sent to \(name).")
+        } catch {
+            showToast("Send failed: \(describe(error))")
+        }
+    }
+
     private func startEventLoop() {
         let stream = client.events()
         Task { [weak self] in

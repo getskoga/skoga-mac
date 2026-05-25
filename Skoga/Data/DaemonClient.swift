@@ -26,6 +26,13 @@ protocol DaemonClient: AnyObject {
     /// asynchronously; subscribers see the `session.killed` event when done.
     func killSession(id: String) async throws
 
+    /// Push a follow-up user message to a running agent (`session.send_input`).
+    /// The daemon pastes `text` into the agent's tmux pane via bracketed
+    /// paste — multi-line input arrives at Claude as one paste event. Throws
+    /// when the session is unknown, mid-teardown, or the agent's tmux pane
+    /// is gone (process crashed / never launched).
+    func sendInput(sessionId: String, text: String) async throws
+
     /// Push notification stream from `events.subscribe`. Implementations that
     /// can't subscribe (mock, offline) return an empty stream that completes
     /// immediately so consumers fall back to polling.

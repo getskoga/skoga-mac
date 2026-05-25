@@ -118,6 +118,19 @@ struct SessionKillResponse: Decodable {
     let session: RPCSession
 }
 
+struct SessionSendInputParams: Encodable {
+    let id: String
+    /// Free-form text the daemon will paste into the agent's tmux pane
+    /// (bracketed paste + Enter). Mirrors the `skoga revise` delivery path,
+    /// so multi-line replies arrive at Claude as one paste event rather
+    /// than a sequence of per-line submissions.
+    let text: String
+}
+
+struct SessionSendInputResponse: Decodable {
+    let session: RPCSession
+}
+
 /// Lightweight model of the `events.event` notification payload. Only the
 /// fields we route on; the rest of the audit Event schema can be ignored
 /// because we treat any event as a "refetch sessions" trigger.

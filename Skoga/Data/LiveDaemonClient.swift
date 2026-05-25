@@ -71,6 +71,17 @@ final class LiveDaemonClient: DaemonClient {
         let _: SessionKillResponse = try await rpc.call("session.kill", params: params)
     }
 
+    func sendInput(sessionId: String, text: String) async throws {
+        // Older daemons (pre-`session.send_input`) return METHOD_NOT_FOUND.
+        // We let that propagate as a JSONRPCError so the AppState shows the
+        // user a real toast rather than the silent stub the composer used
+        // to be. The Mac app's distribution will require a matching daemon
+        // version anyway — gating this on an Optional dance would mask the
+        // version mismatch instead of surfacing it.
+        let params = AnyEncodable(SessionSendInputParams(id: sessionId, text: text))
+        let _: SessionSendInputResponse = try await rpc.call("session.send_input", params: params)
+    }
+
     /// Forwards every `events.event` notification to the caller. The consumer
     /// is expected to debounce + refetch — payloads are too heterogeneous to
     /// apply incrementally and a full `session.list` is cheap.

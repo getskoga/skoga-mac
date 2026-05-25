@@ -406,8 +406,9 @@ private struct ConvComposer: View {
     private func sendReply() {
         let trimmed = state.pendingReply.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        let agentId = agent.id
         state.pendingReply = ""
-        state.showToast("Sent to \(agent.name).")
+        Task { await state.sendReply(to: agentId, text: trimmed) }
     }
 }
 

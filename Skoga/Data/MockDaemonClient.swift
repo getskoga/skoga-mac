@@ -35,6 +35,11 @@ final class MockDaemonClient: DaemonClient {
         // No-op.
     }
 
+    func sendInput(sessionId: String, text: String) async throws {
+        // No-op. Mock mode has no real agent to forward to; succeeding
+        // silently lets designers exercise the composer end-to-end.
+    }
+
     nonisolated func events() -> AsyncStream<RPCEvent> {
         AsyncStream { $0.finish() }
     }
