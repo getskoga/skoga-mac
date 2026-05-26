@@ -197,14 +197,25 @@ final class LiveDaemonClient: DaemonClient {
         guard let worktree = session.worktree, !worktree.isEmpty else {
             throw SkogaCLIError.unexpectedOutput("session \(sessionId) has no worktree path")
         }
+        // Refresh `origin/<base>` before computing the merge-base. The
+        // worktree's remote-tracking ref is only as fresh as the last
+        // `git fetch` — if upstream has merged PRs since the session
+        // forked but the user hasn't fetched, the three-dot diff below
+        // sweeps in every one of those merged commits and Claude drafts
+        // a message describing work the session didn't actually do. Fail
+        // soft: a fetch error (offline, slow remote) shouldn't sink the
+        // preview, so we fall through to whatever ref the worktree
+        // already has cached.
+        _ = try? await runGit(
+            args: ["fetch", "--quiet", "--no-tags", "--no-recurse-submodules",
+                   "origin", session.base],
+            cwd: worktree
+        )
         // `origin/<base>...HEAD` is the read-only equivalent of what the
         // CLI feeds Claude. The CLI rebases onto target + `reset --soft
         // merge_base` + `diff --cached`; we can't mutate the worktree for
         // a preview, so we use three-dot diff (which is `merge-base(...)
-        // → HEAD`) directly. If `origin/<base>` has moved since the
-        // session last rebased, the actual landed diff will include
-        // upstream churn this preview doesn't — acceptable for the modal
-        // pre-fill since the user reviews the message before landing.
+        // → HEAD`) directly.
         let diff = try await runGit(
             args: ["diff", "origin/\(session.base)...HEAD"],
             cwd: worktree
