@@ -15,7 +15,12 @@ import SwiftUI
 ///    the daemon reports authenticated.
 /// 5. authenticated → green "Signed in" row + scopes + default
 ///    reviewer editor.
-struct SettingsView: View {
+///
+/// Mounted by `SettingsShell` when the GitHub row is selected. The
+/// per-section `.task` re-fires every time the user navigates here, so
+/// switching to another section and back nudges a fresh `gh auth
+/// status` round-trip without waiting on a periodic poll.
+struct GitHubSettingsSection: View {
     @Environment(\.palette) private var p
     @Environment(\.openURL) private var openURL
     @Environment(AppCoordinator.self) private var coordinator
@@ -25,17 +30,10 @@ struct SettingsView: View {
     @State private var showingSignIn = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                header
-                githubSection
-                    .padding(.top, 22)
-            }
-            .padding(.horizontal, 28).padding(.top, 28).padding(.bottom, 28)
-            .frame(maxWidth: 720, alignment: .leading)
+        VStack(alignment: .leading, spacing: 18) {
+            header
+            githubCard
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(p.paper)
         .task { await daemon.refreshGitHubStatus() }
         .sheet(isPresented: $showingSignIn) {
             GitHubSignInSheet { showingSignIn = false }
@@ -47,24 +45,25 @@ struct SettingsView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Settings")
-                .font(SkogaFont.serifTitle(26))
-                .foregroundStyle(p.ink)
-            Text("Manager preferences. These persist to the skogad config so they follow you across machines.")
+            HStack(spacing: 10) {
+                Image(skoga: .github).skogaIconSize(15)
+                    .foregroundStyle(p.ink2)
+                Text("GitHub")
+                    .font(SkogaFont.serifTitle(24))
+                    .foregroundStyle(p.ink)
+            }
+            Text("Used by Open as PR to push branches and open pull requests.")
                 .font(SkogaFont.body(13))
                 .foregroundStyle(p.inkMute)
-                .lineSpacing(13 * 0.5)
+                .lineSpacing(13 * 0.45)
                 .frame(maxWidth: 540, alignment: .leading)
         }
     }
 
-    // MARK: – GitHub section
+    // MARK: – GitHub card
 
-    private var githubSection: some View {
+    private var githubCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("GitHub", subtitle: "Used by Open as PR to push branches and open pull requests.")
-                .padding(.bottom, 14)
-
             // Priority order matters here: daemon-unsupported wins over a
             // missing status because the latter is a *consequence* of the
             // former. Likewise, a transport error with no cached status
@@ -97,20 +96,6 @@ struct SettingsView: View {
                 .stroke(p.rule, lineWidth: Tokens.Hairline.width)
         )
         .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card))
-    }
-
-    private func sectionHeader(_ title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 10) {
-                Image(skoga: .github).skogaIconSize(14).foregroundStyle(p.ink2)
-                Text(title)
-                    .font(SkogaFont.serifHeading(18))
-                    .foregroundStyle(p.ink)
-            }
-            Text(subtitle)
-                .font(SkogaFont.body(12))
-                .foregroundStyle(p.inkMute)
-        }
     }
 
     private var loadingRow: some View {

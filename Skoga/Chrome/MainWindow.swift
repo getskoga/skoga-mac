@@ -86,8 +86,6 @@ struct MainWindow: View {
                 ReviewView()
             case .telemetry:
                 TelemetryView()
-            case .settings:
-                SettingsView()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

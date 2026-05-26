@@ -32,5 +32,23 @@ struct SkogaApp: App {
                     .keyboardShortcut("k", modifiers: .command)
             }
         }
+
+        // Dedicated Settings scene. `Settings { }` auto-wires the
+        // "Settings…" app-menu item with the canonical ⌘, shortcut and
+        // gives us a singleton window — reopening from the gear or the
+        // command palette re-uses the existing one instead of spawning
+        // duplicates. All slices are injected so sections can read
+        // `daemon.githubStatus`, call `coordinator.setDefaultReviewer`,
+        // and route toasts through `modal.showToast`.
+        Settings {
+            SettingsShell()
+                .environment(coordinator)
+                .environment(coordinator.roster)
+                .environment(coordinator.conversation)
+                .environment(coordinator.modal)
+                .environment(coordinator.daemon)
+                .withPalette()
+        }
+        .windowResizability(.contentMinSize)
     }
 }

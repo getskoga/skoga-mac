@@ -7,6 +7,7 @@ struct TitleBar: View {
     @Environment(\.palette) private var p
     @Environment(AppCoordinator.self) private var coordinator
     @Environment(ModalState.self) private var modal
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         ZStack {
@@ -41,8 +42,8 @@ struct TitleBar: View {
                     modal.commandPaletteOpen = true
                 }
                 GhostIconButton(icon: .watch) {}
-                GhostIconButton(icon: .settings, active: modal.view == .settings) {
-                    coordinator.navigate(to: .settings)
+                GhostIconButton(icon: .settings) {
+                    openSettings()
                 }
             }
             .padding(.trailing, 14)

@@ -5,6 +5,7 @@ struct CommandPalette: View {
     @Environment(AppCoordinator.self) private var coordinator
     @Environment(RosterState.self) private var roster
     @Environment(ModalState.self) private var modal
+    @Environment(\.openSettings) private var openSettings
 
     @State private var query: String = ""
     @FocusState private var focused: Bool
@@ -138,7 +139,7 @@ struct CommandPalette: View {
                 coordinator.navigate(to: .telemetry)
             },
             .init(id: "settings", label: "Open Settings", icon: .settings) {
-                coordinator.navigate(to: .settings)
+                openSettings()
             },
         ]
     }
