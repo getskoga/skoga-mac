@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AgentCard: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(AppCoordinator.self) private var coordinator
     let agent: Agent
     let onPick: () -> Void
 
@@ -39,7 +39,7 @@ struct AgentCard: View {
         .onHover { hovering = $0 }
         .contextMenu {
             Button("Kill session", role: .destructive) {
-                Task { await state.kill(agentId: agent.id) }
+                Task { await coordinator.kill(agentId: agent.id) }
             }
         }
     }

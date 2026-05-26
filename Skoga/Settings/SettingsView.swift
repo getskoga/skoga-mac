@@ -2,9 +2,9 @@ import SwiftUI
 
 /// Settings → GitHub. The current scope is narrow on purpose (just `gh`
 /// auth + default reviewer); other sections will land here as the daemon
-/// grows config knobs. Reads `state.githubStatus` for the current truth
-/// and shells back through AppState for both reads (refresh) and the one
-/// write (default reviewer).
+/// grows config knobs. Reads `daemon.githubStatus` for the current truth,
+/// hits `daemon.refreshGitHubStatus()` for re-reads, and hands writes
+/// (default reviewer) back through the coordinator so they can toast.
 ///
 /// Rendered states (in priority order):
 /// 1. daemon doesn't speak `github.status` → upgrade-skogad CTA.
@@ -18,7 +18,9 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.palette) private var p
     @Environment(\.openURL) private var openURL
-    @Environment(AppState.self) private var state
+    @Environment(AppCoordinator.self) private var coordinator
+    @Environment(DaemonClientHolder.self) private var daemon
+    @Environment(ModalState.self) private var modal
 
     @State private var showingSignIn = false
 
@@ -34,10 +36,12 @@ struct SettingsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(p.paper)
-        .task { await state.refreshGitHubStatus() }
+        .task { await daemon.refreshGitHubStatus() }
         .sheet(isPresented: $showingSignIn) {
             GitHubSignInSheet { showingSignIn = false }
-                .environment(state)
+                .environment(coordinator)
+                .environment(daemon)
+                .environment(modal)
         }
     }
 
@@ -66,11 +70,11 @@ struct SettingsView: View {
             // former. Likewise, a transport error with no cached status
             // wins over the loading spinner — sitting on "Checking gh
             // status…" forever is worse than a clear failure.
-            if state.githubDaemonUnsupported {
+            if daemon.githubDaemonUnsupported {
                 daemonUnsupportedRow
-            } else if state.githubStatus == nil, let err = state.githubStatusError {
+            } else if daemon.githubStatus == nil, let err = daemon.githubStatusError {
                 errorRow(err)
-            } else if let s = state.githubStatus {
+            } else if let s = daemon.githubStatus {
                 if !s.installed {
                     notInstalledRow
                 } else if !s.authenticated {
@@ -126,7 +130,7 @@ struct SettingsView: View {
             headline: "Skoga daemon is too old",
             detail: "This skogad build doesn't speak `github.status` yet. Upgrade the daemon to enable Settings → GitHub.",
             cta: .init(label: "Re-check", icon: .loop) {
-                Task { await state.refreshGitHubStatus() }
+                Task { await daemon.refreshGitHubStatus() }
             },
             secondary: nil
         )
@@ -138,7 +142,7 @@ struct SettingsView: View {
             headline: "Couldn't reach the daemon",
             detail: message,
             cta: .init(label: "Retry", icon: .loop) {
-                Task { await state.refreshGitHubStatus() }
+                Task { await daemon.refreshGitHubStatus() }
             },
             secondary: nil
         )
@@ -153,7 +157,7 @@ struct SettingsView: View {
                 if let url = URL(string: "https://cli.github.com/") { openURL(url) }
             },
             secondary: .init(label: "Re-check", icon: .loop) {
-                Task { await state.refreshGitHubStatus() }
+                Task { await daemon.refreshGitHubStatus() }
             }
         )
     }
@@ -167,7 +171,7 @@ struct SettingsView: View {
                 showingSignIn = true
             },
             secondary: .init(label: "Re-check", icon: .loop) {
-                Task { await state.refreshGitHubStatus() }
+                Task { await daemon.refreshGitHubStatus() }
             }
         )
     }
@@ -198,7 +202,7 @@ struct SettingsView: View {
                     copyAndToastSignOutCommand()
                 }
                 secondaryButton(label: "Re-check", icon: .loop) {
-                    Task { await state.refreshGitHubStatus() }
+                    Task { await daemon.refreshGitHubStatus() }
                 }
             }
         }
@@ -270,7 +274,7 @@ struct SettingsView: View {
         let command = "gh auth logout --hostname github.com"
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(command, forType: .string)
-        state.showToast("Copied `\(command)` — run it in your terminal.")
+        modal.showToast("Copied `\(command)` — run it in your terminal.")
     }
 
     // MARK: – Generic status row
@@ -351,12 +355,13 @@ struct SettingsView: View {
 
 /// Local editor for the default reviewer so the field can track its own
 /// dirty state and surface a Save / Revert pair without firing on every
-/// keystroke. Lifting `value` into AppState would round-trip a daemon
+/// keystroke. Lifting `value` into a shared slice would round-trip a daemon
 /// write on every keypress, which is both wasteful and surprising — the
 /// PR modal would update mid-typing.
 private struct DefaultReviewerEditor: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(AppCoordinator.self) private var coordinator
+    @Environment(DaemonClientHolder.self) private var daemon
 
     /// Persisted baseline at mount time (or last successful save). The
     /// dirty flag is computed against this — keep it frozen while the
@@ -457,7 +462,7 @@ private struct DefaultReviewerEditor: View {
         // landed mid-edit — the UNSAVED chip would disappear and Save
         // would no-op against the new baseline. Hold the baseline
         // frozen until the user finishes (or reverts).
-        .onChange(of: state.githubStatus?.default_reviewer) { _, newValue in
+        .onChange(of: daemon.githubStatus?.default_reviewer) { _, newValue in
             let resolved = newValue ?? ""
             guard !saving, draft == persisted else { return }
             draft = resolved
@@ -470,12 +475,12 @@ private struct DefaultReviewerEditor: View {
         saving = true
         defer { saving = false }
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        await state.setDefaultReviewer(trimmed)
-        // setDefaultReviewer updates state.githubStatus; mirror it here
+        await coordinator.setDefaultReviewer(trimmed)
+        // setDefaultReviewer updates daemon.githubStatus; mirror it here
         // so the dirty flag clears without waiting for onChange (which
         // fires asynchronously and can leave a stale "UNSAVED" chip up
         // for a frame).
-        persisted = state.githubStatus?.default_reviewer ?? ""
+        persisted = daemon.githubStatus?.default_reviewer ?? ""
         draft = persisted
     }
 }
@@ -495,7 +500,9 @@ private struct DefaultReviewerEditor: View {
 /// change.
 private struct GitHubSignInSheet: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(AppCoordinator.self) private var coordinator
+    @Environment(DaemonClientHolder.self) private var daemon
+    @Environment(ModalState.self) private var modal
     let dismiss: () -> Void
 
     @State private var pollTask: Task<Void, Never>?
@@ -518,19 +525,19 @@ private struct GitHubSignInSheet: View {
             // (no transition). Dismiss immediately so the user doesn't
             // see a confusing "Sign in" sheet over an already-green
             // Settings row.
-            if state.githubStatus?.authenticated == true {
+            if daemon.githubStatus?.authenticated == true {
                 dismiss()
                 return
             }
             startPolling()
         }
         .onDisappear { pollTask?.cancel() }
-        .onChange(of: state.githubStatus?.authenticated) { _, authed in
+        .onChange(of: daemon.githubStatus?.authenticated) { _, authed in
             // The daemon's reply landed authenticated — drop the sheet.
             // Toast left to the user's eyes; the Settings row will flip
             // to the green "Signed in" state on the same tick.
             if authed == true {
-                state.showToast("Signed in to GitHub as @\(state.githubStatus?.login ?? "—").")
+                modal.showToast("Signed in to GitHub as @\(daemon.githubStatus?.login ?? "—").")
                 dismiss()
             }
         }
@@ -696,9 +703,9 @@ private struct GitHubSignInSheet: View {
     /// doesn't appear to do nothing. (The auth-success path is handled
     /// by the existing `onChange` toast + dismiss.)
     private func checkNow() async {
-        await state.refreshGitHubStatus()
-        if state.githubStatus?.authenticated != true {
-            state.showToast("Still not signed in. Finish `gh auth login` in your terminal.")
+        await daemon.refreshGitHubStatus()
+        if daemon.githubStatus?.authenticated != true {
+            modal.showToast("Still not signed in. Finish `gh auth login` in your terminal.")
         }
     }
 
@@ -712,7 +719,7 @@ private struct GitHubSignInSheet: View {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
                 if Task.isCancelled { break }
-                await state.refreshGitHubStatus()
+                await daemon.refreshGitHubStatus()
             }
         }
     }

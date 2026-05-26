@@ -8,8 +8,12 @@
 
 /* Begin PBXBuildFile section */
 		0440F79167C3EF08AEAB6DE2 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7A3CA26832995CEBDFEED8 /* Tokens.swift */; };
+		0904869BDE0C1F4B33955791 /* AppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B94EED290C1327115DD4B695 /* AppView.swift */; };
 		0E1FEB24354422C20E477006 /* SkogaRPC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DE9B05F7B39ED2F2A214B4 /* SkogaRPC.swift */; };
 		10F388F0EA51E3ADE2CC0FD2 /* SkogaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E6D30C0F5B11763748C1C22 /* SkogaApp.swift */; };
+		1CF54B406250832E21C31E97 /* AppCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B0745A9572FDACC189EA67 /* AppCoordinator.swift */; };
+		1DB2F6B713694BF8E9F4B4D1 /* ConversationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57085F2BA9C6FA7F771E84EC /* ConversationState.swift */; };
+		2144EFB928D43BAB7EEC4CE7 /* DaemonClientHolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02B5BC02C8B2A6EEF79DFFD /* DaemonClientHolder.swift */; };
 		24FB5C42B6D8667D132CE1CD /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA33B6515A779BB69660B110 /* Conversation.swift */; };
 		303029A15B9017AA387563AB /* DaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3CC5FADA740026853822A19 /* DaemonClient.swift */; };
 		31BC5CD04C1B7237C7B5CB6E /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFAFBFFB8FA9968FD7AC98FF /* ConversationView.swift */; };
@@ -27,7 +31,6 @@
 		73E10F6654C9374EC0A04E83 /* EmbeddedTUIChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6997044FC6F3201B3B5DFA7D /* EmbeddedTUIChrome.swift */; };
 		7580499EE0EB855F91C98963 /* DispatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732368285D5460AB08855A49 /* DispatchView.swift */; };
 		7812EB1D772C88A505B7488B /* StatusPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EAA1E89343E9FE80E819AE0 /* StatusPill.swift */; };
-		781F301DA5B2BD2BE473938D /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B7ADCECFD1E01D7C8FCCBFA /* AppState.swift */; };
 		7F7DEE61027F4C8E7978EE88 /* LiveDaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70C3CDA242BE7EF87A23DDD1 /* LiveDaemonClient.swift */; };
 		823115FEF637EEBBC6A8D163 /* PulseDot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C6D36A05B968E62F7CB7BF /* PulseDot.swift */; };
 		86B547E02F159D1FADD8E5D9 /* TelemetryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F47F1D8A4A2158D854110144 /* TelemetryView.swift */; };
@@ -37,6 +40,7 @@
 		9525F4D036722C7A08ACF65D /* MockDaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED68B708D3D45C9366760F38 /* MockDaemonClient.swift */; };
 		958EA9D087B23C21A7A0845A /* AgentCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3AEE547F6633CF2722E23E2 /* AgentCard.swift */; };
 		AA24C55FF75AB355861514D0 /* Agent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3148BC8738DB0F36AA1A85E9 /* Agent.swift */; };
+		B00214FB4957FA51AC2E439B /* RosterState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D8C88BD06BFD2E8CFAB0FF2 /* RosterState.swift */; };
 		B038B3D3555C717A97F1D66A /* CockpitStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA9FE95C049FA34A02C1F2E1 /* CockpitStrip.swift */; };
 		B1FE387B2D3F62BE92234B26 /* WindowAccessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F7F15D58C08252650D51B5 /* WindowAccessor.swift */; };
 		BFF1C77E6332943D4D93EEA1 /* FilterRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FAC023DD953B7C1C85F0027 /* FilterRail.swift */; };
@@ -45,6 +49,7 @@
 		CC3E912C7C322D76B934024D /* PRModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636564F61F4F65B4CC82B789 /* PRModal.swift */; };
 		CCFCAD5B8E9DED56CC8A7D65 /* SkogaIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */; };
 		DEAAB7FD56B1E0BB845BDBAE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5002E6D455E5B92B222248 /* SettingsView.swift */; };
+		EC922EC8C5DD24A38493F0ED /* ModalState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DEDFD8AE5B69FA5C48EE1FD /* ModalState.swift */; };
 		F40CF5E71F1B6724136A191B /* RemoteTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A495BC418BAD2F865FEA74FC /* RemoteTerminalView.swift */; };
 		F953B4F6DFAD8786461DD1F8 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296A4F6E32617A28B9E035E9 /* Typography.swift */; };
 /* End PBXBuildFile section */
@@ -53,21 +58,23 @@
 		011A602CAADDFE550B52C9DB /* Skoga.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Skoga.entitlements; sourceTree = "<group>"; };
 		04B3C5B56A345134FAE70ACC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		18C6D36A05B968E62F7CB7BF /* PulseDot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseDot.swift; sourceTree = "<group>"; };
+		1D8C88BD06BFD2E8CFAB0FF2 /* RosterState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RosterState.swift; sourceTree = "<group>"; };
 		235DA73ACD9025DC61F6CAA5 /* Color+Oklch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Oklch.swift"; sourceTree = "<group>"; };
 		296A4F6E32617A28B9E035E9 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
+		2DEDFD8AE5B69FA5C48EE1FD /* ModalState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModalState.swift; sourceTree = "<group>"; };
 		3148BC8738DB0F36AA1A85E9 /* Agent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Agent.swift; sourceTree = "<group>"; };
 		3457E04866B98C322F63CCB3 /* JSONRPCConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONRPCConnection.swift; sourceTree = "<group>"; };
 		3F594D7BABF3680BF59BBE69 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		49F7F15D58C08252650D51B5 /* WindowAccessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowAccessor.swift; sourceTree = "<group>"; };
 		4FAC023DD953B7C1C85F0027 /* FilterRail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterRail.swift; sourceTree = "<group>"; };
 		5310DF4FE0BF1441CA5B5858 /* TitleBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleBar.swift; sourceTree = "<group>"; };
+		57085F2BA9C6FA7F771E84EC /* ConversationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationState.swift; sourceTree = "<group>"; };
 		62CC800A856A8D28FA8CB11E /* Skoga.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Skoga.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		636564F61F4F65B4CC82B789 /* PRModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRModal.swift; sourceTree = "<group>"; };
 		6997044FC6F3201B3B5DFA7D /* EmbeddedTUIChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddedTUIChrome.swift; sourceTree = "<group>"; };
 		70C3CDA242BE7EF87A23DDD1 /* LiveDaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDaemonClient.swift; sourceTree = "<group>"; };
 		732368285D5460AB08855A49 /* DispatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DispatchView.swift; sourceTree = "<group>"; };
 		7B1B80DC49DE0A5D893A17CB /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
-		7B7ADCECFD1E01D7C8FCCBFA /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		7E6D30C0F5B11763748C1C22 /* SkogaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaApp.swift; sourceTree = "<group>"; };
 		81F8C2B09E59496FB397779E /* SkogaGlyph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaGlyph.swift; sourceTree = "<group>"; };
 		8B326243F9BABD1BAF92FE67 /* DaemonStatusBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonStatusBanner.swift; sourceTree = "<group>"; };
@@ -78,6 +85,9 @@
 		9B445CBB1DD16119CE39FCC9 /* NordicNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NordicNames.swift; sourceTree = "<group>"; };
 		9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaIcons.swift; sourceTree = "<group>"; };
 		A495BC418BAD2F865FEA74FC /* RemoteTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteTerminalView.swift; sourceTree = "<group>"; };
+		B4B0745A9572FDACC189EA67 /* AppCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCoordinator.swift; sourceTree = "<group>"; };
+		B94EED290C1327115DD4B695 /* AppView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppView.swift; sourceTree = "<group>"; };
+		C02B5BC02C8B2A6EEF79DFFD /* DaemonClientHolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClientHolder.swift; sourceTree = "<group>"; };
 		C3CC5FADA740026853822A19 /* DaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClient.swift; sourceTree = "<group>"; };
 		CAC0B12748DBA520B86EA074 /* RosterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RosterView.swift; sourceTree = "<group>"; };
 		CE7A3CA26832995CEBDFEED8 /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
@@ -237,7 +247,12 @@
 		E6D0C8C704D11988484F1BB0 /* State */ = {
 			isa = PBXGroup;
 			children = (
-				7B7ADCECFD1E01D7C8FCCBFA /* AppState.swift */,
+				B4B0745A9572FDACC189EA67 /* AppCoordinator.swift */,
+				B94EED290C1327115DD4B695 /* AppView.swift */,
+				57085F2BA9C6FA7F771E84EC /* ConversationState.swift */,
+				C02B5BC02C8B2A6EEF79DFFD /* DaemonClientHolder.swift */,
+				2DEDFD8AE5B69FA5C48EE1FD /* ModalState.swift */,
+				1D8C88BD06BFD2E8CFAB0FF2 /* RosterState.swift */,
 			);
 			path = State;
 			sourceTree = "<group>";
@@ -366,13 +381,16 @@
 				C0DCD0495C0135A8877E74D7 /* ActivityBars.swift in Sources */,
 				AA24C55FF75AB355861514D0 /* Agent.swift in Sources */,
 				958EA9D087B23C21A7A0845A /* AgentCard.swift in Sources */,
-				781F301DA5B2BD2BE473938D /* AppState.swift in Sources */,
+				1CF54B406250832E21C31E97 /* AppCoordinator.swift in Sources */,
+				0904869BDE0C1F4B33955791 /* AppView.swift in Sources */,
 				B038B3D3555C717A97F1D66A /* CockpitStrip.swift in Sources */,
 				C0B8611AF2746532CA6B30F5 /* Color+Oklch.swift in Sources */,
 				661CD394C01C7CDCEA758DEE /* CommandPalette.swift in Sources */,
 				24FB5C42B6D8667D132CE1CD /* Conversation.swift in Sources */,
+				1DB2F6B713694BF8E9F4B4D1 /* ConversationState.swift in Sources */,
 				31BC5CD04C1B7237C7B5CB6E /* ConversationView.swift in Sources */,
 				303029A15B9017AA387563AB /* DaemonClient.swift in Sources */,
+				2144EFB928D43BAB7EEC4CE7 /* DaemonClientHolder.swift in Sources */,
 				540A532678F1E33044D42AFF /* DaemonStatusBanner.swift in Sources */,
 				7580499EE0EB855F91C98963 /* DispatchView.swift in Sources */,
 				73E10F6654C9374EC0A04E83 /* EmbeddedTUIChrome.swift in Sources */,
@@ -381,11 +399,13 @@
 				7F7DEE61027F4C8E7978EE88 /* LiveDaemonClient.swift in Sources */,
 				8D5B6940D68D2D386C81D000 /* MainWindow.swift in Sources */,
 				9525F4D036722C7A08ACF65D /* MockDaemonClient.swift in Sources */,
+				EC922EC8C5DD24A38493F0ED /* ModalState.swift in Sources */,
 				3E70103B56C8294DDCA1E434 /* NordicNames.swift in Sources */,
 				CC3E912C7C322D76B934024D /* PRModal.swift in Sources */,
 				823115FEF637EEBBC6A8D163 /* PulseDot.swift in Sources */,
 				F40CF5E71F1B6724136A191B /* RemoteTerminalView.swift in Sources */,
 				55BEF74D5D6FEBD73D9E14A5 /* ReviewView.swift in Sources */,
+				B00214FB4957FA51AC2E439B /* RosterState.swift in Sources */,
 				6EEEECFE96A849FA50EBB981 /* RosterView.swift in Sources */,
 				DEAAB7FD56B1E0BB845BDBAE /* SettingsView.swift in Sources */,
 				4B666D2DD45E99850F918565 /* Sidebar.swift in Sources */,

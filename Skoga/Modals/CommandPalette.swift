@@ -2,7 +2,9 @@ import SwiftUI
 
 struct CommandPalette: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(AppCoordinator.self) private var coordinator
+    @Environment(RosterState.self) private var roster
+    @Environment(ModalState.self) private var modal
 
     @State private var query: String = ""
     @FocusState private var focused: Bool
@@ -108,7 +110,7 @@ struct CommandPalette: View {
             }
         } action: {
             close()
-            state.openConversation(for: a.id)
+            coordinator.openConversation(for: a.id)
         }
     }
 
@@ -124,19 +126,19 @@ struct CommandPalette: View {
     private var allCommands: [Command] {
         [
             .init(id: "roster", label: "Go to Roster", icon: .roster) {
-                state.view = .roster; state.openAgentId = nil
+                coordinator.navigate(to: .roster)
             },
             .init(id: "dispatch", label: "Dispatch new run", icon: .bolt) {
-                state.view = .dispatch; state.openAgentId = nil
+                coordinator.navigate(to: .dispatch)
             },
             .init(id: "review", label: "Go to Review", icon: .review) {
-                state.view = .review; state.openAgentId = nil
+                coordinator.navigate(to: .review)
             },
             .init(id: "telemetry", label: "Go to Telemetry", icon: .telemetry) {
-                state.view = .telemetry; state.openAgentId = nil
+                coordinator.navigate(to: .telemetry)
             },
             .init(id: "settings", label: "Open Settings", icon: .settings) {
-                state.view = .settings; state.openAgentId = nil
+                coordinator.navigate(to: .settings)
             },
         ]
     }
@@ -149,7 +151,7 @@ struct CommandPalette: View {
 
     private var filteredAgents: [Agent] {
         let q = query.lowercased()
-        let xs = state.agents
+        let xs = roster.agents
         if q.isEmpty { return Array(xs.prefix(8)) }
         return xs.filter {
             $0.name.lowercased().contains(q) ||
@@ -164,12 +166,12 @@ struct CommandPalette: View {
         }
         if let a = filteredAgents.first {
             close()
-            state.openConversation(for: a.id)
+            coordinator.openConversation(for: a.id)
         }
     }
 
     private func close() {
-        state.commandPaletteOpen = false
+        modal.commandPaletteOpen = false
         query = ""
     }
 }
