@@ -1,8 +1,8 @@
 import Foundation
 
 /// Talks to a real `skogad` over `~/.skoga/sock`. Maps the daemon's `Session`
-/// records onto the Mac `Agent` model — many UI fields (tokens, cost, commits,
-/// progress) aren't exposed by the daemon yet and are synthesized; see
+/// records onto the Mac `Agent` model — many UI fields (tokens, cost, commits)
+/// aren't exposed by the daemon yet and are synthesized; see
 /// [`Agent.from(rpc:)`] for the mapping policy.
 @MainActor
 final class LiveDaemonClient: DaemonClient {
@@ -570,7 +570,7 @@ private struct SkogaLandPreviewPayload: Decodable {
 
 extension Agent {
     /// Translate a daemon `Session` into a Mac `Agent`. Fields the daemon
-    /// doesn't expose yet (tokens, cost, commits, files, progress) are zeroed;
+    /// doesn't expose yet (tokens, cost, commits, files) are zeroed;
     /// `name`/`role` are derived from the id and the configured agent adapter.
     static func from(rpc s: RPCSession) -> Agent {
         let pendingQuestion = s.pending_question?.toConversationMessage()
@@ -609,7 +609,6 @@ extension Agent {
             task: s.task,
             repo: prettyRepo(from: s.repo_root),
             branch: s.branch,
-            progress: progressFor(state: s.state),
             runtime: runtimeLabel(since: s.created_at),
             tokens: 0,
             cost: 0,
@@ -669,14 +668,6 @@ private extension AgentStatus {
         case .done:
             self = .done
         }
-    }
-}
-
-private func progressFor(state: RPCSessionState) -> Double {
-    switch state {
-    case .running, .conflicted, .agentExited, .syncBroken:  0.0
-    case .prOpen, .prMerged, .shipping, .killing:           0.95
-    case .done, .killed:                                    1.0
     }
 }
 

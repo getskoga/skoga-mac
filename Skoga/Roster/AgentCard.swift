@@ -17,7 +17,6 @@ struct AgentCard: View {
                 }
                 taskBlock
                 Spacer(minLength: 0)
-                progressRow
                 metaRow
             }
             .padding(.horizontal, Tokens.Pad.cardX)
@@ -147,35 +146,6 @@ struct AgentCard: View {
                 .lineLimit(2)
                 .truncationMode(.tail)
                 .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    // MARK: – Progress
-
-    private var progressRow: some View {
-        HStack(spacing: 10) {
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 2).fill(p.paper4).frame(height: 4)
-                GeometryReader { geo in
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(progressColor)
-                        .frame(width: geo.size.width * agent.progress, height: 4)
-                }
-                .frame(height: 4)
-            }
-            Text("\(Int((agent.progress * 100).rounded()))%")
-                .font(SkogaFont.mono(10.5))
-                .foregroundStyle(p.inkMute)
-                .frame(minWidth: 32, alignment: .trailing)
-        }
-        .padding(.top, 2)
-    }
-
-    private var progressColor: Color {
-        switch agent.status {
-        case .blocked: p.ember
-        case .running: p.amber
-        default:       p.forest
         }
     }
 

@@ -44,7 +44,6 @@ struct Agent: Identifiable, Hashable {
     let task: String
     let repo: String
     let branch: String
-    let progress: Double            // 0…1
     let runtime: String
     let tokens: Int
     let cost: Double
@@ -79,7 +78,6 @@ struct Agent: Identifiable, Hashable {
         task: String,
         repo: String,
         branch: String,
-        progress: Double,
         runtime: String,
         tokens: Int,
         cost: Double,
@@ -99,7 +97,6 @@ struct Agent: Identifiable, Hashable {
         self.task = task
         self.repo = repo
         self.branch = branch
-        self.progress = progress
         self.runtime = runtime
         self.tokens = tokens
         self.cost = cost
@@ -165,7 +162,6 @@ struct Agent: Identifiable, Hashable {
             lhs.task == rhs.task &&
             lhs.repo == rhs.repo &&
             lhs.branch == rhs.branch &&
-            lhs.progress == rhs.progress &&
             lhs.tokens == rhs.tokens &&
             lhs.cost == rhs.cost &&
             lhs.commits == rhs.commits &&
@@ -186,7 +182,6 @@ struct Agent: Identifiable, Hashable {
         hasher.combine(task)
         hasher.combine(repo)
         hasher.combine(branch)
-        hasher.combine(progress)
         hasher.combine(tokens)
         hasher.combine(cost)
         hasher.combine(commits)
