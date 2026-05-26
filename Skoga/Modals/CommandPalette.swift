@@ -16,12 +16,12 @@ struct CommandPalette: View {
                 .ignoresSafeArea()
                 .onTapGesture { close() }
 
-            modal
+            paletteCard
                 .padding(.top, 80)
         }
     }
 
-    private var modal: some View {
+    private var paletteCard: some View {
         VStack(spacing: 0) {
             searchRow
             ScrollView {
