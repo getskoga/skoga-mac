@@ -87,6 +87,13 @@ final class LiveDaemonClient: DaemonClient {
         let _: SessionSendInputResponse = try await rpc.call("session.send_input", params: params)
     }
 
+    func resolveRebaseConflict(sessionId: String) async throws {
+        let params = AnyEncodable(SessionResolveRebaseConflictParams(id: sessionId))
+        let _: SessionResolveRebaseConflictResponse = try await rpc.call(
+            "session.resolve_rebase_conflict", params: params
+        )
+    }
+
     func pendingQuestion(for agentId: String) async throws -> RPCPendingQuestion? {
         // Older daemons (pre-#100) don't expose this method; swallow
         // METHOD_NOT_FOUND so the conversation view still renders.
@@ -611,7 +618,13 @@ extension Agent {
             attn: attn,
             attnMessage: attnMessage,
             prUrl: s.landed_pr_url,
-            pendingQuestion: pendingQuestionPayload
+            pendingQuestion: pendingQuestionPayload,
+            // Only meaningful while the daemon still has us in `.conflicted`.
+            // The daemon clears the field on any transition out of conflict
+            // (so a follow-up conflict re-arms the button), but suppressing
+            // here as well means a stale value from an in-flight race never
+            // leaks into the non-conflicted card.
+            rebasePromptDispatchedAt: s.state == .conflicted ? s.rebase_prompt_dispatched_at : nil
         )
     }
 }

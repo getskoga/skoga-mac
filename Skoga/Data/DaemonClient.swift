@@ -49,6 +49,17 @@ protocol DaemonClient: AnyObject {
     /// is gone (process crashed / never launched).
     func sendInput(sessionId: String, text: String) async throws
 
+    /// Hand a `.conflicted` session off to its agent
+    /// (`session.resolve_rebase_conflict`). The daemon reads the conflicted
+    /// file list off the worktree, builds the same fix-up prompt
+    /// `skoga land` uses today, and pastes it into the agent's tmux pane.
+    /// Sets `rebase_prompt_dispatched_at` so the Mac's button switches
+    /// to "Prompt sent" until the conflict resolves. Throws when the
+    /// session isn't actually conflicted, when the agent's tmux pane
+    /// is gone, or on transport / `METHOD_NOT_FOUND` against an older
+    /// daemon.
+    func resolveRebaseConflict(sessionId: String) async throws
+
     /// Fetch the session's in-flight `AskUserQuestion`, if any. Returns nil
     /// when the agent has no pending picker. Used as a polled fallback for
     /// older daemons that don't yet include `pending_question` on

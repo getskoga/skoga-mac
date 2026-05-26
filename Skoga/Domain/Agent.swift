@@ -58,6 +58,14 @@ struct Agent: Identifiable, Hashable {
     /// with clickable options. `nil` for sessions whose agent isn't
     /// currently asking — the common case.
     let pendingQuestion: ConversationMessage.QuestionPayload?
+    /// Daemon timestamp of the last `session.resolve_rebase_conflict`
+    /// dispatch on the current conflict. `nil` means no prompt has been
+    /// sent for this conflict yet; the AgentCard renders the active
+    /// "Ask agent to rebase" button. When `Some`, the button flips to a
+    /// disabled "Prompt sent" state. The daemon clears this field on
+    /// any transition out of `.conflicted`, so a new conflict re-arms
+    /// the button automatically.
+    let rebasePromptDispatchedAt: Date?
 
     /// Memberwise init with a default for `pendingQuestion` so design
     /// seeds (all 20+ Agent literals in MockDaemonClient) don't have to
@@ -80,7 +88,8 @@ struct Agent: Identifiable, Hashable {
         attn: Bool,
         attnMessage: String?,
         prUrl: String?,
-        pendingQuestion: ConversationMessage.QuestionPayload? = nil
+        pendingQuestion: ConversationMessage.QuestionPayload? = nil,
+        rebasePromptDispatchedAt: Date? = nil
     ) {
         self.id = id
         self.name = name
@@ -100,6 +109,7 @@ struct Agent: Identifiable, Hashable {
         self.attnMessage = attnMessage
         self.prUrl = prUrl
         self.pendingQuestion = pendingQuestion
+        self.rebasePromptDispatchedAt = rebasePromptDispatchedAt
     }
 
     /// `branch` after the first slash, used to label rows like "auth-scope-refresh".
@@ -117,6 +127,18 @@ struct Agent: Identifiable, Hashable {
     var shortModel: String {
         let parts = model.split(separator: "-")
         return parts.prefix(2).joined(separator: "-")
+    }
+
+    /// True when the agent is parked specifically because the opportunistic
+    /// rebase loop hit a conflict — distinct from other `attn` flavors
+    /// (waiting on input, sync broken, pending question). Gates the
+    /// "Ask agent to rebase" button on the card so the action only
+    /// appears where it makes sense. The check pivots on the
+    /// attnMessage prefix the live client emits for `.conflicted` —
+    /// the daemon's actual session state isn't carried through to the
+    /// Agent model, so the string is the only signal we have here.
+    var isRebaseConflict: Bool {
+        attn && (attnMessage?.hasPrefix("Rebase conflict") ?? false)
     }
 
     // MARK: – Equatable / Hashable
@@ -151,7 +173,8 @@ struct Agent: Identifiable, Hashable {
             lhs.attn == rhs.attn &&
             lhs.attnMessage == rhs.attnMessage &&
             lhs.prUrl == rhs.prUrl &&
-            lhs.pendingQuestion == rhs.pendingQuestion
+            lhs.pendingQuestion == rhs.pendingQuestion &&
+            lhs.rebasePromptDispatchedAt == rhs.rebasePromptDispatchedAt
     }
 
     func hash(into hasher: inout Hasher) {
@@ -172,5 +195,6 @@ struct Agent: Identifiable, Hashable {
         hasher.combine(attnMessage)
         hasher.combine(prUrl)
         hasher.combine(pendingQuestion)
+        hasher.combine(rebasePromptDispatchedAt)
     }
 }

@@ -249,6 +249,21 @@ final class AppCoordinator {
         }
     }
 
+    /// Dispatch the rebase-conflict fix-up prompt to a `.conflicted`
+    /// session's agent. The daemon does the actual paste; we refresh the
+    /// roster so `rebasePromptDispatchedAt` propagates onto the card and
+    /// the button flips to its "Prompt sent" state.
+    func resolveRebaseConflict(agentId: String) async {
+        do {
+            try await daemon.client.resolveRebaseConflict(sessionId: agentId)
+            let name = roster.agents.first(where: { $0.id == agentId })?.name ?? "agent"
+            modal.showToast("Asked \(name) to rebase.")
+            await refresh()
+        } catch {
+            modal.showToast("Rebase request failed: \(error.toastMessage)")
+        }
+    }
+
     /// Submit the user's selection to a pending `AskUserQuestion`. The
     /// daemon drives Claude's TUI picker via tmux key strokes and clears
     /// the pending state. We optimistically drop the question row from the
