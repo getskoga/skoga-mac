@@ -1,13 +1,14 @@
 import Foundation
 
 enum AgentStatus: String, CaseIterable, Codable, Hashable {
-    case running, blocked, prOpen, done, idle, stopping, exited
+    case running, blocked, prOpen, prMerged, done, idle, stopping, exited
 
     var label: String {
         switch self {
         case .running:  "Running"
         case .blocked:  "Blocked"
         case .prOpen:   "PR open"
+        case .prMerged: "PR merged"
         case .done:     "Done"
         case .idle:     "Idle"
         case .stopping: "Stopping"
@@ -26,9 +27,10 @@ enum AgentStatus: String, CaseIterable, Codable, Hashable {
         case .running:  1
         case .stopping: 2
         case .prOpen:   3
-        case .done:     4
-        case .idle:     5
-        case .exited:   6
+        case .prMerged: 4
+        case .done:     5
+        case .idle:     6
+        case .exited:   7
         }
     }
 }

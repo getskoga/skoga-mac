@@ -123,13 +123,14 @@ private struct ConvHeader: View {
 
     /// Pause/Stop ride along while the agent still has work to interrupt
     /// (`.running` / `.blocked` / `.idle` / `.stopping`). Terminal states
-    /// (`.exited`, `.done`, `.prOpen`) omit them — there's nothing left to
-    /// pause and a kill would no-op on a process that's already gone.
+    /// (`.exited`, `.done`, `.prOpen`, `.prMerged`) omit them — there's
+    /// nothing left to pause and a kill would no-op on a process that's
+    /// already gone.
     private var hasRunControls: Bool {
         guard agent.prUrl == nil else { return false }
         switch agent.status {
-        case .running, .blocked, .idle, .stopping: return true
-        case .prOpen, .done, .exited:              return false
+        case .running, .blocked, .idle, .stopping:   return true
+        case .prOpen, .prMerged, .done, .exited:     return false
         }
     }
 }

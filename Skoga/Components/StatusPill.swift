@@ -9,6 +9,7 @@ struct StatusPill: View {
         case .running:  p.amber
         case .blocked:  p.ember
         case .prOpen:   p.dusk
+        case .prMerged: p.forest
         case .done:     p.forest
         case .idle:     p.inkFaint
         case .stopping: p.ember
