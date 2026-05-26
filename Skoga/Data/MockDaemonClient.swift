@@ -99,6 +99,36 @@ final class MockDaemonClient: DaemonClient {
         )
     }
 
+    func diffStat(for sessionId: String) async throws -> RPCDiffStat? {
+        // Derive plausible numbers from the seeded agent so designers
+        // see roughly what a live daemon would return. A few seeds get
+        // bespoke overrides so the PR modal's edge cases are reachable
+        // from mock mode without editing the file:
+        //   `olaf` keeps its zero-commit seed → all-muted square strip
+        //   `soren` → almost-all-removes (CVE bump shape)
+        //   `henrik` → almost-all-adds (docs rewrite shape)
+        // Everyone else falls back to the `commits * 18` / `* 4`
+        // approximation, which lines up with the placeholder the PR
+        // modal used before this change.
+        let agent = agentsCache.first(where: { $0.id == sessionId })
+        guard let agent else { return nil }
+        switch sessionId {
+        case "soren":
+            return RPCDiffStat(commits: agent.commits, files_changed: agent.files,
+                               lines_added: 4, lines_removed: 162)
+        case "henrik":
+            return RPCDiffStat(commits: agent.commits, files_changed: agent.files,
+                               lines_added: 612, lines_removed: 3)
+        default:
+            return RPCDiffStat(
+                commits: agent.commits,
+                files_changed: agent.files,
+                lines_added: agent.commits * 18,
+                lines_removed: agent.commits * 4
+            )
+        }
+    }
+
     func landPR(for sessionId: String, title: String, body: String) async throws {
         // Pretend the land succeeded. No way to actually push from mock —
         // the design surface is the only thing consuming this path.

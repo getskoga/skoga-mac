@@ -167,6 +167,32 @@ struct SessionResolveRebaseConflictResponse: Decodable {
     let session: RPCSession
 }
 
+// MARK: – session.diff_stat
+
+struct SessionDiffStatParams: Encodable {
+    let id: String
+}
+
+/// Wire shape of `session.diff_stat`'s result envelope
+/// (`SessionDiffStatResponse` in skoga-core/protocol.rs). The daemon always
+/// returns a populated `diff_stat` — compute failures fall back to a
+/// zero-default rather than RPC-erroring — so this wrapper isn't optional.
+struct SessionDiffStatResponse: Decodable {
+    let diff_stat: RPCDiffStat
+}
+
+/// Inner payload from `session.diff_stat` (getskoga/skoga#87 / #110).
+/// Counts the session's diff against its base branch, cached on the
+/// session record with a 30s TTL on the daemon side. Used by the PR
+/// modal to render the real "+N −M" header instead of the old
+/// `commits * 18` placeholder.
+struct RPCDiffStat: Decodable, Equatable {
+    let commits: Int
+    let files_changed: Int
+    let lines_added: Int
+    let lines_removed: Int
+}
+
 // MARK: – PTY streaming (session.attach_stream / pty_write / pty_resize)
 
 struct SessionAttachStreamParams: Encodable {
