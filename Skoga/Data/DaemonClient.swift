@@ -5,8 +5,22 @@ import Foundation
 /// seed data for previews and for running the app without skogad installed.
 @MainActor
 protocol DaemonClient: AnyObject {
-    func listAgents() async throws -> [Agent]
-    func conversation(for agentId: String) async throws -> [ConversationMessage]
+    /// `nonisolated` so the full JSON decode + RPCSession→Agent transform
+    /// runs on the global cooperative executor, not MainActor. The roster
+    /// is re-fetched every 5s and on every events.event notification; for
+    /// a manager juggling 20+ agents, keeping the decode off main avoids
+    /// stealing frames from typing in the dispatch form or scrolling the
+    /// open conversation.
+    nonisolated func listAgents() async throws -> [Agent]
+    /// `nonisolated` for the same reason as [`listAgents`], with sharper
+    /// stakes: `session.conversation` returns the full transcript
+    /// reconstructed from Claude's append-only JSONL, which for a
+    /// long-running agent runs hundreds of messages with embedded tool-use
+    /// payloads. Decoding that on main during the 5s poll produces
+    /// perceptible hitches in the conversation view; running the whole
+    /// pipeline (JSONDecoder + RPCConversationMessage→domain transform)
+    /// off main keeps scroll and animations smooth.
+    nonisolated func conversation(for agentId: String) async throws -> [ConversationMessage]
     func activitySeries() async throws -> [Double]
     func timeline(for agentId: String) async throws -> [TimelineEntry]
 
