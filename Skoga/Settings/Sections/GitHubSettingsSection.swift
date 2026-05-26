@@ -209,10 +209,7 @@ struct GitHubSettingsSection: View {
                 let missing = Self.requiredScopes.subtracting(granted)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
-                        Text("SCOPES")
-                            .font(SkogaFont.mono(10))
-                            .tracking(1.0)
-                            .foregroundStyle(p.inkFaint)
+                        SettingsCardLabel("SCOPES")
                         if !missing.isEmpty {
                             Text("MISSING \(missing.sorted().joined(separator: ", ").uppercased())")
                                 .font(SkogaFont.monoTiny(9.5))
@@ -366,10 +363,7 @@ private struct DefaultReviewerEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                Text("DEFAULT REVIEWER")
-                    .font(SkogaFont.mono(10))
-                    .tracking(1.0)
-                    .foregroundStyle(p.inkFaint)
+                SettingsCardLabel("DEFAULT REVIEWER")
                 if dirty {
                     Text("UNSAVED")
                         .font(SkogaFont.monoTiny(9.5))

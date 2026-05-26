@@ -63,7 +63,7 @@ struct ModelsSettingsSection: View {
     // MARK: – Status-card variants
 
     private var daemonUnsupportedCard: some View {
-        sectionCard {
+        SettingsCard {
             statusRow(
                 dot: p.amber,
                 headline: "Skoga daemon is too old",
@@ -77,7 +77,7 @@ struct ModelsSettingsSection: View {
     }
 
     private func errorCard(_ message: String) -> some View {
-        sectionCard {
+        SettingsCard {
             statusRow(
                 dot: p.ember,
                 headline: "Couldn't reach the daemon",
@@ -91,7 +91,7 @@ struct ModelsSettingsSection: View {
     }
 
     private var loadingCard: some View {
-        sectionCard {
+        SettingsCard {
             HStack(spacing: 10) {
                 ProgressView().controlSize(.small)
                 Text("Reading Keychain…")
@@ -101,20 +101,6 @@ struct ModelsSettingsSection: View {
             }
             .padding(.vertical, 6)
         }
-    }
-
-    @ViewBuilder
-    private func sectionCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            content()
-        }
-        .padding(18)
-        .background(p.paper2)
-        .overlay(
-            RoundedRectangle(cornerRadius: Tokens.Radius.card)
-                .stroke(p.rule, lineWidth: Tokens.Hairline.width)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card))
     }
 
     private struct ActionSpec {
@@ -293,10 +279,7 @@ private struct ProviderCard: View {
 
     private var keyInputRow: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("API KEY")
-                .font(SkogaFont.mono(10))
-                .tracking(1.0)
-                .foregroundStyle(p.inkFaint)
+            SettingsCardLabel("API KEY")
 
             HStack(spacing: 8) {
                 Group {
@@ -546,10 +529,7 @@ private struct DefaultModelPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("DEFAULT MODEL")
-                .font(SkogaFont.mono(10))
-                .tracking(1.0)
-                .foregroundStyle(p.inkFaint)
+            SettingsCardLabel("DEFAULT MODEL")
 
             Menu {
                 ForEach(choices, id: \.self) { choice in
