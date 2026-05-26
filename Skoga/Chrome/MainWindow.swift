@@ -20,13 +20,16 @@ struct MainWindow: View {
                 }
             }
 
-            if let toast = state.toast {
-                VStack {
-                    Spacer()
-                    ToastView(text: toast).padding(.bottom, 24)
+            ZStack {
+                if let toast = state.toast {
+                    VStack {
+                        Spacer()
+                        ToastView(text: toast).padding(.bottom, 24)
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+            .animation(.easeOut(duration: 0.2), value: state.toast)
 
             if let id = state.prAgentId, let agent = state.agents.first(where: { $0.id == id }) {
                 PRModal(agent: agent)
@@ -45,8 +48,6 @@ struct MainWindow: View {
         }
         .onExitCommand { state.commandPaletteOpen = false }
         .background(WindowAccessor())
-        .animation(.easeOut(duration: 0.2), value: state.toast)
-        .animation(.easeOut(duration: 0.15), value: state.view)
     }
 
     @ViewBuilder private var mainArea: some View {
@@ -72,6 +73,7 @@ struct MainWindow: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .animation(.easeOut(duration: 0.15), value: state.view)
     }
 
     @ViewBuilder private var placeholderView: some View {

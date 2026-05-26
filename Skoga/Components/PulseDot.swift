@@ -41,5 +41,6 @@ struct PulseDot: View {
         }
         .frame(width: 7, height: 7)
         .onAppear { if !isQuiet { pulse = true } }
+        .onDisappear { pulse = false }
     }
 }

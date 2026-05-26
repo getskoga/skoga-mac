@@ -116,4 +116,59 @@ struct Agent: Identifiable, Hashable {
         let parts = model.split(separator: "-")
         return parts.prefix(2).joined(separator: "-")
     }
+
+    // MARK: – Equatable / Hashable
+    //
+    // Hand-rolled to exclude `runtime`, which the live daemon recomputes
+    // from `Date()` on every `session.list` round-trip (see
+    // `LiveDaemonClient.runtimeLabel`). For sessions under a minute old
+    // it ticks every second; older ones tick every minute. If `runtime`
+    // counted toward equality, the diff-guard in `AppState.refresh()`
+    // would short-circuit roughly never and `agents` would be reassigned
+    // on every poll, defeating the whole point of the guard.
+    //
+    // The displayed runtime stays current because the live client always
+    // returns the latest string in every Agent it builds — this only
+    // controls whether "12s → 13s" is treated as a "did the array
+    // change?" signal.
+
+    static func == (lhs: Agent, rhs: Agent) -> Bool {
+        lhs.id == rhs.id &&
+            lhs.name == rhs.name &&
+            lhs.role == rhs.role &&
+            lhs.model == rhs.model &&
+            lhs.status == rhs.status &&
+            lhs.task == rhs.task &&
+            lhs.repo == rhs.repo &&
+            lhs.branch == rhs.branch &&
+            lhs.progress == rhs.progress &&
+            lhs.tokens == rhs.tokens &&
+            lhs.cost == rhs.cost &&
+            lhs.commits == rhs.commits &&
+            lhs.files == rhs.files &&
+            lhs.attn == rhs.attn &&
+            lhs.attnMessage == rhs.attnMessage &&
+            lhs.prUrl == rhs.prUrl &&
+            lhs.pendingQuestion == rhs.pendingQuestion
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(name)
+        hasher.combine(role)
+        hasher.combine(model)
+        hasher.combine(status)
+        hasher.combine(task)
+        hasher.combine(repo)
+        hasher.combine(branch)
+        hasher.combine(progress)
+        hasher.combine(tokens)
+        hasher.combine(cost)
+        hasher.combine(commits)
+        hasher.combine(files)
+        hasher.combine(attn)
+        hasher.combine(attnMessage)
+        hasher.combine(prUrl)
+        hasher.combine(pendingQuestion)
+    }
 }
