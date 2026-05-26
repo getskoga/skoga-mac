@@ -574,11 +574,17 @@ extension Agent {
         let status = AgentStatus(rpc: s.state, waiting: s.waiting_since, idle: s.idle_since)
         let waiting = s.waiting_since != nil
         let conflicted = s.state == .conflicted || s.state == .syncBroken
-        let attn = waiting || conflicted
+        // Once a PR is open / merged / shipping, the agent is *expected* to
+        // be paused awaiting review — `waiting_since` will be set by the
+        // post-land hook, but that's the agent doing the right thing, not
+        // a needs-attention signal. Suppress `attn` for these states so
+        // the card doesn't render with the red blocked treatment.
+        let inReview = s.state == .prOpen || s.state == .prMerged || s.state == .shipping
+        let attn = (waiting && !inReview) || conflicted
 
         let attnMessage: String? = {
             if pendingQuestionPayload != nil { return "Agent is asking a question" }
-            if waiting { return "Agent is blocked waiting on input" }
+            if waiting && !inReview { return "Agent is blocked waiting on input" }
             if s.state == .conflicted { return "Rebase conflict — needs resolution" }
             if s.state == .syncBroken { return "Sync broken — run `skoga sync --debug`" }
             return nil
@@ -612,18 +618,19 @@ extension Agent {
 
 private extension AgentStatus {
     init(rpc state: RPCSessionState, waiting: Date?, idle: Date?) {
-        // Waiting-on-input trumps everything else because the manager needs
-        // to act. Idle-at-prompt is just a hint the agent isn't doing work,
-        // so it maps to .idle only when the underlying state is still Running.
-        if waiting != nil {
-            self = .blocked
-            return
-        }
+        // The state machine wins for any state past `.running` — once the
+        // daemon has the session in pr-open / shipping / done / etc., a
+        // `waiting_since` from the post-land hook shouldn't drag the pill
+        // back to "Blocked" (the bug this init originally had). Waiting
+        // only ever resolves to `.blocked` while the agent is still doing
+        // active work.
         switch state {
         case .running:
             // .idle here means "Claude finished a turn, awaiting next prompt"
             // — the process is alive, just dormant. Distinct from .exited.
-            self = (idle != nil) ? .idle : .running
+            if waiting != nil { self = .blocked }
+            else if idle != nil { self = .idle }
+            else { self = .running }
         case .conflicted, .syncBroken:
             self = .blocked
         case .killing:
@@ -638,8 +645,14 @@ private extension AgentStatus {
             // it's not the same as terminal .done. Renders distinct from .idle
             // because the user can't just "send another message" to wake it.
             self = .exited
-        case .prOpen, .prMerged, .shipping:
+        case .prOpen:
             self = .prOpen
+        case .prMerged, .shipping:
+            // `.shipping` is the post-merge teardown — the PR landed and the
+            // daemon is winding the worktree down. Surfacing it as PR merged
+            // (rather than a distinct "shipping" pill) keeps the user-facing
+            // story simple: open → merged → done.
+            self = .prMerged
         case .done:
             self = .done
         }
