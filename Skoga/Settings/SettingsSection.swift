@@ -65,7 +65,7 @@ enum SettingsSectionID: String, CaseIterable, Hashable, Identifiable {
         case .budgets:        "Monthly cost ceilings and per-agent spend limits."
         case .agents:         "Defaults, templates, and shared prompts for new agents."
         case .github:         "Used by Open as PR to push branches and open pull requests."
-        case .notifications:  "Push routing for the iOS companion — sound, quiet hours, and triggers."
+        case .notifications:  "Desktop banners, quiet hours, and the iPhone bridge for attention-needed pings."
         case .worktrees:      "Where Skoga checks out per-agent worktrees and how it cleans them up."
         case .editor:         "Default editor and how Skoga hands off files for review."
         case .keyboard:       "Customize shortcuts for navigation, dispatch, and review."
@@ -95,9 +95,10 @@ enum SettingsSectionID: String, CaseIterable, Hashable, Identifiable {
         case .agents:         ["Default role and tooling for new agents",
                                "Shared system prompts and templates",
                                "Auto-resume policy after disconnect"]
-        case .notifications:  ["iOS device pairing",
-                               "Quiet hours and Do Not Disturb",
-                               "Triggers: needs-input, PR-opened, budget"]
+        // Notifications has its own panel — see
+        // `NotificationsSettingsSection`. No roadmap here; the
+        // PlaceholderSection branch is unreachable for this case.
+        case .notifications:  []
         case .worktrees:      ["Root directory for agent checkouts",
                                "Cleanup policy after merge",
                                "Disk-quota guardrails"]

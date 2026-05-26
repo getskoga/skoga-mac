@@ -145,6 +145,8 @@ struct SettingsShell: View {
             GitHubSettingsSection()
         case .modelsKeys:
             ModelsSettingsSection()
+        case .notifications:
+            NotificationsSettingsSection()
         default:
             PlaceholderSection(section: selected)
         }

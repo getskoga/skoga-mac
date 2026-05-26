@@ -53,6 +53,7 @@
 		C0DCD0495C0135A8877E74D7 /* ActivityBars.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E13C9D4BF28ACDB5B9C1CC /* ActivityBars.swift */; };
 		CC3E912C7C322D76B934024D /* PRModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636564F61F4F65B4CC82B789 /* PRModal.swift */; };
 		CCFCAD5B8E9DED56CC8A7D65 /* SkogaIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */; };
+		E2D6D2E0E7C708D3E63B83D7 /* NotificationsSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B6E36E5C280653D25A1DDF9 /* NotificationsSettingsSection.swift */; };
 		EC922EC8C5DD24A38493F0ED /* ModalState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DEDFD8AE5B69FA5C48EE1FD /* ModalState.swift */; };
 		F40CF5E71F1B6724136A191B /* RemoteTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A495BC418BAD2F865FEA74FC /* RemoteTerminalView.swift */; };
 		F953B4F6DFAD8786461DD1F8 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296A4F6E32617A28B9E035E9 /* Typography.swift */; };
@@ -74,6 +75,7 @@
 		4FAC023DD953B7C1C85F0027 /* FilterRail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterRail.swift; sourceTree = "<group>"; };
 		5310DF4FE0BF1441CA5B5858 /* TitleBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleBar.swift; sourceTree = "<group>"; };
 		57085F2BA9C6FA7F771E84EC /* ConversationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationState.swift; sourceTree = "<group>"; };
+		5B6E36E5C280653D25A1DDF9 /* NotificationsSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSettingsSection.swift; sourceTree = "<group>"; };
 		62CC800A856A8D28FA8CB11E /* Skoga.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Skoga.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		636564F61F4F65B4CC82B789 /* PRModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRModal.swift; sourceTree = "<group>"; };
 		6997044FC6F3201B3B5DFA7D /* EmbeddedTUIChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddedTUIChrome.swift; sourceTree = "<group>"; };
@@ -204,6 +206,7 @@
 			children = (
 				8531B097CEC08B13BAF87F29 /* GitHubSettingsSection.swift */,
 				C7599A3E829C97AA86843F66 /* ModelsSettingsSection.swift */,
+				5B6E36E5C280653D25A1DDF9 /* NotificationsSettingsSection.swift */,
 				324080D75957A3776C6AE643 /* PlaceholderSection.swift */,
 			);
 			path = Sections;
@@ -423,6 +426,7 @@
 				EC922EC8C5DD24A38493F0ED /* ModalState.swift in Sources */,
 				BDAEC96AB01F6896152A3018 /* ModelsSettingsSection.swift in Sources */,
 				3E70103B56C8294DDCA1E434 /* NordicNames.swift in Sources */,
+				E2D6D2E0E7C708D3E63B83D7 /* NotificationsSettingsSection.swift in Sources */,
 				CC3E912C7C322D76B934024D /* PRModal.swift in Sources */,
 				51E4C485C121F96D95978DE3 /* PlaceholderSection.swift in Sources */,
 				823115FEF637EEBBC6A8D163 /* PulseDot.swift in Sources */,
