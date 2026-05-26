@@ -22,7 +22,11 @@ protocol DaemonClient: AnyObject {
     /// off main keeps scroll and animations smooth.
     nonisolated func conversation(for agentId: String) async throws -> [ConversationMessage]
     func activitySeries() async throws -> [Double]
-    func timeline(for agentId: String) async throws -> [TimelineEntry]
+    /// `nonisolated` for the same reason as [`conversation`]: parsing the
+    /// daemon's wire entries (and formatting RFC3339 timestamps for each
+    /// row) runs every 5s while the conversation is open. Off-MainActor
+    /// keeps the work out of the scroll/typing frame budget.
+    nonisolated func timeline(for agentId: String) async throws -> [TimelineEntry]
 
     /// Returns the daemon's reported version (`daemon.version`). Used at
     /// bootstrap to gate against an installed-but-too-old skogad.
@@ -205,11 +209,39 @@ enum DaemonStatus: Equatable {
 }
 
 struct TimelineEntry: Hashable, Identifiable {
-    enum Kind: String { case thought, tool, commit }
-    let id = UUID()
+    enum Kind: String { case thought, tool, commit, state }
+    /// Stable across polls so SwiftUI's `ForEach` doesn't tear down rows
+    /// (and the scroll position / animations on them) on every 5s refresh.
+    /// The daemon's `session.timeline` response doesn't carry per-entry
+    /// ids — but its derivation is deterministic, so a tuple built from
+    /// the daemon's raw timestamp + a position-among-equals counter
+    /// identifies the same logical row across refetches.
+    ///
+    /// Distinct from `when` (the display string) so the row identity
+    /// survives a "now" → "2:36p" transition as wall-clock time moves
+    /// past the relative-time threshold: id is keyed off the daemon's
+    /// raw RFC3339 timestamp, which doesn't change.
+    let id: String
     let kind: Kind
     let when: String
     /// Plain-text variant; tool and commit entries embed `code` spans, surfaced
     /// in the UI by wrapping backtick-delimited segments in a monospace tile.
     let what: String
+}
+
+extension TimelineEntry {
+    /// Convenience init used by mock seed data — synthesizes a stable
+    /// id from `(kind, when, what)` since the seed's "when" is already
+    /// the display string. The unit-separator (`U+001F`) delimiter
+    /// prevents collisions when `what` contains punctuation that
+    /// overlaps the separator.
+    init(kind: Kind, when: String, what: String) {
+        let sep = "\u{1F}"
+        self.init(
+            id: "\(kind.rawValue)\(sep)\(when)\(sep)\(what)",
+            kind: kind,
+            when: when,
+            what: what
+        )
+    }
 }

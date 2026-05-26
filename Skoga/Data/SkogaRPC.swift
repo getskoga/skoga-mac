@@ -418,6 +418,166 @@ struct SessionRecentReposResponse: Decodable {
     let repos: [RPCRecentRepo]
 }
 
+// MARK: – session.timeline
+
+struct SessionTimelineParams: Encodable {
+    let id: String
+    /// `nil` is encoded as `"limit": null` by Swift's default
+    /// `Encodable` synth; serde's `Option<u32>` natively maps JSON
+    /// null to `None`, so the daemon's `#[serde(default)]` falls
+    /// through to its 30-entry cap. The Mac never asks for an
+    /// explicit number today — the side panel fits ~12 rows at
+    /// typical heights, and the daemon-picked default already
+    /// absorbs the scroll headroom without forcing a re-walk of
+    /// the whole transcript on every 5s poll.
+    let limit: UInt32?
+}
+
+struct SessionTimelineResponse: Decodable {
+    let entries: [RPCTimelineEntry]
+}
+
+/// Wire shape of one activity-feed row. The daemon emits `when` as
+/// RFC3339 UTC at second resolution (`SecondsFormat::Secs`); the Mac
+/// formats it for display at the boundary so the rest of the app
+/// continues to see `TimelineEntry.when` as a presentation string
+/// (matching the seed shape `MockDaemonClient` uses).
+struct RPCTimelineEntry: Decodable {
+    let kind: Kind
+    let when: String
+    let what: String
+
+    enum Kind: String, Decodable {
+        case thought, tool, commit, state
+    }
+}
+
+extension Array where Element == RPCTimelineEntry {
+    /// Map a wire response to the domain shape. Allocates a per-tuple
+    /// occurrence counter so two entries that collide on
+    /// `(kind, raw-when, what)` — possible because the daemon emits
+    /// only second-resolution timestamps and a tool can fire twice in
+    /// sub-second succession — receive distinct ids. The counter is
+    /// deterministic across polls because the daemon's output is
+    /// sorted stably by parsed timestamp + kind, so the "first" and
+    /// "second" copy keep their slots across refetches.
+    func toDomain() -> [TimelineEntry] {
+        let sep = "\u{1F}"
+        var seen: [String: Int] = [:]
+        return map { wire in
+            let baseKey = "\(wire.kind.rawValue)\(sep)\(wire.when)\(sep)\(wire.what)"
+            let occurrence = seen[baseKey, default: 0]
+            seen[baseKey] = occurrence + 1
+            let id = occurrence == 0 ? baseKey : "\(baseKey)\(sep)\(occurrence)"
+            return TimelineEntry(
+                id: id,
+                kind: wire.kind.toDomain,
+                when: TimelineWhenFormatter.display(rfc3339: wire.when),
+                what: wire.what
+            )
+        }
+    }
+}
+
+private extension RPCTimelineEntry.Kind {
+    var toDomain: TimelineEntry.Kind {
+        switch self {
+        case .thought: .thought
+        case .tool:    .tool
+        case .commit:  .commit
+        case .state:   .state
+        }
+    }
+}
+
+/// Renders a daemon-supplied RFC3339 UTC timestamp into the short,
+/// design-matched label the side-panel feed shows (e.g. "now",
+/// "2:36p", "Mon · 1:34p"). Falls back to the raw input when parsing
+/// fails so a malformed daemon emission still renders something
+/// rather than dropping the row.
+///
+/// The locale is pinned to `en_US_POSIX` and the calendar to
+/// proleptic-Gregorian so every install produces the same label —
+/// the activity feed is a fixed-shape design surface, not a
+/// locale-aware widget, and `shortTime` is already hard-English
+/// ("2:36p"). Without the pin, a French-locale install would render
+/// "lun. · 2:36p" — mixed English/French — which reads worse than a
+/// fully-English label.
+enum TimelineWhenFormatter {
+    /// Daemon emits RFC3339 with `Z` and no fractional seconds
+    /// (`SecondsFormat::Secs`); tolerate fractional seconds too
+    /// because audit timestamps occasionally include them and
+    /// ISO8601DateFormatter is strict about which option set you
+    /// ask for.
+    private static let parsers: [ISO8601DateFormatter] = {
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        let withFractional = ISO8601DateFormatter()
+        withFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return [plain, withFractional]
+    }()
+
+    private static let fixedCalendar: Calendar = {
+        var c = Calendar(identifier: .gregorian)
+        c.locale = Locale(identifier: "en_US_POSIX")
+        return c
+    }()
+
+    static func display(rfc3339: String, now: Date = Date(), calendar: Calendar? = nil) -> String {
+        let cal = calendar ?? fixedCalendar
+        guard let date = parsers.lazy.compactMap({ $0.date(from: rfc3339) }).first else {
+            return rfc3339
+        }
+        let delta = now.timeIntervalSince(date)
+        if delta >= 0, delta < 60 {
+            return "now"
+        }
+        if cal.isDateInToday(date) {
+            return shortTime(date, calendar: cal)
+        }
+        // "this week" — same week as today. Use a weekday-prefixed form.
+        let weekOfYear = cal.component(.weekOfYear, from: date)
+        let yearForWeek = cal.component(.yearForWeekOfYear, from: date)
+        let nowWeek = cal.component(.weekOfYear, from: now)
+        let nowYearForWeek = cal.component(.yearForWeekOfYear, from: now)
+        if weekOfYear == nowWeek, yearForWeek == nowYearForWeek {
+            let weekday = weekdayFormatter.string(from: date)
+            return "\(weekday) · \(shortTime(date, calendar: cal))"
+        }
+        return "\(monthDayFormatter.string(from: date)) · \(shortTime(date, calendar: cal))"
+    }
+
+    /// Match the seed's `2:36p` look — h:mma with a single lowercase
+    /// letter and no leading zero. macOS's locale-aware date format
+    /// would output `2:36 PM`, which doesn't match the design.
+    private static func shortTime(_ date: Date, calendar: Calendar) -> String {
+        let hour24 = calendar.component(.hour, from: date)
+        let minute = calendar.component(.minute, from: date)
+        let suffix = hour24 < 12 ? "a" : "p"
+        let hour12: Int = {
+            let h = hour24 % 12
+            return h == 0 ? 12 : h
+        }()
+        return String(format: "%d:%02d%@", hour12, minute, suffix)
+    }
+
+    private static let weekdayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.calendar = Calendar(identifier: .gregorian)
+        f.dateFormat = "EEE"
+        return f
+    }()
+
+    private static let monthDayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.calendar = Calendar(identifier: .gregorian)
+        f.dateFormat = "MMM d"
+        return f
+    }()
+}
+
 // MARK: – github.status / github.set_default_reviewer
 
 /// Wire shape of `github.status` (see getskoga/skoga#97). All fields are
