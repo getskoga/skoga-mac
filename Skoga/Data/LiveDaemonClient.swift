@@ -269,6 +269,22 @@ final class LiveDaemonClient: DaemonClient {
         return try await rpc.call("credentials.test", params: params)
     }
 
+    func recentRepos() async throws -> [RPCRecentRepo] {
+        // Older daemons (pre-getskoga/skoga#91) don't speak this RPC; swallow
+        // METHOD_NOT_FOUND so the Dispatch screen just renders without pills
+        // and falls through to the folder picker. Anything else (transport,
+        // decode) propagates — the view treats those the same as empty.
+        let params = AnyEncodable(SessionRecentReposParams(limit: nil))
+        do {
+            let resp: SessionRecentReposResponse = try await rpc.call(
+                "session.recent_repos", params: params
+            )
+            return resp.repos
+        } catch let JSONRPCError.rpc(rpcError) where rpcError.code == -32601 {
+            return []
+        }
+    }
+
     /// Spawn `skoga <args>`, await termination, capture stdout. Stderr is
     /// folded into the error message on failure so the user sees the same
     /// preflight-failure / conflict text the terminal would surface.

@@ -156,6 +156,10 @@ final class MockDaemonClient: DaemonClient {
         return existed
     }
 
+    func recentRepos() async throws -> [RPCRecentRepo] {
+        MockDaemonClient.seedRecentRepos
+    }
+
     func credentialsTest(provider: RPCCredentialProvider) async throws -> RPCCredentialsTestResult {
         // Tiny delay so designers see the spinner state when clicking
         // Test — the real daemon's probe makes a network round-trip
@@ -333,6 +337,26 @@ private extension MockDaemonClient {
               runtime: "—", tokens: 0, cost: 0,
               commits: 0, files: 0, attn: false, attnMessage: nil, prUrl: nil),
     ]
+
+    /// Seed recent-repos list so designers see the Dispatch pills
+    /// populated against the mock client. Mirrors the kind of paths a
+    /// dev's machine would have after a few sessions; `last_used`
+    /// descends so the daemon-side ordering shows through.
+    static let seedRecentRepos: [RPCRecentRepo] = {
+        let now = Date()
+        return [
+            RPCRecentRepo(repo_root: "/Users/mikael/code/monolith-web", display_name: "monolith-web",
+                          last_used: now.addingTimeInterval(-60 * 12),    runs_count: 14),
+            RPCRecentRepo(repo_root: "/Users/mikael/code/ledger-svc",    display_name: "ledger-svc",
+                          last_used: now.addingTimeInterval(-60 * 47),    runs_count: 9),
+            RPCRecentRepo(repo_root: "/Users/mikael/code/core-runtime",  display_name: "core-runtime",
+                          last_used: now.addingTimeInterval(-3600 * 4),   runs_count: 5),
+            RPCRecentRepo(repo_root: "/Users/mikael/code/search-svc",    display_name: "search-svc",
+                          last_used: now.addingTimeInterval(-3600 * 26),  runs_count: 3),
+            RPCRecentRepo(repo_root: "/Users/mikael/code/infra",         display_name: "infra",
+                          last_used: now.addingTimeInterval(-3600 * 72),  runs_count: 2),
+        ]
+    }()
 
     /// Seed credential state: Anthropic is "connected, used recently"
     /// so designers see the green-dot variant out of the box; OpenAI is

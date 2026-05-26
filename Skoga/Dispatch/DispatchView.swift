@@ -5,11 +5,24 @@ struct DispatchView: View {
     @Environment(\.palette) private var p
     @Environment(AppCoordinator.self) private var coordinator
     @Environment(RosterState.self) private var roster
+    @Environment(DaemonClientHolder.self) private var daemon
 
     @State private var template: Template = .feature
     @State private var title: String = ""
     @State private var brief: String = ""
-    @State private var repo: String = ""
+    /// Recently-used host repos loaded from `session.recent_repos`. Empty
+    /// on first paint (and on older daemons that don't speak the RPC); the
+    /// "Choose folder…" pill at the end of the row is always present so
+    /// the user can dispatch even with no history.
+    @State private var repos: [RPCRecentRepo] = []
+    /// Absolute path of the currently-selected recent repo, or empty when
+    /// nothing is selected. Empty means "ask the user via NSOpenPanel on
+    /// dispatch"; non-empty bypasses the picker. The path itself (rather
+    /// than an index or `RPCRecentRepo`) is the source of truth because
+    /// the "Choose folder…" flow injects a transient entry into `repos`
+    /// keyed by path, and a refresh from the daemon shouldn't lose the
+    /// selection.
+    @State private var selectedRepoPath: String = ""
     @State private var assignee: String = "auto"
     /// Initial pick reads from the per-adapter `skoga.defaultModel.<adapter>`
     /// AppStorage key the Settings → Models & keys page writes, so the
@@ -28,12 +41,6 @@ struct DispatchView: View {
         }
         return DispatchView.modelChoices[0]
     }()
-
-    static let REPOS = [
-        "skoga/monolith-web", "skoga/ledger-svc", "skoga/core-runtime",
-        "skoga/search-svc", "skoga/etl", "skoga/infra", "skoga/pkg-clients", "skoga/docs",
-    ]
-    private var REPOS: [String] { Self.REPOS }
 
     /// One option in the Model dropdown. `label` is the user-facing
     /// string, `adapter` is the skoga agent id (passed as `agent` to
@@ -109,6 +116,23 @@ struct DispatchView: View {
                 .frame(width: Tokens.dispatchAsideWidth)
                 .background(p.paper2)
         }
+        .task { await loadRecentRepos() }
+    }
+
+    /// Pull recent repos from the daemon once on view appear. Failures
+    /// stay silent — the row degrades to just the "Choose folder…" pill,
+    /// which is the same fallback the screen had before this RPC existed,
+    /// so a transient drop or an old daemon never blocks dispatch.
+    private func loadRecentRepos() async {
+        guard let fetched = try? await daemon.client.recentRepos() else { return }
+        // Don't drop a path the user just chose via the "Choose folder…"
+        // pill. If they picked something not yet recorded daemon-side
+        // (e.g. first dispatch against that clone), the synthesized entry
+        // we appended below would otherwise vanish when this refresh
+        // overwrites `repos`. Merge by `repo_root`, daemon entries first.
+        let daemonPaths = Set(fetched.map(\.repo_root))
+        let kept = repos.filter { !daemonPaths.contains($0.repo_root) }
+        repos = fetched + kept
     }
 
     // MARK: – Main column
@@ -257,25 +281,66 @@ struct DispatchView: View {
 
     private var repoPills: some View {
         FlowLayout(spacing: 6) {
-            ForEach(REPOS, id: \.self) { r in
-                let on = repo == r
-                Button {
-                    repo = r
-                } label: {
-                    Text(r)
-                        .font(SkogaFont.mono(11))
-                        .foregroundStyle(on ? .white : p.ink2)
-                        .padding(.horizontal, 10).padding(.vertical, 4)
-                        .background(
-                            Capsule().fill(on ? p.forest : p.paper2)
-                        )
-                        .overlay(
-                            Capsule().stroke(on ? p.forest : p.rule, lineWidth: Tokens.Hairline.width)
-                        )
+            ForEach(repos) { r in
+                repoPill(label: r.display_name, selected: selectedRepoPath == r.repo_root) {
+                    selectedRepoPath = r.repo_root
                 }
-                .buttonStyle(.plain)
+            }
+            // Always present. On first run (no recent repos) it's the only
+            // way to start a session; afterward it lets the user dispatch
+            // against a clone outside the recent list.
+            repoPill(label: "Choose folder…", selected: false) {
+                chooseFolderTapped()
             }
         }
+    }
+
+    @ViewBuilder
+    private func repoPill(label: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(SkogaFont.mono(11))
+                .foregroundStyle(selected ? .white : p.ink2)
+                .padding(.horizontal, 10).padding(.vertical, 4)
+                .background(
+                    Capsule().fill(selected ? p.forest : p.paper2)
+                )
+                .overlay(
+                    Capsule().stroke(selected ? p.forest : p.rule, lineWidth: Tokens.Hairline.width)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Pop an `NSOpenPanel` to pick a folder, then add it to the pills
+    /// row as a selected entry. We append a synthetic `RPCRecentRepo`
+    /// rather than just stashing the URL — that way the chosen folder
+    /// renders as a selected pill and the user can see *which* repo
+    /// they just picked instead of inferring it from the preview.
+    private func chooseFolderTapped() {
+        guard let url = openRepoPickerPanel() else { return }
+        let path = url.path
+        if !repos.contains(where: { $0.repo_root == path }) {
+            let synthetic = RPCRecentRepo(
+                repo_root: path,
+                display_name: url.lastPathComponent,
+                last_used: Date(),
+                runs_count: 0
+            )
+            repos.insert(synthetic, at: 0)
+        }
+        selectedRepoPath = path
+    }
+
+    private func openRepoPickerPanel() -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Choose repo"
+        panel.message = "Pick the host clone skoga should create a session worktree against."
+        guard panel.runModal() == .OK, let url = panel.url else { return nil }
+        return url
     }
 
     private var assigneeGrid: some View {
@@ -370,17 +435,18 @@ struct DispatchView: View {
     }
 
     private func dispatchTapped() {
-        // The Dispatch UI's repo pills are hints from the original design's
-        // canned list — they don't correspond to anything on disk. Always
-        // pop a folder picker so the user picks a real host clone before
-        // skogad gets a `session.create` it could actually serve.
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.prompt = "Choose repo"
-        panel.message = "Pick the host clone skoga should create a session worktree against."
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        // Bypass the folder picker when the user already picked a recent-
+        // repo pill — that's the whole point of the pills. Without a
+        // selection (first run, or `session.recent_repos` returned []) we
+        // still pop the picker so dispatch isn't a dead end.
+        let url: URL
+        if !selectedRepoPath.isEmpty {
+            url = URL(fileURLWithPath: selectedRepoPath)
+        } else if let picked = openRepoPickerPanel() {
+            url = picked
+        } else {
+            return
+        }
 
         let taskText = title.trimmingCharacters(in: .whitespacesAndNewlines)
         // Combine the headline and the brief into a single prompt: title as a
@@ -511,12 +577,16 @@ struct DispatchView: View {
     private var previewKV: some View {
         VStack(alignment: .leading, spacing: 4) {
             kvRow("shape", template.title, mono: false)
-            kvRow("repo", repo, mono: true)
+            kvRow("repo", selectedRepoLabel, mono: true)
             kvRow("branch", branchName, mono: true)
             kvRow("assignee", assigneeLabel, mono: false)
             kvRow("model", selectedModel.model, mono: true)
         }
         .padding(.top, 8)
+    }
+
+    private var selectedRepoLabel: String {
+        repos.first(where: { $0.repo_root == selectedRepoPath })?.display_name ?? ""
     }
 
     private var branchName: String {
