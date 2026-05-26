@@ -17,6 +17,11 @@ struct PRModal: View {
     @State private var bodyText: String = ""
     @State private var phase: Phase = .loading
     @State private var didCancelDismiss = false
+    /// Real `session.diff_stat` from the daemon. `nil` while the call is
+    /// in flight or against a daemon that doesn't expose the RPC; the
+    /// diff-stat row stays hidden in both cases rather than showing the
+    /// old `commits * 18` fiction or a placeholder em-dash.
+    @State private var diff: RPCDiffStat?
 
     /// Lifecycle phases for the modal. Drives the submit button (label /
     /// disabled state), the inline error row, and whether the fields are
@@ -56,7 +61,13 @@ struct PRModal: View {
             .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.modal))
             .shadow(color: .black.opacity(0.35), radius: 30, y: 20)
         }
+        // Two .task modifiers run in parallel so the diff-stat header
+        // doesn't wait on Claude's 5-30s commit-message draft. They
+        // touch independent state (`phase`/`title`/`bodyText` vs `diff`)
+        // so there's no race; if a future change needs `loadDiffStat`
+        // to gate on `phase`, fold both into one `async let` task.
         .task { await loadPreview() }
+        .task { await loadDiffStat() }
     }
 
     private var head: some View {
@@ -97,7 +108,7 @@ struct PRModal: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 branchRow
-                diffStat
+                if let diff { diffStat(diff) }
                 if phase == .loading { draftingIndicator }
                 field(label: "Title") {
                     TextField("", text: $title)
@@ -190,22 +201,23 @@ struct PRModal: View {
         .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.chip))
     }
 
-    private var diffStat: some View {
-        HStack(spacing: 18) {
-            Text("\(agent.files) files")
+    private func diffStat(_ diff: RPCDiffStat) -> some View {
+        let split = Self.squareSplit(adds: diff.lines_added, removes: diff.lines_removed)
+        return HStack(spacing: 18) {
+            Text("\(diff.files_changed) \(diff.files_changed == 1 ? "file" : "files")")
                 .font(SkogaFont.mono(11))
                 .foregroundStyle(p.ink2)
-            Text("+\(agent.commits * 18)")
+            Text("+\(diff.lines_added)")
                 .font(SkogaFont.mono(11))
                 .foregroundStyle(p.forest)
-            Text("−\(agent.commits * 4)")
+            Text("−\(diff.lines_removed)")
                 .font(SkogaFont.mono(11))
                 .foregroundStyle(p.ember)
             Spacer()
             HStack(spacing: 2) {
-                ForEach(0..<18, id: \.self) { i in
+                ForEach(0..<Self.squareCount, id: \.self) { i in
                     Rectangle()
-                        .fill(squareColor(i))
+                        .fill(Self.tileColor(i, split: split, palette: p))
                         .frame(width: 7, height: 7)
                         .cornerRadius(1.5)
                 }
@@ -213,10 +225,35 @@ struct PRModal: View {
         }
     }
 
-    private func squareColor(_ i: Int) -> Color {
-        if i < 13 { return p.forest }
-        if i < 16 { return p.ember }
-        return p.paper4
+    /// Total tiles in the diff-stat strip. The old hardcoded view had an
+    /// arbitrary 13/3/2 split; this count is preserved so the modal
+    /// layout doesn't shift, but the fill is now proportional.
+    private static let squareCount = 18
+
+    /// Color the i-th tile of the diff-stat strip given a forest/ember
+    /// split. Order is forest, then ember, then muted — strip reads
+    /// left-to-right as adds → removes → untouched.
+    private static func tileColor(_ i: Int, split: (forest: Int, ember: Int), palette: Theme.Palette) -> Color {
+        if i < split.forest { return palette.forest }
+        if i < split.forest + split.ember { return palette.ember }
+        return palette.paper4
+    }
+
+    /// Translate `(adds, removes)` into a `(forest, ember)` tile count
+    /// out of `squareCount`. Returns `(0, 0)` for a no-op diff (both
+    /// sides zero) so all tiles render muted. Otherwise each non-zero
+    /// side gets at least one tile (a 1-line removal among 1000 adds
+    /// still shows red), and the remainder splits by ratio.
+    private static func squareSplit(adds rawAdds: Int, removes rawRemoves: Int) -> (forest: Int, ember: Int) {
+        let adds = max(0, rawAdds)
+        let removes = max(0, rawRemoves)
+        let total = adds + removes
+        guard total > 0 else { return (0, 0) }
+        if removes == 0 { return (squareCount, 0) }
+        if adds == 0 { return (0, squareCount) }
+        let raw = (Double(adds) / Double(total)) * Double(squareCount)
+        let forest = max(1, min(squareCount - 1, Int(raw.rounded())))
+        return (forest, squareCount - forest)
     }
 
     private var reviewersField: some View {
@@ -341,6 +378,23 @@ struct PRModal: View {
     /// silently disabling the button.
     private var submitDisabled: Bool {
         phase == .loading || phase == .submitting
+    }
+
+    /// Fetch real diff numbers in parallel with the Claude-drafted
+    /// preview. The modal's primary job is to let the user edit the PR
+    /// title/body, so a daemon that can't produce diff stats shouldn't
+    /// gate the flow — the row just hides until we have real numbers.
+    /// We do/catch (vs `try?`) so the intent is explicit: anything
+    /// thrown here is suppressed on purpose, and a real transport
+    /// failure will already be surfacing through `loadPreview`'s
+    /// `phase = .failed` path on the same modal.
+    private func loadDiffStat() async {
+        guard diff == nil else { return }
+        do {
+            diff = try await daemon.client.diffStat(for: agent.id)
+        } catch {
+            // Leave `diff == nil` so the diff-stat row stays hidden.
+        }
     }
 
     private func loadPreview() async {

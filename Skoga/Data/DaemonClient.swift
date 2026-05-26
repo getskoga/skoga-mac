@@ -108,6 +108,16 @@ protocol DaemonClient: AnyObject {
     /// writes, no audit emission.
     func previewPR(for sessionId: String) async throws -> PRPreview
 
+    /// Real diff stat for the session — commits, files changed, lines
+    /// added / removed against the base branch (`session.diff_stat`, see
+    /// getskoga/skoga#87). The PR modal calls this on open so its header
+    /// reflects the actual diff instead of the old `commits * 18`
+    /// placeholder. Returns `nil` on `METHOD_NOT_FOUND` so an older daemon
+    /// degrades to "no diff numbers" rather than tripping the modal's
+    /// error path — `previewPR` is the call we actually need to succeed
+    /// for the modal to be useful.
+    func diffStat(for sessionId: String) async throws -> RPCDiffStat?
+
     /// Drive a full `skoga land <id> --title ... --body ... --yes` flow:
     /// squash, rebase, push, open PR via `gh`. The Mac app deliberately
     /// shells out to the CLI rather than reimplementing the flow in Swift —

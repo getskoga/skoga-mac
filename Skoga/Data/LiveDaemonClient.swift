@@ -204,6 +204,22 @@ final class LiveDaemonClient: DaemonClient {
         return sessions.first(where: { $0.id == id })
     }
 
+    func diffStat(for sessionId: String) async throws -> RPCDiffStat? {
+        // Pre-#110 daemons don't expose this method; swallow
+        // METHOD_NOT_FOUND so the PR modal degrades to "no diff numbers"
+        // rather than failing open. Any other RPC error (transport,
+        // session-not-found, decode) still propagates.
+        let params = AnyEncodable(SessionDiffStatParams(id: sessionId))
+        do {
+            let resp: SessionDiffStatResponse = try await rpc.call(
+                "session.diff_stat", params: params
+            )
+            return resp.diff_stat
+        } catch let JSONRPCError.rpc(rpcError) where rpcError.code == -32601 {
+            return nil
+        }
+    }
+
     func landPR(for sessionId: String, title: String, body: String) async throws {
         // `--yes` skips the confirm prompt. Title/body win over the CLI's
         // default-message derivation, so the modal's edits make it all the
