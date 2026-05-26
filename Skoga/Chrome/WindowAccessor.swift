@@ -41,7 +41,10 @@ struct WindowAccessor: NSViewRepresentable {
     private func configure(_ window: NSWindow) {
         window.titlebarAppearsTransparent = true
         window.styleMask.insert(.fullSizeContentView)
-        window.isMovableByWindowBackground = true
+        // Drag is provided by the explicit WindowDragRegion in TitleBar
+        // (via mouseDownCanMoveWindow). Letting the background drag the
+        // window would steal click-drag from text selection everywhere.
+        window.isMovableByWindowBackground = false
         window.backgroundColor = .clear
 
         // Center traffic-light buttons vertically in the 44pt custom titlebar.
