@@ -323,6 +323,7 @@ private struct TimelineRow: View {
         case .commit:  p.forest
         case .tool:    p.amber
         case .thought: p.paper
+        case .state:   p.dusk
         }
     }
     private var dotBorder: Color {
@@ -330,6 +331,7 @@ private struct TimelineRow: View {
         case .commit:  p.forest
         case .tool:    p.amber
         case .thought: p.ruleHard
+        case .state:   p.dusk
         }
     }
 }

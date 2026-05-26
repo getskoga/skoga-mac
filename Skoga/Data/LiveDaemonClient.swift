@@ -33,7 +33,20 @@ final class LiveDaemonClient: DaemonClient {
 
     func activitySeries() async throws -> [Double] { [] }
 
-    func timeline(for agentId: String) async throws -> [TimelineEntry] { [] }
+    nonisolated func timeline(for agentId: String) async throws -> [TimelineEntry] {
+        // Mirrors `conversation(for:)` — older daemons (pre-getskoga/skoga#115)
+        // don't know `session.timeline` yet, so swallow METHOD_NOT_FOUND and
+        // fall back to the empty feed rather than toasting on every poll
+        // against a real-but-outdated skogad. `limit: nil` lets the daemon
+        // apply its default cap (30).
+        let params = AnyEncodable(SessionTimelineParams(id: agentId, limit: nil))
+        do {
+            let resp: SessionTimelineResponse = try await rpc.call("session.timeline", params: params)
+            return resp.entries.toDomain()
+        } catch let JSONRPCError.rpc(rpcError) where rpcError.code == -32601 {
+            return []
+        }
+    }
 
     // MARK: – Mutations
 
