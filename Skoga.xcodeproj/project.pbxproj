@@ -47,6 +47,7 @@
 		B038B3D3555C717A97F1D66A /* CockpitStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA9FE95C049FA34A02C1F2E1 /* CockpitStrip.swift */; };
 		B1FE387B2D3F62BE92234B26 /* WindowAccessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F7F15D58C08252650D51B5 /* WindowAccessor.swift */; };
 		B71786BAFAC4EA91B12BAEB9 /* SettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78635D3F6A65F96AE1FE4DC7 /* SettingsSection.swift */; };
+		BDAEC96AB01F6896152A3018 /* ModelsSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7599A3E829C97AA86843F66 /* ModelsSettingsSection.swift */; };
 		BFF1C77E6332943D4D93EEA1 /* FilterRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FAC023DD953B7C1C85F0027 /* FilterRail.swift */; };
 		C0B8611AF2746532CA6B30F5 /* Color+Oklch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 235DA73ACD9025DC61F6CAA5 /* Color+Oklch.swift */; };
 		C0DCD0495C0135A8877E74D7 /* ActivityBars.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E13C9D4BF28ACDB5B9C1CC /* ActivityBars.swift */; };
@@ -96,6 +97,7 @@
 		B94EED290C1327115DD4B695 /* AppView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppView.swift; sourceTree = "<group>"; };
 		C02B5BC02C8B2A6EEF79DFFD /* DaemonClientHolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClientHolder.swift; sourceTree = "<group>"; };
 		C3CC5FADA740026853822A19 /* DaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClient.swift; sourceTree = "<group>"; };
+		C7599A3E829C97AA86843F66 /* ModelsSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsSettingsSection.swift; sourceTree = "<group>"; };
 		CAC0B12748DBA520B86EA074 /* RosterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RosterView.swift; sourceTree = "<group>"; };
 		CE7A3CA26832995CEBDFEED8 /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
 		CFAFBFFB8FA9968FD7AC98FF /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
@@ -201,6 +203,7 @@
 			isa = PBXGroup;
 			children = (
 				8531B097CEC08B13BAF87F29 /* GitHubSettingsSection.swift */,
+				C7599A3E829C97AA86843F66 /* ModelsSettingsSection.swift */,
 				324080D75957A3776C6AE643 /* PlaceholderSection.swift */,
 			);
 			path = Sections;
@@ -418,6 +421,7 @@
 				8D5B6940D68D2D386C81D000 /* MainWindow.swift in Sources */,
 				9525F4D036722C7A08ACF65D /* MockDaemonClient.swift in Sources */,
 				EC922EC8C5DD24A38493F0ED /* ModalState.swift in Sources */,
+				BDAEC96AB01F6896152A3018 /* ModelsSettingsSection.swift in Sources */,
 				3E70103B56C8294DDCA1E434 /* NordicNames.swift in Sources */,
 				CC3E912C7C322D76B934024D /* PRModal.swift in Sources */,
 				51E4C485C121F96D95978DE3 /* PlaceholderSection.swift in Sources */,

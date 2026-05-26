@@ -225,6 +225,43 @@ final class LiveDaemonClient: DaemonClient {
         return resp.status
     }
 
+    func credentialsList() async throws -> [RPCCredentialEntry] {
+        // METHOD_NOT_FOUND propagates as-is so AppState can light up the
+        // "daemon too old" row (skogad < getskoga/skoga#103). Anything
+        // else — transport, decode — also propagates; the Settings view
+        // surfaces it as an error row with a Retry button.
+        let resp: CredentialsListResponse = try await rpc.call("credentials.list")
+        return resp.entries
+    }
+
+    @discardableResult
+    func credentialsSet(provider: RPCCredentialProvider, key: String) async throws -> RPCCredentialEntry {
+        let params = AnyEncodable(CredentialsSetParams(provider: provider, key: key))
+        let resp: CredentialsSetResponse = try await rpc.call("credentials.set", params: params)
+        // The daemon's `CredentialsSetResponse` carries only presence —
+        // it doesn't include a fresh `last_used` because no read of the
+        // key has happened yet (Keychain writes don't bump it). Mirror
+        // that by returning `last_used = nil`; the next `credentialsList`
+        // or a successful `credentialsTest` will populate it.
+        return RPCCredentialEntry(
+            provider: resp.provider,
+            has_key: resp.has_key,
+            last_used: nil
+        )
+    }
+
+    @discardableResult
+    func credentialsDelete(provider: RPCCredentialProvider) async throws -> Bool {
+        let params = AnyEncodable(CredentialsDeleteParams(provider: provider))
+        let resp: CredentialsDeleteResponse = try await rpc.call("credentials.delete", params: params)
+        return resp.deleted
+    }
+
+    func credentialsTest(provider: RPCCredentialProvider) async throws -> RPCCredentialsTestResult {
+        let params = AnyEncodable(CredentialsTestParams(provider: provider))
+        return try await rpc.call("credentials.test", params: params)
+    }
+
     /// Spawn `skoga <args>`, await termination, capture stdout. Stderr is
     /// folded into the error message on failure so the user sees the same
     /// preflight-failure / conflict text the terminal would surface.

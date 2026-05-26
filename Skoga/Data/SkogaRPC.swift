@@ -376,3 +376,94 @@ struct GitHubSetDefaultReviewerParams: Encodable {
 struct GitHubSetDefaultReviewerResponse: Decodable {
     let status: RPCGitHubStatus
 }
+
+// MARK: – credentials.* (model-provider API keys)
+
+/// Provider identifier for `credentials.*` RPCs (see getskoga/skoga#103).
+/// Mirrors the Rust `CredentialProvider` enum: wire format is the
+/// lowercase string (`"anthropic"`, `"openai"`) so both the Mac and the
+/// CLI pass the same canonical token. New providers extend this enum as
+/// adapters declare env-var bindings on the daemon side.
+enum RPCCredentialProvider: String, Codable, CaseIterable, Equatable, Hashable {
+    case anthropic
+    case openai
+
+    /// User-facing label (Title Case) for the Settings → Models & keys
+    /// section header.
+    var displayName: String {
+        switch self {
+        case .anthropic: "Anthropic"
+        case .openai:    "OpenAI"
+        }
+    }
+
+    /// Adapter that consumes this provider's key. Used to group the
+    /// "default model" picker with its provider — the daemon's per-
+    /// adapter `credential_providers` declares the binding (Claude →
+    /// Anthropic, Codex → OpenAI), but the Mac doesn't have access to
+    /// that map at runtime so we mirror it here.
+    var adapter: String {
+        switch self {
+        case .anthropic: "claude"
+        case .openai:    "codex"
+        }
+    }
+}
+
+/// One entry in the `credentials.list` response. `has_key` is the
+/// presence bit — the actual key never crosses the RPC boundary on
+/// reads. `last_used` is the ISO-8601 timestamp of the most recent
+/// successful Keychain read (set on agent launch + on
+/// `credentials.test`); `nil` means never.
+struct RPCCredentialEntry: Decodable, Equatable, Identifiable {
+    let provider: RPCCredentialProvider
+    let has_key: Bool
+    let last_used: String?
+
+    /// `Identifiable` lets SwiftUI's `ForEach` track the row by provider
+    /// across refetches so the masked-key field and any inline test
+    /// result don't remount on every poll.
+    var id: RPCCredentialProvider { provider }
+}
+
+struct CredentialsListResponse: Decodable {
+    let entries: [RPCCredentialEntry]
+}
+
+struct CredentialsSetParams: Encodable {
+    let provider: RPCCredentialProvider
+    /// Raw API key. Trimmed daemon-side; empty/whitespace-only is
+    /// rejected (use `credentials.delete` to clear).
+    let key: String
+}
+
+struct CredentialsSetResponse: Decodable {
+    let provider: RPCCredentialProvider
+    let has_key: Bool
+}
+
+struct CredentialsDeleteParams: Encodable {
+    let provider: RPCCredentialProvider
+}
+
+struct CredentialsDeleteResponse: Decodable {
+    let provider: RPCCredentialProvider
+    /// `true` if a Keychain entry existed and was deleted; `false` if
+    /// there was nothing to delete (idempotent — same shape either way).
+    let deleted: Bool
+}
+
+struct CredentialsTestParams: Encodable {
+    let provider: RPCCredentialProvider
+}
+
+/// Outcome of `credentials.test`. Per the daemon contract, this never
+/// errors at the RPC layer — every probe failure (no key, network, 401,
+/// 403, malformed reply) collapses to `ok: false` with a human-readable
+/// `message`. The Mac renders `message` inline next to the row.
+struct RPCCredentialsTestResult: Decodable, Equatable {
+    let provider: RPCCredentialProvider
+    let ok: Bool
+    let message: String
+    let latency_ms: UInt64?
+}
