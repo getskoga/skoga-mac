@@ -147,6 +147,8 @@ struct SettingsShell: View {
             ModelsSettingsSection()
         case .notifications:
             NotificationsSettingsSection()
+        case .budgets:
+            BudgetsSettingsSection()
         default:
             PlaceholderSection(section: selected)
         }

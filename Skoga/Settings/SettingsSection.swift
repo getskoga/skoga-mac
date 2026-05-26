@@ -89,9 +89,9 @@ enum SettingsSectionID: String, CaseIterable, Hashable, Identifiable {
         case .modelsKeys:     ["Anthropic / OpenAI / Google API keys",
                                "Default model per agent role",
                                "Allow-list of models each agent may pick"]
-        case .budgets:        ["Monthly spend ceiling",
-                               "Per-agent cost limits",
-                               "Pause-when-exceeded behavior"]
+        // Budgets has its own panel — see `BudgetsSettingsSection`. No
+        // roadmap here; the PlaceholderSection branch is unreachable.
+        case .budgets:        []
         case .agents:         ["Default role and tooling for new agents",
                                "Shared system prompts and templates",
                                "Auto-resume policy after disconnect"]
