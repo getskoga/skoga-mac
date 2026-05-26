@@ -7,6 +7,12 @@ import AppKit
 /// The SwiftUI hiddenTitleBar style leaves the buttons floating at (0, 0); we
 /// nudge them down a few points so they sit centered against the parchment.
 struct WindowAccessor: NSViewRepresentable {
+    /// Invoked once the host `NSWindow` is resolved. Lets callers
+    /// scope window-specific notification filters (e.g. miniaturize)
+    /// to the actual main window rather than every NSWindow in the
+    /// process.
+    var onWindow: ((NSWindow) -> Void)? = nil
+
     final class Coordinator {
         var configured = false
     }
@@ -19,6 +25,7 @@ struct WindowAccessor: NSViewRepresentable {
             guard let window = v?.window, !context.coordinator.configured else { return }
             context.coordinator.configured = true
             configure(window)
+            onWindow?(window)
         }
         return v
     }
@@ -27,6 +34,7 @@ struct WindowAccessor: NSViewRepresentable {
         if let w = nsView.window, !context.coordinator.configured {
             context.coordinator.configured = true
             configure(w)
+            onWindow?(w)
         }
     }
 

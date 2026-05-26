@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import Foundation
 
 enum AppView: String, Hashable {
@@ -53,6 +54,19 @@ final class AppState {
 
     let client: DaemonClient
     private let isMock: Bool
+
+    // ── Visibility gating ────────────────────────────────────
+    // The polling loop suspends when the app is hidden (cmd+H) or the
+    // main window is minimized, and resumes via `resumeContinuation`
+    // when either condition clears. `mainWindow` is registered by
+    // `WindowAccessor` and used to scope `NSWindow.didMiniaturize`
+    // matching to the host window — other windows (sheets, future
+    // inspectors) shouldn't gate the polling loop.
+    @ObservationIgnored private weak var mainWindow: NSWindow?
+    private var appHidden: Bool = false
+    private var windowMinimized: Bool = false
+    private var resumeContinuation: CheckedContinuation<Void, Never>?
+    private var isVisible: Bool { !appHidden && !windowMinimized }
 
     init(client: DaemonClient? = nil, isMock: Bool = true) {
         self.client = client ?? MockDaemonClient()
@@ -270,15 +284,61 @@ final class AppState {
     /// open, when the transcript is still empty.
     private func startPollingFallback() {
         Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 5_000_000_000)
                 guard let self else { return }
+                // If we're not visible, park on a continuation until
+                // setAppHidden/setWindowMinimized clears both flags.
+                // Resume falls through to the refresh below, so the
+                // first poll after a restore happens on the same
+                // MainActor turn rather than 5s later.
+                if !self.isVisible {
+                    await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+                        self.resumeContinuation = cont
+                    }
+                }
                 await self.refresh()
                 if let id = self.openAgentId {
                     await self.loadConversation(id)
                 }
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
         }
+    }
+
+    /// Called by the root view when `NSApplication.didHide/didUnhide`
+    /// or `NSWindow.didMiniaturize/didDeminiaturize` fires. When either
+    /// condition clears we wake the polling loop's suspended
+    /// continuation so the next refresh happens immediately.
+    func setAppHidden(_ hidden: Bool) {
+        appHidden = hidden
+        if isVisible { resumePolling() }
+    }
+
+    func setWindowMinimized(_ minimized: Bool) {
+        windowMinimized = minimized
+        if isVisible { resumePolling() }
+    }
+
+    /// `WindowAccessor` calls this once it has resolved the host
+    /// `NSWindow`. Used to scope `NSWindow.didMiniaturize` matching to
+    /// the main window so sheets / future auxiliary windows don't
+    /// accidentally pause the polling loop.
+    func registerMainWindow(_ window: NSWindow) {
+        mainWindow = window
+    }
+
+    /// Identity check exposed for the `.onReceive` filter — the
+    /// `mainWindow` reference itself stays private.
+    func isMainWindow(_ object: Any?) -> Bool {
+        guard let window = object as? NSWindow, let main = mainWindow else { return false }
+        return window === main
+    }
+
+    private func resumePolling() {
+        guard let cont = resumeContinuation else { return }
+        resumeContinuation = nil
+        cont.resume()
     }
 
     private func describe(_ error: Error) -> String {
