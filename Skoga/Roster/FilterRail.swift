@@ -2,7 +2,7 @@ import SwiftUI
 
 struct FilterRail: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
 
     @State private var queryDraft: String = ""
     @State private var debounceArmed: Bool = false

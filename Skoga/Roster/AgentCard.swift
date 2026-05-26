@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AgentCard: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
     let agent: Agent
     let onPick: () -> Void
 

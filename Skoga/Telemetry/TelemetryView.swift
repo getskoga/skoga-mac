@@ -2,7 +2,7 @@ import SwiftUI
 
 struct TelemetryView: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
 
     struct ModelStat {
         let model: String

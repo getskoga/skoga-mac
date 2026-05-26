@@ -6,7 +6,7 @@ import SwiftUI
 /// instead of wiring the button straight to `state.kill`.
 struct StopConfirmModal: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
     let agent: Agent
 
     @State private var submitting = false

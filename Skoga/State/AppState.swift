@@ -8,47 +8,48 @@ enum AppView: String, Hashable {
 /// Top-level app state mirroring the React App's local state — view selection, filters,
 /// the currently open agent, search query, toasts, and the optional in-flight PR target.
 @MainActor
-final class AppState: ObservableObject {
+@Observable
+final class AppState {
 
     // ── Selection ────────────────────────────────────────────
-    @Published var view: AppView = .roster
-    @Published var openAgentId: String? = nil
-    @Published var prAgentId: String? = nil
-    @Published var stopAgentId: String? = nil
-    @Published var commandPaletteOpen: Bool = false
+    var view: AppView = .roster
+    var openAgentId: String? = nil
+    var prAgentId: String? = nil
+    var stopAgentId: String? = nil
+    var commandPaletteOpen: Bool = false
 
     // ── Filters ──────────────────────────────────────────────
     enum Filter: String, CaseIterable, Hashable { case all, running, blocked, prOpen, done, idle, stopping, exited }
-    @Published var filter: Filter = .all
-    @Published var query: String = ""
+    var filter: Filter = .all
+    var query: String = ""
 
     // ── Composer ─────────────────────────────────────────────
-    @Published var pendingReply: String = ""
+    var pendingReply: String = ""
 
     // ── Toast ────────────────────────────────────────────────
-    @Published var toast: String? = nil
+    var toast: String? = nil
 
     // ── Data ─────────────────────────────────────────────────
-    @Published private(set) var agents: [Agent] = []
-    @Published private(set) var activity: [Double] = []
-    @Published private(set) var conversation: [ConversationMessage] = []
-    @Published private(set) var timeline: [TimelineEntry] = []
-    @Published private(set) var daemonStatus: DaemonStatus
+    private(set) var agents: [Agent] = []
+    private(set) var activity: [Double] = []
+    private(set) var conversation: [ConversationMessage] = []
+    private(set) var timeline: [TimelineEntry] = []
+    private(set) var daemonStatus: DaemonStatus
     /// Last fetched `gh` CLI status from the daemon. `nil` before the
     /// first fetch completes — Settings → GitHub renders a loading row
     /// in that window, and the PR modal's reviewer field falls back to
     /// the "+ add" placeholder.
-    @Published private(set) var githubStatus: RPCGitHubStatus?
+    private(set) var githubStatus: RPCGitHubStatus?
     /// True when the daemon doesn't speak `github.status` (METHOD_NOT_FOUND).
     /// Surfaced as a distinct Settings row so the user sees "Upgrade the
     /// daemon" instead of a misleading "Install gh CLI" CTA when in fact
     /// `gh` may already be on disk and authenticated.
-    @Published private(set) var githubDaemonUnsupported: Bool = false
+    private(set) var githubDaemonUnsupported: Bool = false
     /// Localized error from the most recent github.status fetch, kept
     /// only when we have no cached status to fall back on. Background
     /// poll failures while a status is already in hand stay silent —
     /// the existing UI doesn't need to flicker on every transient drop.
-    @Published private(set) var githubStatusError: String?
+    private(set) var githubStatusError: String?
 
     let client: DaemonClient
     private let isMock: Bool
@@ -327,9 +328,10 @@ final class AppState: ObservableObject {
                     msgs.append(.question(pending))
                 }
             }
-            // Skip the @Published write when nothing changed — every poll
-            // tick otherwise invalidates every observer of AppState, even
-            // for idle conversations.
+            // Skip the assignment when nothing changed — the @Observable
+            // macro fires a tracking notification on every write, so an
+            // identity-equal poll would still re-render views that read
+            // `conversation` (the open conversation feed) on each tick.
             if conversation != msgs {
                 conversation = msgs
             }

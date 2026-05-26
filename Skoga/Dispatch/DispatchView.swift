@@ -3,7 +3,7 @@ import AppKit
 
 struct DispatchView: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
 
     @State private var template: Template = .feature
     @State private var title: String = ""
