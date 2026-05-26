@@ -89,6 +89,11 @@ final class LiveDaemonClient: DaemonClient {
         let _: SessionKillResponse = try await rpc.call("session.kill", params: params)
     }
 
+    func shipSession(id: String) async throws {
+        let params = AnyEncodable(SessionShipParams(id: id))
+        let _: SessionShipResponse = try await rpc.call("session.ship", params: params)
+    }
+
     func sendInput(sessionId: String, text: String) async throws {
         // Older daemons (pre-`session.send_input`) return METHOD_NOT_FOUND.
         // We let that propagate as a JSONRPCError so the coordinator shows the
@@ -668,7 +673,12 @@ extension Agent {
             // (so a follow-up conflict re-arms the button), but suppressing
             // here as well means a stale value from an in-flight race never
             // leaks into the non-conflicted card.
-            rebasePromptDispatchedAt: s.state == .conflicted ? s.rebase_prompt_dispatched_at : nil
+            rebasePromptDispatchedAt: s.state == .conflicted ? s.rebase_prompt_dispatched_at : nil,
+            // `.prMerged` exactly (not `.shipping`) is the auto-ship trigger:
+            // the daemon has reconciled the PR as merged remotely but hasn't
+            // begun teardown. `.shipping` is already mid-teardown, so we
+            // skip it to avoid a redundant rejected RPC every poll.
+            needsAutoShip: s.state == .prMerged
         )
     }
 }

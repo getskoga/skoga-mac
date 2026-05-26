@@ -33,6 +33,14 @@ final class AppCoordinator {
     @ObservationIgnored private var resumeContinuation: CheckedContinuation<Void, Never>?
     private var isVisible: Bool { !appHidden && !windowMinimized }
 
+    /// Session ids for which we've already fired the auto-ship RPC. The
+    /// daemon's `.prMerged` state is sticky — it stays set until our
+    /// `session.ship` call transitions it to `.shipping` — so without
+    /// this set we'd re-issue ship on every 5s poll between the call
+    /// and the daemon's response. Idempotency on the daemon side covers
+    /// the worst case, but spamming rejected RPCs muddies the audit log.
+    @ObservationIgnored private var autoShippedSessionIds: Set<String> = []
+
     init(client: DaemonClient? = nil, isMock: Bool = true) {
         self.roster = RosterState()
         self.conversation = ConversationState()
@@ -89,8 +97,38 @@ final class AppCoordinator {
             let next = try await daemon.client.listAgents()
             roster.apply(agents: next)
             daemon.setDaemonStatus(.connected(version: version))
+            autoShipMergedSessions()
         } catch {
             daemon.setDaemonStatus(.notRunning(detail: error.toastMessage))
+        }
+    }
+
+    /// Fire `session.ship` on any session the daemon has flagged as
+    /// `.prMerged` but that we haven't already auto-shipped. Mirrors what
+    /// the user would get by running `skoga ship` from the CLI — the PR
+    /// landed, so the session should autoclose. Mock mode is excluded
+    /// because the mock has no real teardown path. Errors are swallowed
+    /// (with one tracked retry permitted on the next poll) so a transient
+    /// RPC failure doesn't deadlock the auto-ship for this session id.
+    private func autoShipMergedSessions() {
+        guard !daemon.isMock else { return }
+        for agent in roster.agents where agent.needsAutoShip && !autoShippedSessionIds.contains(agent.id) {
+            autoShippedSessionIds.insert(agent.id)
+            let id = agent.id
+            let name = agent.name
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                do {
+                    try await self.daemon.client.shipSession(id: id)
+                    self.modal.showToast("PR merged — closing \(name).")
+                } catch {
+                    // Drop from the set so the next poll retries. The
+                    // expected races (already shipping / already done)
+                    // resolve themselves as the daemon advances state
+                    // and `needsAutoShip` flips to false.
+                    self.autoShippedSessionIds.remove(id)
+                }
+            }
         }
     }
 

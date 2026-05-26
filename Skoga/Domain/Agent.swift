@@ -65,6 +65,15 @@ struct Agent: Identifiable, Hashable {
     /// any transition out of `.conflicted`, so a new conflict re-arms
     /// the button automatically.
     let rebasePromptDispatchedAt: Date?
+    /// True when the daemon's raw RPC state is `pr-merged` — the PR landed
+    /// remotely but `session.ship` hasn't been called yet. The coordinator
+    /// uses this to fire an automatic ship so a merged PR autocloses its
+    /// session the same way `skoga ship` would. Distinct from
+    /// `AgentStatus.prMerged`, which collapses `pr-merged` and `shipping`
+    /// (already mid-teardown) into one pill — we need to know the
+    /// difference because shipping a session that's already shipping
+    /// would just be a redundant rejected RPC.
+    let needsAutoShip: Bool
 
     /// Memberwise init with a default for `pendingQuestion` so design
     /// seeds (all 20+ Agent literals in MockDaemonClient) don't have to
@@ -87,7 +96,8 @@ struct Agent: Identifiable, Hashable {
         attnMessage: String?,
         prUrl: String?,
         pendingQuestion: ConversationMessage.QuestionPayload? = nil,
-        rebasePromptDispatchedAt: Date? = nil
+        rebasePromptDispatchedAt: Date? = nil,
+        needsAutoShip: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -107,6 +117,7 @@ struct Agent: Identifiable, Hashable {
         self.prUrl = prUrl
         self.pendingQuestion = pendingQuestion
         self.rebasePromptDispatchedAt = rebasePromptDispatchedAt
+        self.needsAutoShip = needsAutoShip
     }
 
     /// `branch` after the first slash, used to label rows like "auth-scope-refresh".
@@ -170,7 +181,8 @@ struct Agent: Identifiable, Hashable {
             lhs.attnMessage == rhs.attnMessage &&
             lhs.prUrl == rhs.prUrl &&
             lhs.pendingQuestion == rhs.pendingQuestion &&
-            lhs.rebasePromptDispatchedAt == rhs.rebasePromptDispatchedAt
+            lhs.rebasePromptDispatchedAt == rhs.rebasePromptDispatchedAt &&
+            lhs.needsAutoShip == rhs.needsAutoShip
     }
 
     func hash(into hasher: inout Hasher) {
@@ -191,5 +203,6 @@ struct Agent: Identifiable, Hashable {
         hasher.combine(prUrl)
         hasher.combine(pendingQuestion)
         hasher.combine(rebasePromptDispatchedAt)
+        hasher.combine(needsAutoShip)
     }
 }
