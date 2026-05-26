@@ -43,6 +43,7 @@
 		C0DCD0495C0135A8877E74D7 /* ActivityBars.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E13C9D4BF28ACDB5B9C1CC /* ActivityBars.swift */; };
 		CC3E912C7C322D76B934024D /* PRModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636564F61F4F65B4CC82B789 /* PRModal.swift */; };
 		CCFCAD5B8E9DED56CC8A7D65 /* SkogaIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */; };
+		DEAAB7FD56B1E0BB845BDBAE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5002E6D455E5B92B222248 /* SettingsView.swift */; };
 		F40CF5E71F1B6724136A191B /* RemoteTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A495BC418BAD2F865FEA74FC /* RemoteTerminalView.swift */; };
 		F953B4F6DFAD8786461DD1F8 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296A4F6E32617A28B9E035E9 /* Typography.swift */; };
 /* End PBXBuildFile section */
@@ -81,6 +82,7 @@
 		CFAFBFFB8FA9968FD7AC98FF /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
 		D3AEE547F6633CF2722E23E2 /* AgentCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCard.swift; sourceTree = "<group>"; };
 		EA9FE95C049FA34A02C1F2E1 /* CockpitStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitStrip.swift; sourceTree = "<group>"; };
+		ED5002E6D455E5B92B222248 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		ED68B708D3D45C9366760F38 /* MockDaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDaemonClient.swift; sourceTree = "<group>"; };
 		EF6164A630675637301F36D4 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
 		F47F1D8A4A2158D854110144 /* TelemetryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryView.swift; sourceTree = "<group>"; };
@@ -205,6 +207,7 @@
 				40A0C6AEAF94719F1F67D011 /* Modals */,
 				11ABE4C162A4CDFD3D4BF3EA /* Review */,
 				ED9290C388E7599C45626052 /* Roster */,
+				D8E53EC3189A1E06F73D80E6 /* Settings */,
 				E6D0C8C704D11988484F1BB0 /* State */,
 				F810B80FDF4F8F15AC3A56CA /* Telemetry */,
 			);
@@ -218,6 +221,14 @@
 				7E6D30C0F5B11763748C1C22 /* SkogaApp.swift */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		D8E53EC3189A1E06F73D80E6 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				ED5002E6D455E5B92B222248 /* SettingsView.swift */,
+			);
+			path = Settings;
 			sourceTree = "<group>";
 		};
 		E6D0C8C704D11988484F1BB0 /* State */ = {
@@ -361,6 +372,7 @@
 				F40CF5E71F1B6724136A191B /* RemoteTerminalView.swift in Sources */,
 				55BEF74D5D6FEBD73D9E14A5 /* ReviewView.swift in Sources */,
 				6EEEECFE96A849FA50EBB981 /* RosterView.swift in Sources */,
+				DEAAB7FD56B1E0BB845BDBAE /* SettingsView.swift in Sources */,
 				4B666D2DD45E99850F918565 /* Sidebar.swift in Sources */,
 				10F388F0EA51E3ADE2CC0FD2 /* SkogaApp.swift in Sources */,
 				8C054293BB4CF2C9E24828CD /* SkogaGlyph.swift in Sources */,

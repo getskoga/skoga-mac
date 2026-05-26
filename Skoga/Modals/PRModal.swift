@@ -218,6 +218,8 @@ struct PRModal: View {
     }
 
     private var reviewersField: some View {
+        // Reviewer chip pre-fills from Settings → GitHub's persisted
+        // `default_reviewer`; the user adds others manually here.
         HStack {
             Text("REVIEWERS")
                 .font(SkogaFont.mono(10))
@@ -225,7 +227,9 @@ struct PRModal: View {
                 .foregroundStyle(p.inkFaint)
             Spacer()
             HStack(spacing: 6) {
-                pill(text: "@mikael", fill: p.paper2)
+                if let reviewer = state.githubStatus?.default_reviewer, !reviewer.isEmpty {
+                    pill(text: reviewer, fill: p.paper2)
+                }
                 pill(text: "+ add", fill: p.paper)
             }
         }

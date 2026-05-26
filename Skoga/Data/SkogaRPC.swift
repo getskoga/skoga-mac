@@ -346,3 +346,33 @@ extension RPCPendingQuestion {
         ))
     }
 }
+
+// MARK: – github.status / github.set_default_reviewer
+
+/// Wire shape of `github.status` (see getskoga/skoga#97). All fields are
+/// independently optional so the UI can render partial truths: `gh` may be
+/// installed but not on PATH for our subprocess, authenticated against a
+/// different host, etc. The Mac surfaces the gap as a CTA rather than an
+/// error.
+///
+/// `default_reviewer` is the persisted-in-config value the PR modal pre-
+/// fills as the reviewers chip. The daemon owns persistence so the setting
+/// follows the user across machines that share the same skoga config.
+struct RPCGitHubStatus: Decodable, Equatable {
+    let installed: Bool
+    let authenticated: Bool
+    let login: String?
+    let default_account: String?
+    let scopes: [String]
+    let default_reviewer: String?
+}
+
+struct GitHubSetDefaultReviewerParams: Encodable {
+    /// Empty string clears the persisted value. The daemon's config layer
+    /// treats `""` as "unset" so callers don't need a separate clear RPC.
+    let reviewer: String
+}
+
+struct GitHubSetDefaultReviewerResponse: Decodable {
+    let status: RPCGitHubStatus
+}

@@ -40,7 +40,10 @@ struct TitleBar: View {
                     state.commandPaletteOpen = true
                 }
                 GhostIconButton(icon: .watch) {}
-                GhostIconButton(icon: .settings) {}
+                GhostIconButton(icon: .settings, active: state.view == .settings) {
+                    state.view = .settings
+                    state.openAgentId = nil
+                }
             }
             .padding(.trailing, 14)
         }
@@ -103,6 +106,7 @@ struct GhostButton: View {
 struct GhostIconButton: View {
     @Environment(\.palette) private var p
     let icon: SkogaIcon
+    var active: Bool = false
     let action: () -> Void
 
     @State private var hovering = false
@@ -110,11 +114,11 @@ struct GhostIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(skoga: icon).skogaIconSize(12)
-                .foregroundStyle(hovering ? p.ink : p.ink2)
+                .foregroundStyle(active ? p.forest : (hovering ? p.ink : p.ink2))
                 .frame(width: 26, height: 26)
                 .background(
                     RoundedRectangle(cornerRadius: Tokens.Radius.chip)
-                        .fill(hovering ? p.paper3 : p.paper)
+                        .fill(active ? p.paper4 : (hovering ? p.paper3 : p.paper))
                         .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
                 )
         }

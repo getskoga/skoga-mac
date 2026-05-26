@@ -92,6 +92,22 @@ protocol DaemonClient: AnyObject {
     /// failure. On success the session's `landed_pr_url` is set by the
     /// daemon; callers refresh to see it.
     func landPR(for sessionId: String, title: String, body: String) async throws
+
+    /// Current `gh` CLI state from the daemon's perspective — install,
+    /// auth, login handle, scopes, and the persisted default reviewer.
+    /// Polled by Settings → GitHub during sign-in to detect when the
+    /// user's terminal `gh auth login` completes. Throws on transport
+    /// failure; the Settings view distinguishes that from a clean
+    /// "not installed" reply (where the call returns and `installed`
+    /// is false).
+    func githubStatus() async throws -> RPCGitHubStatus
+
+    /// Persist the default reviewer the PR modal pre-fills (`@username`
+    /// or `org/team`). Returns the updated `RPCGitHubStatus` so the
+    /// caller can update local state without a second round-trip. Pass
+    /// an empty string to clear.
+    @discardableResult
+    func githubSetDefaultReviewer(_ reviewer: String) async throws -> RPCGitHubStatus
 }
 
 /// CLI-derived PR title + body used to pre-fill the PR modal. Mirrors the

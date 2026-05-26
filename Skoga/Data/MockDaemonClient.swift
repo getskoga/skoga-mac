@@ -10,6 +10,13 @@ final class MockDaemonClient: DaemonClient {
     private let timelineCache: [TimelineEntry] = MockDaemonClient.seedTimeline
     private let activityCache: [Double] = MockDaemonClient.seedActivity
 
+    /// In-memory `gh` status the mock client returns. Designers can flip
+    /// fields in `seedGitHubStatus` (or via `githubSetDefaultReviewer` at
+    /// runtime) to exercise each Settings → GitHub variant without
+    /// running a real daemon. Mutable because `set_default_reviewer`
+    /// rewrites the persisted reviewer in place.
+    private var githubStatusState: RPCGitHubStatus = MockDaemonClient.seedGitHubStatus
+
     func listAgents() async throws -> [Agent] { agentsCache }
 
     func conversation(for agentId: String) async throws -> [ConversationMessage] {
@@ -83,6 +90,25 @@ final class MockDaemonClient: DaemonClient {
         // Pretend the land succeeded. No way to actually push from mock —
         // the design surface is the only thing consuming this path.
         try await Task.sleep(nanoseconds: 400_000_000)
+    }
+
+    func githubStatus() async throws -> RPCGitHubStatus {
+        githubStatusState
+    }
+
+    @discardableResult
+    func githubSetDefaultReviewer(_ reviewer: String) async throws -> RPCGitHubStatus {
+        let trimmed = reviewer.trimmingCharacters(in: .whitespacesAndNewlines)
+        let current = githubStatusState
+        githubStatusState = RPCGitHubStatus(
+            installed: current.installed,
+            authenticated: current.authenticated,
+            login: current.login,
+            default_account: current.default_account,
+            scopes: current.scopes,
+            default_reviewer: trimmed.isEmpty ? nil : trimmed
+        )
+        return githubStatusState
     }
 }
 
@@ -235,6 +261,20 @@ private extension MockDaemonClient {
               progress: 1.0, runtime: "—", tokens: 0, cost: 0,
               commits: 0, files: 0, attn: false, attnMessage: nil, prUrl: nil),
     ]
+
+    /// Default "signed-in, with reviewer set" mock so the Settings page
+    /// reads as a fully-configured account out of the box. Designers can
+    /// edit here (or set `default_reviewer` to nil, `authenticated` to
+    /// false, etc.) to preview the other Settings → GitHub states without
+    /// running a real daemon.
+    static let seedGitHubStatus = RPCGitHubStatus(
+        installed: true,
+        authenticated: true,
+        login: "mikael",
+        default_account: "mikael",
+        scopes: ["repo", "read:org", "workflow"],
+        default_reviewer: "@mikael"
+    )
 
     static let seedActivity: [Double] = [
         0.18, 0.22, 0.31, 0.24, 0.40, 0.55, 0.62, 0.48, 0.36, 0.42,
