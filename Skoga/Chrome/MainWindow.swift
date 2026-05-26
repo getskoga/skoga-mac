@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct MainWindow: View {
     @Environment(\.palette) private var p
@@ -47,7 +48,21 @@ struct MainWindow: View {
             }
         }
         .onExitCommand { state.commandPaletteOpen = false }
-        .background(WindowAccessor())
+        .background(WindowAccessor(onWindow: { state.registerMainWindow($0) }))
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didHideNotification)) { _ in
+            state.setAppHidden(true)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didUnhideNotification)) { _ in
+            state.setAppHidden(false)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didMiniaturizeNotification)) { note in
+            guard state.isMainWindow(note.object) else { return }
+            state.setWindowMinimized(true)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didDeminiaturizeNotification)) { note in
+            guard state.isMainWindow(note.object) else { return }
+            state.setWindowMinimized(false)
+        }
     }
 
     @ViewBuilder private var mainArea: some View {
