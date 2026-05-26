@@ -56,6 +56,7 @@
 		CCFCAD5B8E9DED56CC8A7D65 /* SkogaIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */; };
 		E2D6D2E0E7C708D3E63B83D7 /* NotificationsSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B6E36E5C280653D25A1DDF9 /* NotificationsSettingsSection.swift */; };
 		EC922EC8C5DD24A38493F0ED /* ModalState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DEDFD8AE5B69FA5C48EE1FD /* ModalState.swift */; };
+		F360C48B877A3A7CA94F4939 /* BudgetsSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38E26794A30DE016A10EB598 /* BudgetsSettingsSection.swift */; };
 		F40CF5E71F1B6724136A191B /* RemoteTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A495BC418BAD2F865FEA74FC /* RemoteTerminalView.swift */; };
 		F953B4F6DFAD8786461DD1F8 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296A4F6E32617A28B9E035E9 /* Typography.swift */; };
 /* End PBXBuildFile section */
@@ -71,6 +72,7 @@
 		3148BC8738DB0F36AA1A85E9 /* Agent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Agent.swift; sourceTree = "<group>"; };
 		324080D75957A3776C6AE643 /* PlaceholderSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderSection.swift; sourceTree = "<group>"; };
 		3457E04866B98C322F63CCB3 /* JSONRPCConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONRPCConnection.swift; sourceTree = "<group>"; };
+		38E26794A30DE016A10EB598 /* BudgetsSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetsSettingsSection.swift; sourceTree = "<group>"; };
 		3F594D7BABF3680BF59BBE69 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		49F7F15D58C08252650D51B5 /* WindowAccessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowAccessor.swift; sourceTree = "<group>"; };
 		4A25157E2CF810158C87A5EC /* SettingsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsCard.swift; sourceTree = "<group>"; };
@@ -206,6 +208,7 @@
 		B8B28DD49CC8973132357BBB /* Sections */ = {
 			isa = PBXGroup;
 			children = (
+				38E26794A30DE016A10EB598 /* BudgetsSettingsSection.swift */,
 				8531B097CEC08B13BAF87F29 /* GitHubSettingsSection.swift */,
 				C7599A3E829C97AA86843F66 /* ModelsSettingsSection.swift */,
 				5B6E36E5C280653D25A1DDF9 /* NotificationsSettingsSection.swift */,
@@ -409,6 +412,7 @@
 				958EA9D087B23C21A7A0845A /* AgentCard.swift in Sources */,
 				1CF54B406250832E21C31E97 /* AppCoordinator.swift in Sources */,
 				0904869BDE0C1F4B33955791 /* AppView.swift in Sources */,
+				F360C48B877A3A7CA94F4939 /* BudgetsSettingsSection.swift in Sources */,
 				B038B3D3555C717A97F1D66A /* CockpitStrip.swift in Sources */,
 				C0B8611AF2746532CA6B30F5 /* Color+Oklch.swift in Sources */,
 				661CD394C01C7CDCEA758DEE /* CommandPalette.swift in Sources */,
