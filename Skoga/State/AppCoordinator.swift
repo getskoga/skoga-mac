@@ -347,7 +347,6 @@ final class AppCoordinator {
         case .dispatch:     "Dispatch · new run"
         case .review:       "Review · \(roster.counts.prOpen) open"
         case .telemetry:    "Telemetry"
-        case .settings:     "Settings"
         }
     }
 }
