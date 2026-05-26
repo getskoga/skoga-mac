@@ -27,6 +27,15 @@ struct RemoteTerminalView: NSViewRepresentable {
         let view = TerminalView(frame: .zero, font: font)
         view.terminalDelegate = context.coordinator
         view.configureNativeColors()
+        // SwiftTerm defaults to a 500-line scrollback buffer, which an
+        // active agent fills in seconds — the user can scroll up a
+        // little, then the wheel deadens against the top of the buffer
+        // long before reaching the start of the conversation. Allocate
+        // headroom that's effectively unbounded for any plausible
+        // single-session run; the buffer is a circular list of
+        // lazily-materialized lines, so the unused slots cost one
+        // pointer each (~8 bytes), not a full line of cells.
+        view.getTerminal().changeScrollback(50_000)
         // Keep the caret drawing as if focused even when first-responder is
         // temporarily elsewhere. SwiftUI's focus engine occasionally yanks
         // first-responder during arrow-key handling; without this flag the
