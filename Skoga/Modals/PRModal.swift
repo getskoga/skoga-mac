@@ -2,7 +2,7 @@ import SwiftUI
 
 struct PRModal: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
     let agent: Agent
 
     /// Title and body start empty and get populated once `skoga land

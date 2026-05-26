@@ -19,7 +19,7 @@ enum ConversationFeedMode: String, CaseIterable {
 
 struct ConversationView: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
     let agent: Agent
 
     var body: some View {
@@ -62,7 +62,7 @@ struct ConversationView: View {
 
 private struct ConvHeader: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
     let agent: Agent
 
     var body: some View {
@@ -141,7 +141,7 @@ private struct ConvHeader: View {
 /// "View PR on GitHub" so a second click doesn't try to re-land.
 private struct ConvActionsFooter: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
     let agent: Agent
 
     var body: some View {
@@ -361,7 +361,7 @@ private struct ConvWriteRow: View {
 
 private struct ConvQuestionRow: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
     let payload: ConversationMessage.QuestionPayload
     let agentId: String?
 
@@ -473,12 +473,13 @@ private struct ConvQuestionRow: View {
 
 private struct ConvComposer: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
     let agent: Agent
 
     @FocusState private var focused: Bool
 
     var body: some View {
+        @Bindable var state = state
         VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .topLeading) {
                 if state.pendingReply.isEmpty {

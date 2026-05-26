@@ -2,7 +2,7 @@ import SwiftUI
 
 @main
 struct SkogaApp: App {
-    @StateObject private var state: AppState = {
+    @State private var state: AppState = {
         let mock = ProcessInfo.processInfo.environment["SKOGA_USE_MOCK"] == "1"
         if mock {
             return AppState(client: MockDaemonClient(), isMock: true)
@@ -13,7 +13,7 @@ struct SkogaApp: App {
     var body: some Scene {
         Window("Skoga", id: "main") {
             MainWindow()
-                .environmentObject(state)
+                .environment(state)
                 .withPalette()
                 .task { await state.bootstrap() }
                 .frame(minWidth: 1100, minHeight: 720)

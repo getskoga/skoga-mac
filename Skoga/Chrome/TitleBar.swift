@@ -5,7 +5,7 @@ import SwiftUI
 /// buttons over the parchment.
 struct TitleBar: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
 
     var body: some View {
         ZStack {

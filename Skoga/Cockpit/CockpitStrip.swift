@@ -4,7 +4,7 @@ import SwiftUI
 /// a sparkline. Each cell renders as label/value/sub, separated by hairline rules.
 struct CockpitStrip: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
 
     var body: some View {
         let counts = state.counts
@@ -120,7 +120,7 @@ private struct Instrument: View {
 
 private struct ActivityCluster: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {

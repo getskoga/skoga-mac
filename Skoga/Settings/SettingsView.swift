@@ -18,7 +18,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.palette) private var p
     @Environment(\.openURL) private var openURL
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
 
     @State private var showingSignIn = false
 
@@ -37,7 +37,7 @@ struct SettingsView: View {
         .task { await state.refreshGitHubStatus() }
         .sheet(isPresented: $showingSignIn) {
             GitHubSignInSheet { showingSignIn = false }
-                .environmentObject(state)
+                .environment(state)
         }
     }
 
@@ -356,7 +356,7 @@ struct SettingsView: View {
 /// PR modal would update mid-typing.
 private struct DefaultReviewerEditor: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
 
     /// Persisted baseline at mount time (or last successful save). The
     /// dirty flag is computed against this — keep it frozen while the
@@ -495,7 +495,7 @@ private struct DefaultReviewerEditor: View {
 /// change.
 private struct GitHubSignInSheet: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
     let dismiss: () -> Void
 
     @State private var pollTask: Task<Void, Never>?

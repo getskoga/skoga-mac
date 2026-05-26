@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ReviewView: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
 
     /// Review surface = agents with a PR open on GitHub. We *intentionally*
     /// don't list agents that the manager hasn't landed yet — there's no

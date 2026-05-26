@@ -2,7 +2,7 @@ import SwiftUI
 
 struct RosterView: View {
     @Environment(\.palette) private var p
-    @EnvironmentObject private var state: AppState
+    @Environment(AppState.self) private var state
 
     var body: some View {
         VStack(spacing: 0) {
