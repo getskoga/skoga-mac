@@ -15,6 +15,7 @@
 		31BC5CD04C1B7237C7B5CB6E /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFAFBFFB8FA9968FD7AC98FF /* ConversationView.swift */; };
 		3E70103B56C8294DDCA1E434 /* NordicNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B445CBB1DD16119CE39FCC9 /* NordicNames.swift */; };
 		4639FEBCD92E5073935BB33D /* JSONRPCConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3457E04866B98C322F63CCB3 /* JSONRPCConnection.swift */; };
+		4B1E391149D1356D9FD5286A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 04B3C5B56A345134FAE70ACC /* Assets.xcassets */; };
 		4B666D2DD45E99850F918565 /* Sidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAD982A7CF77B3D772232722 /* Sidebar.swift */; };
 		540A532678F1E33044D42AFF /* DaemonStatusBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B326243F9BABD1BAF92FE67 /* DaemonStatusBanner.swift */; };
 		55BEF74D5D6FEBD73D9E14A5 /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6164A630675637301F36D4 /* ReviewView.swift */; };
@@ -50,6 +51,7 @@
 
 /* Begin PBXFileReference section */
 		011A602CAADDFE550B52C9DB /* Skoga.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Skoga.entitlements; sourceTree = "<group>"; };
+		04B3C5B56A345134FAE70ACC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		18C6D36A05B968E62F7CB7BF /* PulseDot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseDot.swift; sourceTree = "<group>"; };
 		235DA73ACD9025DC61F6CAA5 /* Color+Oklch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Oklch.swift"; sourceTree = "<group>"; };
 		296A4F6E32617A28B9E035E9 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
@@ -195,6 +197,7 @@
 		C099F9773FA682119AF4F76F /* Skoga */ = {
 			isa = PBXGroup;
 			children = (
+				04B3C5B56A345134FAE70ACC /* Assets.xcassets */,
 				C6161100EEB1638A090D84C2 /* App */,
 				7E089CA2369299101A551FA7 /* Chrome */,
 				6A5550E3937E20E53CB337E4 /* Cockpit */,
@@ -293,6 +296,7 @@
 			buildConfigurationList = 6C8CF5621CCE22C1FBEEAF8B /* Build configuration list for PBXNativeTarget "Skoga" */;
 			buildPhases = (
 				729AC11EABFEE9968EF21B10 /* Sources */,
+				5228A0A991D211F122E1FEB4 /* Resources */,
 				17E5F041FEB0C0130B77FEB0 /* Frameworks */,
 			);
 			buildRules = (
@@ -342,6 +346,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		5228A0A991D211F122E1FEB4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4B1E391149D1356D9FD5286A /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		729AC11EABFEE9968EF21B10 /* Sources */ = {
