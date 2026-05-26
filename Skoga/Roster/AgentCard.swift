@@ -89,9 +89,47 @@ struct AgentCard: View {
             Text(message)
                 .font(SkogaFont.monoSmall(10.5))
                 .tracking(0.4)
+            if agent.isRebaseConflict {
+                Spacer(minLength: 6)
+                rebaseButton
+            }
         }
         .foregroundStyle(p.ember)
         .padding(.top, -2)
+    }
+
+    /// Inline action that asks the agent to resolve the conflict. The card
+    /// itself is a `Button(action: onPick)`, so this is a nested button —
+    /// SwiftUI hit-tests the inner first, but `.buttonStyle(.plain)` plus
+    /// our own `.contentShape` are needed so the tap doesn't fall through
+    /// to the card's open-conversation action. Flips to a disabled
+    /// "Prompt sent" state once the daemon has stamped
+    /// `rebasePromptDispatchedAt` — re-arms automatically when the daemon
+    /// transitions out of `.conflicted`.
+    private var rebaseButton: some View {
+        let sent = agent.rebasePromptDispatchedAt != nil
+        return Button {
+            Task { await coordinator.resolveRebaseConflict(agentId: agent.id) }
+        } label: {
+            Text(sent ? "Prompt sent" : "Ask agent to rebase")
+                .font(SkogaFont.monoTiny(10))
+                .tracking(0.5)
+                .foregroundStyle(sent ? p.inkFaint : p.ember)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(
+                    RoundedRectangle(cornerRadius: Tokens.Radius.chip)
+                        .fill(p.paper)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: Tokens.Radius.chip)
+                        .stroke(sent ? p.rule : p.ember.opacity(0.6),
+                                lineWidth: Tokens.Hairline.width)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.chip))
+        }
+        .buttonStyle(.plain)
+        .disabled(sent)
     }
 
     // MARK: – Task

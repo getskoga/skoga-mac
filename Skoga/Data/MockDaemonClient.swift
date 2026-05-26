@@ -54,6 +54,12 @@ final class MockDaemonClient: DaemonClient {
         // silently lets designers exercise the composer end-to-end.
     }
 
+    func resolveRebaseConflict(sessionId: String) async throws {
+        // No-op. The mock has no live worktree to read conflicts off of —
+        // designers exercise the AgentCard's button state via seeded
+        // attnMessage / rebasePromptDispatchedAt values, not this call.
+    }
+
     func pendingQuestion(for agentId: String) async throws -> RPCPendingQuestion? {
         // No-op for the mock — designers exercise the question UI via
         // the seeded `.question(...)` conversation rows, not the live

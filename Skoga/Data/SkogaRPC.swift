@@ -76,6 +76,13 @@ struct RPCSession: Decodable {
     /// #92 and for sessions where the caller didn't pin a model. The
     /// Roster prefers this over `agent` when rendering the model line.
     let agent_model: String?
+    /// Set by the daemon when the user invokes `session.resolve_rebase_conflict`
+    /// (one-shot per conflict). Cleared automatically when the session
+    /// transitions out of `.conflicted`. The Mac uses presence to flip
+    /// the AgentCard's "Ask agent to rebase" button into a disabled
+    /// "Prompt sent" state so a double-click can't paste the fix-up
+    /// prompt twice into the agent's TUI.
+    let rebase_prompt_dispatched_at: Date?
 }
 
 enum RPCSessionState: String, Decodable {
@@ -149,6 +156,14 @@ struct SessionSendInputParams: Encodable {
 }
 
 struct SessionSendInputResponse: Decodable {
+    let session: RPCSession
+}
+
+struct SessionResolveRebaseConflictParams: Encodable {
+    let id: String
+}
+
+struct SessionResolveRebaseConflictResponse: Decodable {
     let session: RPCSession
 }
 
