@@ -122,6 +122,38 @@ protocol DaemonClient: AnyObject {
     /// an empty string to clear.
     @discardableResult
     func githubSetDefaultReviewer(_ reviewer: String) async throws -> RPCGitHubStatus
+
+    /// Per-provider Keychain credential presence and last-used metadata
+    /// (`credentials.list`). The raw key never crosses the wire on
+    /// reads — only `has_key` and an ISO-8601 `last_used` timestamp.
+    /// Used by Settings → Models & keys to render the per-row status
+    /// chips. Throws on transport / `METHOD_NOT_FOUND`; the Settings
+    /// view surfaces the latter as a "daemon too old" row, matching
+    /// the GitHub section's pattern.
+    func credentialsList() async throws -> [RPCCredentialEntry]
+
+    /// Persist an API key for `provider` to the user's login Keychain
+    /// (`credentials.set`). The daemon trims and rejects empty values
+    /// — callers should treat blank input as "use `credentialsDelete`".
+    /// Returns the updated entry so the caller can refresh its row
+    /// without a second `credentialsList` round-trip.
+    @discardableResult
+    func credentialsSet(provider: RPCCredentialProvider, key: String) async throws -> RPCCredentialEntry
+
+    /// Remove the Keychain entry for `provider` (`credentials.delete`).
+    /// Idempotent — returns `true` if a key existed and was removed,
+    /// `false` if there was nothing to delete. Both shapes mean the
+    /// provider is now configured-as-empty.
+    @discardableResult
+    func credentialsDelete(provider: RPCCredentialProvider) async throws -> Bool
+
+    /// Probe `provider`'s API with the configured key
+    /// (`credentials.test`). Per the daemon contract this never throws
+    /// at the RPC layer — every failure mode (no key, 401, network)
+    /// collapses to `ok: false` + a human-readable `message`. Swift
+    /// callers should treat thrown errors as transport failures, not
+    /// auth failures.
+    func credentialsTest(provider: RPCCredentialProvider) async throws -> RPCCredentialsTestResult
 }
 
 /// CLI-derived PR title + body used to pre-fill the PR modal. Mirrors the

@@ -11,7 +11,23 @@ struct DispatchView: View {
     @State private var brief: String = ""
     @State private var repo: String = ""
     @State private var assignee: String = "auto"
-    @State private var selectedModel: ModelChoice = DispatchView.modelChoices.first(where: { $0.model == "claude-opus-4-7" }) ?? DispatchView.modelChoices[0]
+    /// Initial pick reads from the per-adapter `skoga.defaultModel.<adapter>`
+    /// AppStorage key the Settings → Models & keys page writes, so the
+    /// Dispatch form opens on the user's last-chosen default instead of a
+    /// hardcoded one. We default to the Anthropic adapter's preference;
+    /// if it doesn't resolve to a known model (renamed model, stale
+    /// pref) we fall back to the first Claude entry, then to the very
+    /// first choice — guaranteeing a non-nil initial value.
+    @State private var selectedModel: ModelChoice = {
+        let preferred = DefaultModelPreference.resolve(adapter: "claude")
+        if let match = DispatchView.modelChoices.first(where: { $0.model == preferred }) {
+            return match
+        }
+        if let claudeDefault = DispatchView.modelChoices.first(where: { $0.adapter == "claude" }) {
+            return claudeDefault
+        }
+        return DispatchView.modelChoices[0]
+    }()
 
     static let REPOS = [
         "skoga/monolith-web", "skoga/ledger-svc", "skoga/core-runtime",

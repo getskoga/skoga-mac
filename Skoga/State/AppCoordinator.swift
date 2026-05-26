@@ -119,6 +119,76 @@ final class AppCoordinator {
         }
     }
 
+    /// Persist an API key to the daemon's Keychain bridge. The Models
+    /// & keys row pre-validates that `key` is non-empty (the daemon
+    /// rejects empty input), so callers should treat blank input as
+    /// "use `deleteCredential`". On success we update the matching
+    /// entry in-place and drop any stale test result for the provider
+    /// — an old "✓ Probe succeeded" next to a freshly-rotated key
+    /// would mislead the user about which key was actually tested.
+    @discardableResult
+    func setCredential(provider: RPCCredentialProvider, key: String) async -> Bool {
+        do {
+            let updated = try await daemon.client.credentialsSet(provider: provider, key: key)
+            daemon.applyCredentialEntry(updated)
+            daemon.setCredentialTestResult(nil, for: provider)
+            modal.showToast("\(provider.displayName) key saved.")
+            return true
+        } catch {
+            modal.showToast("Couldn't save \(provider.displayName) key: \(error.toastMessage)")
+            return false
+        }
+    }
+
+    /// Remove the persisted key for `provider`. Same toast / state
+    /// hygiene as `setCredential` — clear the cached test result so
+    /// the UI doesn't claim "✓ Probe succeeded" next to a now-empty
+    /// row.
+    @discardableResult
+    func deleteCredential(provider: RPCCredentialProvider) async -> Bool {
+        do {
+            let deleted = try await daemon.client.credentialsDelete(provider: provider)
+            daemon.applyCredentialEntry(RPCCredentialEntry(provider: provider, has_key: false, last_used: nil))
+            daemon.setCredentialTestResult(nil, for: provider)
+            modal.showToast(deleted ? "Cleared \(provider.displayName) key." : "No \(provider.displayName) key to clear.")
+            return true
+        } catch {
+            modal.showToast("Couldn't clear \(provider.displayName) key: \(error.toastMessage)")
+            return false
+        }
+    }
+
+    /// Run `credentials.test` against `provider`. Per the daemon
+    /// contract, this only throws on transport failure — every other
+    /// outcome (no key, 401, 403, network) comes back as a
+    /// `RPCCredentialsTestResult` with `ok: false` + a message we
+    /// render inline. We also refresh the entry's `last_used` from
+    /// `credentials.list` because a successful probe bumps it daemon-
+    /// side and the row's "used Xm ago" chip should reflect that
+    /// without waiting for the user to leave + come back.
+    @discardableResult
+    func testCredential(provider: RPCCredentialProvider) async -> RPCCredentialsTestResult? {
+        do {
+            let result = try await daemon.client.credentialsTest(provider: provider)
+            daemon.setCredentialTestResult(result, for: provider)
+            // Refresh just this provider's entry — `credentials.test`
+            // updates `last_used` on success, and the chip should pick
+            // that up. Cheap (single list call) and keeps the rest of
+            // the UI from flickering on the same tick.
+            if result.ok, let refreshed = try? await daemon.client.credentialsList().first(where: { $0.provider == provider }) {
+                daemon.applyCredentialEntry(refreshed)
+            }
+            return result
+        } catch {
+            // Surface transport failures as a toast — the inline
+            // result row only carries daemon-contracted outcomes, and
+            // pretending a transport error is "ok: false" would muddy
+            // the signal.
+            modal.showToast("Probe failed: \(error.toastMessage)")
+            return nil
+        }
+    }
+
     func dispatch(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?) async {
         do {
             let created = try await daemon.client.createSession(task: task, agent: agent, model: model, base: base, repoRoot: repoRoot, initialPrompt: initialPrompt)

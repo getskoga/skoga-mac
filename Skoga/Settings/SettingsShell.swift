@@ -143,6 +143,8 @@ struct SettingsShell: View {
         switch selected {
         case .github:
             GitHubSettingsSection()
+        case .modelsKeys:
+            ModelsSettingsSection()
         default:
             PlaceholderSection(section: selected)
         }

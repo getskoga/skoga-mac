@@ -17,6 +17,13 @@ final class MockDaemonClient: DaemonClient {
     /// rewrites the persisted reviewer in place.
     private var githubStatusState: RPCGitHubStatus = MockDaemonClient.seedGitHubStatus
 
+    /// In-memory credential entries keyed by provider. The seed configures
+    /// Anthropic and leaves OpenAI unset so designers see both states
+    /// (connected with a real `last_used` chip, and "not configured" with
+    /// the empty-input affordance) on first paint without running a
+    /// real daemon.
+    private var credentialsState: [RPCCredentialProvider: RPCCredentialEntry] = MockDaemonClient.seedCredentials
+
     nonisolated func listAgents() async throws -> [Agent] { agentsCache }
 
     nonisolated func conversation(for agentId: String) async throws -> [ConversationMessage] {
@@ -109,6 +116,65 @@ final class MockDaemonClient: DaemonClient {
             default_reviewer: trimmed.isEmpty ? nil : trimmed
         )
         return githubStatusState
+    }
+
+    func credentialsList() async throws -> [RPCCredentialEntry] {
+        // Stable ordering — the real daemon returns providers in
+        // CredentialProvider::all() order, so match it here so designers
+        // see the same row layout against mock and live.
+        RPCCredentialProvider.allCases.map { p in
+            credentialsState[p] ?? RPCCredentialEntry(provider: p, has_key: false, last_used: nil)
+        }
+    }
+
+    @discardableResult
+    func credentialsSet(provider: RPCCredentialProvider, key: String) async throws -> RPCCredentialEntry {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Match the daemon's validation: empty/whitespace-only is a
+        // hard reject from credentials.set — the Mac should call
+        // credentialsDelete instead.
+        guard !trimmed.isEmpty else {
+            throw NSError(domain: "MockDaemonClient", code: -32602, userInfo: [
+                NSLocalizedDescriptionKey: "key cannot be empty (use credentials.delete to clear)"
+            ])
+        }
+        let entry = RPCCredentialEntry(provider: provider, has_key: true, last_used: nil)
+        credentialsState[provider] = entry
+        return entry
+    }
+
+    @discardableResult
+    func credentialsDelete(provider: RPCCredentialProvider) async throws -> Bool {
+        let existed = credentialsState[provider]?.has_key == true
+        credentialsState[provider] = RPCCredentialEntry(provider: provider, has_key: false, last_used: nil)
+        return existed
+    }
+
+    func credentialsTest(provider: RPCCredentialProvider) async throws -> RPCCredentialsTestResult {
+        // Tiny delay so designers see the spinner state when clicking
+        // Test — the real daemon's probe makes a network round-trip
+        // (typically 200-600ms).
+        try await Task.sleep(nanoseconds: 350_000_000)
+        let current = credentialsState[provider] ?? RPCCredentialEntry(provider: provider, has_key: false, last_used: nil)
+        if !current.has_key {
+            return RPCCredentialsTestResult(
+                provider: provider,
+                ok: false,
+                message: "No API key configured.",
+                latency_ms: nil
+            )
+        }
+        // Bump last_used so the row chip reflects the probe — mirrors
+        // the daemon, which updates the timestamp on every successful
+        // Keychain read (test counts).
+        let now = ISO8601DateFormatter().string(from: Date())
+        credentialsState[provider] = RPCCredentialEntry(provider: provider, has_key: true, last_used: now)
+        return RPCCredentialsTestResult(
+            provider: provider,
+            ok: true,
+            message: "Probe succeeded.",
+            latency_ms: 312
+        )
     }
 }
 
@@ -260,6 +326,19 @@ private extension MockDaemonClient {
               repo: "skoga/infra", branch: "leif/release-2026-05-21",
               progress: 1.0, runtime: "—", tokens: 0, cost: 0,
               commits: 0, files: 0, attn: false, attnMessage: nil, prUrl: nil),
+    ]
+
+    /// Seed credential state: Anthropic is "connected, used recently"
+    /// so designers see the green-dot variant out of the box; OpenAI is
+    /// left unset so the "not configured" affordance is also visible.
+    /// Flip / remove entries here to preview other variants.
+    static let seedCredentials: [RPCCredentialProvider: RPCCredentialEntry] = [
+        .anthropic: RPCCredentialEntry(
+            provider: .anthropic,
+            has_key: true,
+            last_used: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-720))
+        ),
+        .openai: RPCCredentialEntry(provider: .openai, has_key: false, last_used: nil),
     ]
 
     /// Default "signed-in, with reviewer set" mock so the Settings page
