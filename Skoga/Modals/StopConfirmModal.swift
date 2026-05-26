@@ -3,10 +3,11 @@ import SwiftUI
 /// Destructive-confirm modal for the Stop button in `ConvHeader`. Kill
 /// tears the agent down — tmux pane gone, worktree slated for cleanup,
 /// conversation frozen. There's no undo, so we gate it behind a warning
-/// instead of wiring the button straight to `state.kill`.
+/// instead of wiring the button straight to `coordinator.kill`.
 struct StopConfirmModal: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(AppCoordinator.self) private var coordinator
+    @Environment(ModalState.self) private var modal
     let agent: Agent
 
     @State private var submitting = false
@@ -16,7 +17,7 @@ struct StopConfirmModal: View {
             p.modalScrim
                 .ignoresSafeArea()
                 .onTapGesture {
-                    if !submitting { state.stopAgentId = nil }
+                    if !submitting { modal.stopAgentId = nil }
                 }
 
             VStack(spacing: 0) {
@@ -53,7 +54,7 @@ struct StopConfirmModal: View {
                     .foregroundStyle(p.inkMute)
             }
             Spacer(minLength: 0)
-            Button { if !submitting { state.stopAgentId = nil } } label: {
+            Button { if !submitting { modal.stopAgentId = nil } } label: {
                 Image(skoga: .close).skogaIconSize(12)
                     .foregroundStyle(p.inkMute)
                     .frame(width: 26, height: 26)
@@ -89,7 +90,7 @@ struct StopConfirmModal: View {
         HStack(spacing: 8) {
             Spacer()
             Button {
-                if !submitting { state.stopAgentId = nil }
+                if !submitting { modal.stopAgentId = nil }
             } label: {
                 Text("Cancel")
                     .font(SkogaFont.smallMedium(11.5))
@@ -137,7 +138,7 @@ struct StopConfirmModal: View {
     private func submit() async {
         submitting = true
         let id = agent.id
-        await state.kill(agentId: id)
-        state.stopAgentId = nil
+        await coordinator.kill(agentId: id)
+        modal.stopAgentId = nil
     }
 }

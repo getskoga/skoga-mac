@@ -5,7 +5,8 @@ import SwiftUI
 /// buttons over the parchment.
 struct TitleBar: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(AppCoordinator.self) private var coordinator
+    @Environment(ModalState.self) private var modal
 
     var body: some View {
         ZStack {
@@ -27,7 +28,7 @@ struct TitleBar: View {
                     .fontWeight(.medium)
                 Text("·")
                     .foregroundStyle(p.inkMute)
-                Text(state.contextLabel.uppercased())
+                Text(coordinator.contextLabel.uppercased())
                     .font(SkogaFont.mono(11))
                     .tracking(0.65)
                     .foregroundStyle(p.inkMute)
@@ -37,12 +38,11 @@ struct TitleBar: View {
             HStack(spacing: 6) {
                 Spacer()
                 GhostButton(label: "Command", icon: .search, trailingKbd: "⌘K") {
-                    state.commandPaletteOpen = true
+                    modal.commandPaletteOpen = true
                 }
                 GhostIconButton(icon: .watch) {}
-                GhostIconButton(icon: .settings, active: state.view == .settings) {
-                    state.view = .settings
-                    state.openAgentId = nil
+                GhostIconButton(icon: .settings, active: modal.view == .settings) {
+                    coordinator.navigate(to: .settings)
                 }
             }
             .padding(.trailing, 14)

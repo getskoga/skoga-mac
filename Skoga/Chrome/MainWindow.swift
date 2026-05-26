@@ -3,7 +3,10 @@ import AppKit
 
 struct MainWindow: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(AppCoordinator.self) private var coordinator
+    @Environment(RosterState.self) private var roster
+    @Environment(ModalState.self) private var modal
+    @Environment(DaemonClientHolder.self) private var daemon
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -13,7 +16,7 @@ struct MainWindow: View {
 
             VStack(spacing: 0) {
                 TitleBar()
-                DaemonStatusBanner(status: state.daemonStatus)
+                DaemonStatusBanner(status: daemon.daemonStatus)
                 HStack(spacing: 0) {
                     Sidebar()
                     mainArea
@@ -22,7 +25,7 @@ struct MainWindow: View {
             }
 
             ZStack {
-                if let toast = state.toast {
+                if let toast = modal.toast {
                     VStack {
                         Spacer()
                         ToastView(text: toast).padding(.bottom, 24)
@@ -30,49 +33,49 @@ struct MainWindow: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .animation(.easeOut(duration: 0.2), value: state.toast)
+            .animation(.easeOut(duration: 0.2), value: modal.toast)
 
-            if let id = state.prAgentId, let agent = state.agents.first(where: { $0.id == id }) {
+            if let id = modal.prAgentId, let agent = roster.agents.first(where: { $0.id == id }) {
                 PRModal(agent: agent)
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
 
-            if let id = state.stopAgentId, let agent = state.agents.first(where: { $0.id == id }) {
+            if let id = modal.stopAgentId, let agent = roster.agents.first(where: { $0.id == id }) {
                 StopConfirmModal(agent: agent)
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
 
-            if state.commandPaletteOpen {
+            if modal.commandPaletteOpen {
                 CommandPalette()
                     .transition(.opacity)
             }
         }
-        .onExitCommand { state.commandPaletteOpen = false }
-        .background(WindowAccessor(onWindow: { state.registerMainWindow($0) }))
+        .onExitCommand { modal.commandPaletteOpen = false }
+        .background(WindowAccessor(onWindow: { coordinator.registerMainWindow($0) }))
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didHideNotification)) { _ in
-            state.setAppHidden(true)
+            coordinator.setAppHidden(true)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didUnhideNotification)) { _ in
-            state.setAppHidden(false)
+            coordinator.setAppHidden(false)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didMiniaturizeNotification)) { note in
-            guard state.isMainWindow(note.object) else { return }
-            state.setWindowMinimized(true)
+            guard coordinator.isMainWindow(note.object) else { return }
+            coordinator.setWindowMinimized(true)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didDeminiaturizeNotification)) { note in
-            guard state.isMainWindow(note.object) else { return }
-            state.setWindowMinimized(false)
+            guard coordinator.isMainWindow(note.object) else { return }
+            coordinator.setWindowMinimized(false)
         }
     }
 
     @ViewBuilder private var mainArea: some View {
         VStack(spacing: 0) {
-            switch state.view {
+            switch modal.view {
             case .roster:
                 CockpitStrip()
                 RosterView()
             case .conversation:
-                if let agent = state.openAgent {
+                if let agent = coordinator.openAgent {
                     ConversationView(agent: agent)
                 } else {
                     placeholderView
@@ -88,13 +91,13 @@ struct MainWindow: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .animation(.easeOut(duration: 0.15), value: state.view)
+        .animation(.easeOut(duration: 0.15), value: modal.view)
     }
 
     @ViewBuilder private var placeholderView: some View {
         VStack(spacing: 12) {
             Spacer()
-            Text(state.view.rawValue.capitalized)
+            Text(modal.view.rawValue.capitalized)
                 .font(SkogaFont.serifTitle(28))
                 .foregroundStyle(p.ink)
             Text("This view lands in the next slice.")

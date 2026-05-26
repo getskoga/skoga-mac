@@ -2,7 +2,7 @@ import SwiftUI
 
 struct TelemetryView: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(RosterState.self) private var roster
 
     struct ModelStat {
         let model: String
@@ -12,21 +12,21 @@ struct TelemetryView: View {
     }
 
     private var totalSpend: Double {
-        state.agents.reduce(0) { $0 + $1.cost }
+        roster.agents.reduce(0) { $0 + $1.cost }
     }
     private var totalTokens: Int {
-        state.agents.reduce(0) { $0 + $1.tokens }
+        roster.agents.reduce(0) { $0 + $1.tokens }
     }
     private var blockedRate: Int {
-        let attn = state.agents.filter(\.attn).count
-        guard !state.agents.isEmpty else { return 0 }
-        return Int(Double(attn) / Double(state.agents.count) * 100)
+        let attn = roster.agents.filter(\.attn).count
+        guard !roster.agents.isEmpty else { return 0 }
+        return Int(Double(attn) / Double(roster.agents.count) * 100)
     }
-    private var attnCount: Int { state.agents.filter(\.attn).count }
+    private var attnCount: Int { roster.agents.filter(\.attn).count }
 
     private var byModel: [ModelStat] {
         var dict: [String: ModelStat] = [:]
-        for a in state.agents {
+        for a in roster.agents {
             let s = dict[a.model] ?? ModelStat(model: a.model, runs: 0, cost: 0, tokens: 0)
             dict[a.model] = ModelStat(model: a.model, runs: s.runs + 1, cost: s.cost + a.cost, tokens: s.tokens + a.tokens)
         }
@@ -66,10 +66,10 @@ struct TelemetryView: View {
                      sub: String(format: "of $40.00 budget · %d%%", Int(totalSpend / 40 * 100)))
             heroCard(label: "tokens",
                      value: String(format: "%.2fM", Double(totalTokens) / 1_000_000),
-                     sub: "\(state.agents.count) agents · avg \(state.agents.isEmpty ? 0 : totalTokens / state.agents.count / 1000)k each")
+                     sub: "\(roster.agents.count) agents · avg \(roster.agents.isEmpty ? 0 : totalTokens / roster.agents.count / 1000)k each")
             heroCard(label: "blocked rate",
                      value: "\(blockedRate)%",
-                     sub: "\(attnCount) of \(state.agents.count) need you")
+                     sub: "\(attnCount) of \(roster.agents.count) need you")
         }
     }
 

@@ -2,13 +2,14 @@ import SwiftUI
 
 struct FilterRail: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(AppCoordinator.self) private var coordinator
+    @Environment(RosterState.self) private var roster
 
     @State private var queryDraft: String = ""
     @State private var debounceArmed: Bool = false
 
     var body: some View {
-        let counts = state.counts
+        let counts = roster.counts
         HStack(spacing: 6) {
             chipGroup(counts: counts)
             Spacer(minLength: 0)
@@ -22,7 +23,7 @@ struct FilterRail: View {
         .overlay(alignment: .bottom) { Hairline() }
     }
 
-    private func chipGroup(counts: AppState.Counts) -> some View {
+    private func chipGroup(counts: RosterState.Counts) -> some View {
         HStack(spacing: 0) {
             chip(.all,     label: "All",     count: counts.total)
             divider
@@ -51,11 +52,11 @@ struct FilterRail: View {
     }
 
     @ViewBuilder
-    private func chip(_ value: AppState.Filter, label: String, count: Int, dot: AgentStatus? = nil) -> some View {
-        let on = state.filter == value
+    private func chip(_ value: RosterState.Filter, label: String, count: Int, dot: AgentStatus? = nil) -> some View {
+        let on = roster.filter == value
 
         Button {
-            state.filter = value
+            roster.filter = value
         } label: {
             HStack(spacing: 6) {
                 if let dot { PulseDot(status: dot) }
@@ -83,25 +84,25 @@ struct FilterRail: View {
                 .textFieldStyle(.plain)
                 .font(SkogaFont.small(11.5))
                 .foregroundStyle(p.ink)
-                // Seed the local draft from state.query so a search
+                // Seed the local draft from roster.query so a search
                 // persisted via env var or external mutation survives a
                 // view-tree teardown. `debounceArmed` flips true only
                 // after the seed, so the first .task tick can't race
-                // the seed and clobber state.query back to "".
+                // the seed and clobber roster.query back to "".
                 .onAppear {
-                    if queryDraft != state.query { queryDraft = state.query }
+                    if queryDraft != roster.query { queryDraft = roster.query }
                     debounceArmed = true
                 }
                 // Keep the draft in sync with external writes to
-                // state.query (e.g., a future "clear filter" command).
-                .onChange(of: state.query) { _, new in
+                // roster.query (e.g., a future "clear filter" command).
+                .onChange(of: roster.query) { _, new in
                     if queryDraft != new { queryDraft = new }
                 }
                 .task(id: queryDraft) {
                     guard debounceArmed else { return }
                     try? await Task.sleep(for: .milliseconds(200))
-                    guard !Task.isCancelled, state.query != queryDraft else { return }
-                    state.query = queryDraft
+                    guard !Task.isCancelled, roster.query != queryDraft else { return }
+                    roster.query = queryDraft
                 }
         }
         .padding(.horizontal, 10).padding(.vertical, 5)
@@ -115,8 +116,7 @@ struct FilterRail: View {
 
     private var dispatchButton: some View {
         Button {
-            state.view = .dispatch
-            state.openAgentId = nil
+            coordinator.navigate(to: .dispatch)
         } label: {
             HStack(spacing: 6) {
                 Image(skoga: .plus).skogaIconSize(13)

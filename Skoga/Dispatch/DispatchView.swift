@@ -3,7 +3,8 @@ import AppKit
 
 struct DispatchView: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(AppCoordinator.self) private var coordinator
+    @Environment(RosterState.self) private var roster
 
     @State private var template: Template = .feature
     @State private var title: String = ""
@@ -132,7 +133,7 @@ struct DispatchView: View {
 
     private var backButton: some View {
         Button {
-            state.backToRoster()
+            coordinator.navigate(to: .roster)
         } label: {
             HStack(spacing: 6) {
                 Image(skoga: .back).skogaIconSize(12)
@@ -276,7 +277,7 @@ struct DispatchView: View {
     }
 
     private var idleOrLight: [Agent] {
-        state.agents.filter { $0.status == .idle || $0.status == .done || $0.status == .exited }.prefix(6).map { $0 }
+        roster.agents.filter { $0.status == .idle || $0.status == .done || $0.status == .exited }.prefix(6).map { $0 }
     }
 
     @ViewBuilder
@@ -381,7 +382,7 @@ struct DispatchView: View {
             }
         }()
         Task {
-            await state.dispatch(
+            await coordinator.dispatch(
                 task: taskText,
                 agent: selectedModel.adapter,
                 model: selectedModel.model,
@@ -515,7 +516,7 @@ struct DispatchView: View {
         switch assignee {
         case "auto":  "Auto · best fit"
         case "spawn": "New agent · spawn fresh"
-        default:      state.agents.first(where: { $0.id == assignee })?.name ?? "—"
+        default:      roster.agents.first(where: { $0.id == assignee })?.name ?? "—"
         }
     }
 

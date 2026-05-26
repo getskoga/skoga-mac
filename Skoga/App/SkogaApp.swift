@@ -2,20 +2,24 @@ import SwiftUI
 
 @main
 struct SkogaApp: App {
-    @State private var state: AppState = {
+    @State private var coordinator: AppCoordinator = {
         let mock = ProcessInfo.processInfo.environment["SKOGA_USE_MOCK"] == "1"
         if mock {
-            return AppState(client: MockDaemonClient(), isMock: true)
+            return AppCoordinator(client: MockDaemonClient(), isMock: true)
         }
-        return AppState(client: LiveDaemonClient(), isMock: false)
+        return AppCoordinator(client: LiveDaemonClient(), isMock: false)
     }()
 
     var body: some Scene {
         Window("Skoga", id: "main") {
             MainWindow()
-                .environment(state)
+                .environment(coordinator)
+                .environment(coordinator.roster)
+                .environment(coordinator.conversation)
+                .environment(coordinator.modal)
+                .environment(coordinator.daemon)
                 .withPalette()
-                .task { await state.bootstrap() }
+                .task { await coordinator.bootstrap() }
                 .frame(minWidth: 1100, minHeight: 720)
         }
         .windowStyle(.hiddenTitleBar)
@@ -24,7 +28,7 @@ struct SkogaApp: App {
         .commands {
             CommandGroup(replacing: .newItem) {}
             CommandGroup(after: .appInfo) {
-                Button("Open Command Palette") { state.commandPaletteOpen = true }
+                Button("Open Command Palette") { coordinator.modal.commandPaletteOpen = true }
                     .keyboardShortcut("k", modifiers: .command)
             }
         }

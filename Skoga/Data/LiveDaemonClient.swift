@@ -78,7 +78,7 @@ final class LiveDaemonClient: DaemonClient {
 
     func sendInput(sessionId: String, text: String) async throws {
         // Older daemons (pre-`session.send_input`) return METHOD_NOT_FOUND.
-        // We let that propagate as a JSONRPCError so the AppState shows the
+        // We let that propagate as a JSONRPCError so the coordinator shows the
         // user a real toast rather than the silent stub the composer used
         // to be. The Mac app's distribution will require a matching daemon
         // version anyway — gating this on an Optional dance would mask the

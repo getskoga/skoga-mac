@@ -19,7 +19,8 @@ enum ConversationFeedMode: String, CaseIterable {
 
 struct ConversationView: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(ConversationState.self) private var conversation
+    @Environment(DaemonClientHolder.self) private var daemon
     let agent: Agent
 
     var body: some View {
@@ -38,7 +39,7 @@ struct ConversationView: View {
                     title: "\(agent.model) — \(agent.branch)",
                     subtitle: agent.runtime
                 ) {
-                    RemoteTerminalView(sessionId: agent.id, client: state.client)
+                    RemoteTerminalView(sessionId: agent.id, client: daemon.client)
                         .id(agent.id)
                 }
                 .padding(.horizontal, 22)
@@ -52,7 +53,7 @@ struct ConversationView: View {
                 Hairline(axis: .vertical).frame(width: Tokens.Hairline.width)
             }
 
-            ConvSidePanel(agent: agent, timeline: state.timeline)
+            ConvSidePanel(agent: agent, timeline: conversation.timeline)
                 .frame(width: Tokens.convAsideWidth)
         }
     }
@@ -62,13 +63,14 @@ struct ConversationView: View {
 
 private struct ConvHeader: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(AppCoordinator.self) private var coordinator
+    @Environment(ModalState.self) private var modal
     let agent: Agent
 
     var body: some View {
         HStack(spacing: 14) {
             Button {
-                state.backToRoster()
+                coordinator.backToRoster()
             } label: {
                 Image(skoga: .back).skogaIconSize(14)
                     .frame(width: 26, height: 26)
@@ -106,10 +108,10 @@ private struct ConvHeader: View {
 
             if hasRunControls {
                 GhostPillButton(label: "Pause", icon: .pause) {
-                    Task { await state.pause(agentId: agent.id) }
+                    Task { await coordinator.pause(agentId: agent.id) }
                 }
                 GhostPillButton(label: "Stop", icon: .stop, color: p.ember) {
-                    state.stopAgentId = agent.id
+                    modal.stopAgentId = agent.id
                 }
             }
         }
@@ -141,7 +143,7 @@ private struct ConvHeader: View {
 /// "View PR on GitHub" so a second click doesn't try to re-land.
 private struct ConvActionsFooter: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(ModalState.self) private var modal
     let agent: Agent
 
     var body: some View {
@@ -153,7 +155,7 @@ private struct ConvActionsFooter: View {
                 }
             } else {
                 PrimaryButton(label: "Open as PR", icon: .github, tint: .forest) {
-                    state.prAgentId = agent.id
+                    modal.prAgentId = agent.id
                 }
             }
         }
@@ -169,387 +171,6 @@ private struct ConvActionsFooter: View {
     private func openPRURL(_ url: String) {
         guard url != "#", let parsed = URL(string: url) else { return }
         NSWorkspace.shared.open(parsed)
-    }
-}
-
-// MARK: – Feed
-
-private struct ConvFeed: View {
-    @Environment(\.palette) private var p
-    let agent: Agent
-    let messages: [ConversationMessage]
-
-    var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    ForEach(messages) { m in
-                        row(m).id(m.id)
-                    }
-                }
-                .frame(maxWidth: 760, alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, Tokens.Pad.viewX)
-                .padding(.vertical, 18)
-            }
-            .onChange(of: messages.count) { _, _ in
-                if let last = messages.last {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        proxy.scrollTo(last.id, anchor: .bottom)
-                    }
-                }
-            }
-        }
-        .frame(maxHeight: .infinity)
-        .background(p.paper)
-    }
-
-    @ViewBuilder
-    private func row(_ m: ConversationMessage) -> some View {
-        switch m {
-        case .msg(let payload):      ConvMessageRow(payload: payload, agent: agent)
-        case .tool(let payload):     ConvToolRow(payload: payload)
-        case .write(let payload):    ConvWriteRow(payload: payload)
-        case .question(let payload): ConvQuestionRow(payload: payload, agentId: agent.id)
-        }
-    }
-}
-
-// MARK: – Message row
-
-private struct ConvMessageRow: View {
-    @Environment(\.palette) private var p
-    let payload: ConversationMessage.MsgPayload
-    let agent: Agent
-
-    var body: some View {
-        let isYou = payload.from == "you"
-        let displayName = isYou ? "You" : (payload.from == agent.id ? agent.name : payload.from)
-        let initial = payload.initialOverride ?? (isYou ? "M" : String(displayName.prefix(2)))
-
-        HStack(alignment: .top, spacing: 12) {
-            Text(initial)
-                .font(SkogaFont.serifName(12))
-                .foregroundStyle(p.ink)
-                .frame(width: 26, height: 26)
-                .background(
-                    RoundedRectangle(cornerRadius: 6).fill(isYou ? p.forestSoft : p.paper4)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(p.rule, lineWidth: Tokens.Hairline.width)
-                )
-                .padding(.top, 2)
-
-            VStack(alignment: .leading, spacing: 4) {
-                metaRow(displayName: displayName)
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(Array(payload.text.enumerated()), id: \.offset) { _, paragraph in
-                        Text(paragraph)
-                            .font(SkogaFont.body(13.5))
-                            .foregroundStyle(p.ink)
-                            .lineSpacing(13.5 * 0.55)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
-    private func metaRow(displayName: String) -> some View {
-        HStack(spacing: 8) {
-            Text(displayName)
-                .font(SkogaFont.smallMedium(12))
-                .foregroundStyle(p.ink2)
-            Text("·").foregroundStyle(p.inkFaint)
-            Text(payload.when)
-                .font(SkogaFont.monoSmall(10.5))
-                .foregroundStyle(p.inkFaint)
-            if let label = payload.runtimeLabel {
-                Text("·").foregroundStyle(p.inkFaint)
-                Text(label)
-                    .font(SkogaFont.monoSmall(10.5))
-                    .foregroundStyle(p.inkFaint)
-            }
-        }
-    }
-}
-
-// MARK: – Tool row
-
-private struct ConvToolRow: View {
-    @Environment(\.palette) private var p
-    let payload: ConversationMessage.ToolPayload
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Text(payload.tool.uppercased())
-                .font(SkogaFont.monoTiny(9.5))
-                .tracking(0.55)
-                .foregroundStyle(p.inkFaint)
-            if let path = payload.path {
-                Text(path)
-                    .font(SkogaFont.mono(11))
-                    .foregroundStyle(p.ink2)
-            }
-            if let lines = payload.lines {
-                Text("L\(lines)")
-                    .font(SkogaFont.mono(11))
-                    .foregroundStyle(p.inkFaint)
-            }
-            if let cmd = payload.cmd {
-                Text("$ \(cmd)")
-                    .font(SkogaFont.mono(11))
-                    .foregroundStyle(p.ink2)
-            }
-            if let result = payload.result {
-                Spacer(minLength: 8)
-                Text(result)
-                    .font(SkogaFont.mono(11))
-                    .foregroundStyle(p.inkFaint)
-            } else {
-                Spacer(minLength: 0)
-            }
-        }
-        .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: Tokens.Radius.chip)
-                .fill(p.paper2)
-                .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
-        )
-        .padding(.leading, 38)  // align with message body
-    }
-}
-
-// MARK: – Write row
-
-private struct ConvWriteRow: View {
-    @Environment(\.palette) private var p
-    let payload: ConversationMessage.WritePayload
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Text("WRITE")
-                .font(SkogaFont.monoTiny(9.5))
-                .tracking(0.55)
-                .foregroundStyle(p.inkFaint)
-            Text(payload.path)
-                .font(SkogaFont.mono(11))
-                .foregroundStyle(p.ink2)
-            Spacer(minLength: 0)
-            HStack(spacing: 4) {
-                Text("+\(payload.adds)")
-                    .font(SkogaFont.mono(11))
-                    .foregroundStyle(p.forest)
-                Text("−\(payload.rems)")
-                    .font(SkogaFont.mono(11))
-                    .foregroundStyle(p.ember)
-            }
-        }
-        .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: Tokens.Radius.chip)
-                .fill(p.paper2)
-                .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
-        )
-        .padding(.leading, 38)
-    }
-}
-
-// MARK: – Question row
-
-private struct ConvQuestionRow: View {
-    @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
-    let payload: ConversationMessage.QuestionPayload
-    let agentId: String?
-
-    /// Tracks toggled options for multi-select; ignored for single-select
-    /// (which submits on first click). Indexed by option offset; the set
-    /// is reset every time the picker is rerendered.
-    @State private var toggled: Set<Int> = []
-    @State private var submitting: Bool = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("⚠ \(payload.label)".uppercased())
-                .font(SkogaFont.monoTiny(9.5))
-                .tracking(0.55)
-                .foregroundStyle(p.ember)
-                .padding(.bottom, 4)
-
-            Text(payload.body.joined(separator: "\n"))
-                .font(SkogaFont.mono(11.5))
-                .foregroundStyle(p.ink2)
-                .lineSpacing(11.5 * 0.6)
-                .fixedSize(horizontal: false, vertical: true)
-
-            // Options as wrapped chips. HStack would clip on long option
-            // lists, but the design's Decision-needed rows tend to have
-            // 2–4 short labels so a single row reads fine. If a future
-            // question needs > ~5 options, switch this to a FlowLayout.
-            HStack(spacing: 6) {
-                ForEach(Array(payload.options.enumerated()), id: \.offset) { idx, opt in
-                    optionChip(index: idx, option: opt)
-                }
-            }
-            .padding(.top, 6)
-
-            if payload.multiSelect {
-                HStack {
-                    Spacer()
-                    Button("Submit") {
-                        submit(indices: Array(toggled).sorted())
-                    }
-                    .buttonStyle(.plain)
-                    .font(SkogaFont.smallMedium(11.5))
-                    .foregroundStyle(toggled.isEmpty ? p.ink2.opacity(0.5) : p.paper2)
-                    .padding(.horizontal, 12).padding(.vertical, 5)
-                    .background(
-                        RoundedRectangle(cornerRadius: Tokens.Radius.chip)
-                            .fill(toggled.isEmpty ? p.paper2 : p.ember)
-                            .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
-                    )
-                    .disabled(toggled.isEmpty || submitting)
-                }
-                .padding(.top, 4)
-            }
-        }
-        .padding(.horizontal, 14).padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(p.emberSoft.opacity(0.35))
-        .overlay(alignment: .leading) {
-            Rectangle().fill(p.ember).frame(width: 2)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .padding(.leading, 38)
-    }
-
-    @ViewBuilder
-    private func optionChip(index: Int, option: ConversationMessage.QuestionOption) -> some View {
-        let isSelected = toggled.contains(index)
-        Button {
-            if payload.multiSelect {
-                if isSelected { toggled.remove(index) } else { toggled.insert(index) }
-            } else {
-                submit(indices: [index])
-            }
-        } label: {
-            HStack(spacing: 4) {
-                if payload.multiSelect {
-                    Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                        .font(.system(size: 10))
-                }
-                Text(option.label)
-                if let description = option.description, !description.isEmpty {
-                    Text(description)
-                        .foregroundStyle(p.ink2.opacity(0.65))
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .font(SkogaFont.smallMedium(11.5))
-        .foregroundStyle(p.ink2)
-        .padding(.horizontal, 10).padding(.vertical, 5)
-        .background(
-            RoundedRectangle(cornerRadius: Tokens.Radius.chip)
-                .fill(isSelected ? p.emberSoft : p.paper2)
-                .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
-        )
-        .disabled(submitting || agentId == nil)
-    }
-
-    private func submit(indices: [Int]) {
-        guard !submitting, !indices.isEmpty, let agentId else { return }
-        submitting = true
-        Task {
-            await state.answerQuestion(to: agentId, selectedIndices: indices)
-        }
-    }
-}
-
-// MARK: – Composer
-
-private struct ConvComposer: View {
-    @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
-    let agent: Agent
-
-    @FocusState private var focused: Bool
-
-    var body: some View {
-        @Bindable var state = state
-        VStack(alignment: .leading, spacing: 8) {
-            ZStack(alignment: .topLeading) {
-                if state.pendingReply.isEmpty {
-                    Text(placeholder)
-                        .font(SkogaFont.body(13.5))
-                        .foregroundStyle(p.inkFaint)
-                        .padding(.horizontal, 14).padding(.vertical, 11)
-                }
-                TextEditor(text: $state.pendingReply)
-                    .focused($focused)
-                    .font(SkogaFont.body(13.5))
-                    .foregroundStyle(p.ink)
-                    .scrollContentBackground(.hidden)
-                    .padding(.horizontal, 10).padding(.vertical, 7)
-            }
-            .frame(minHeight: 60)
-            .background(p.paper)
-            .overlay(
-                RoundedRectangle(cornerRadius: Tokens.Radius.input)
-                    .stroke(focused ? p.ruleHard : p.rule, lineWidth: Tokens.Hairline.width)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.input))
-
-            HStack(spacing: 8) {
-                HStack(spacing: 4) {
-                    Text("⌘↵")
-                        .font(SkogaFont.monoTiny(10))
-                        .foregroundStyle(p.inkFaint)
-                        .padding(.horizontal, 4).padding(.vertical, 1)
-                        .background(
-                            RoundedRectangle(cornerRadius: Tokens.Radius.tiny)
-                                .fill(p.paper)
-                                .hairlineBorder(p.rule, radius: Tokens.Radius.tiny)
-                        )
-                    Text("send")
-                        .font(SkogaFont.monoSmall(10.5))
-                        .foregroundStyle(p.inkFaint)
-                }
-                Text("·").foregroundStyle(p.inkFaint)
-                Text("Attached: \(agent.branch)")
-                    .font(SkogaFont.monoSmall(10.5))
-                    .foregroundStyle(p.inkFaint)
-                Spacer(minLength: 8)
-                TextLink(label: "@mention") {}
-                TextLink(label: "/ commands") {}
-                PrimaryButton(label: "Send", icon: nil, tint: .ink) {
-                    sendReply()
-                }
-                .opacity(state.pendingReply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1)
-                .disabled(state.pendingReply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-        }
-        .padding(.horizontal, Tokens.Pad.viewX)
-        .padding(.vertical, 14)
-        .background(p.paper2)
-        .overlay(alignment: .top) { Hairline() }
-    }
-
-    private var placeholder: String {
-        agent.status == .blocked
-            ? "Answer \(agent.name)'s question, or redirect…"
-            : "Reply to \(agent.name)…"
-    }
-
-    private func sendReply() {
-        let trimmed = state.pendingReply.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        let agentId = agent.id
-        state.pendingReply = ""
-        Task { await state.sendReply(to: agentId, text: trimmed) }
     }
 }
 

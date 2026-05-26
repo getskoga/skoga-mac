@@ -2,7 +2,9 @@ import SwiftUI
 
 struct Sidebar: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(AppCoordinator.self) private var coordinator
+    @Environment(RosterState.self) private var roster
+    @Environment(ModalState.self) private var modal
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -12,27 +14,27 @@ struct Sidebar: View {
                 .padding(.top, 18)
 
             NavSection(title: "Cockpit")
-            NavItem(icon: .roster,    label: "Roster",    count: "\(state.counts.total)", active: state.view == .roster) {
-                state.view = .roster; state.openAgentId = nil
+            NavItem(icon: .roster,    label: "Roster",    count: "\(roster.counts.total)", active: modal.view == .roster) {
+                coordinator.navigate(to: .roster)
             }
-            NavItem(icon: .dispatch,  label: "Dispatch",  count: nil, active: state.view == .dispatch) {
-                state.view = .dispatch; state.openAgentId = nil
+            NavItem(icon: .dispatch,  label: "Dispatch",  count: nil, active: modal.view == .dispatch) {
+                coordinator.navigate(to: .dispatch)
             }
-            NavItem(icon: .review,    label: "Review",    count: "\(state.counts.prOpen)", active: state.view == .review) {
-                state.view = .review; state.openAgentId = nil
+            NavItem(icon: .review,    label: "Review",    count: "\(roster.counts.prOpen)", active: modal.view == .review) {
+                coordinator.navigate(to: .review)
             }
-            NavItem(icon: .telemetry, label: "Telemetry", count: nil, active: state.view == .telemetry) {
-                state.view = .telemetry; state.openAgentId = nil
+            NavItem(icon: .telemetry, label: "Telemetry", count: nil, active: modal.view == .telemetry) {
+                coordinator.navigate(to: .telemetry)
             }
 
-            NavSection(title: "Guild · \(state.agents.count)")
-            ForEach(state.agents.prefix(8)) { agent in
+            NavSection(title: "Guild · \(roster.agents.count)")
+            ForEach(roster.agents.prefix(8)) { agent in
                 guildRow(agent)
             }
-            if state.agents.count > 8 {
+            if roster.agents.count > 8 {
                 HStack(spacing: 10) {
                     Color.clear.frame(width: 14, height: 14)
-                    Text("+\(state.agents.count - 8) more")
+                    Text("+\(roster.agents.count - 8) more")
                         .font(SkogaFont.body(12.5))
                         .foregroundStyle(p.inkFaint)
                 }
@@ -66,7 +68,7 @@ struct Sidebar: View {
 
     private func guildRow(_ a: Agent) -> some View {
         Button {
-            state.openConversation(for: a.id)
+            coordinator.openConversation(for: a.id)
         } label: {
             HStack(spacing: 10) {
                 PulseDot(status: a.status).frame(width: 14, height: 14)

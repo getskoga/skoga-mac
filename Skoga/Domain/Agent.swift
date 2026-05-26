@@ -123,7 +123,7 @@ struct Agent: Identifiable, Hashable {
     // from `Date()` on every `session.list` round-trip (see
     // `LiveDaemonClient.runtimeLabel`). For sessions under a minute old
     // it ticks every second; older ones tick every minute. If `runtime`
-    // counted toward equality, the diff-guard in `AppState.refresh()`
+    // counted toward equality, the diff-guard in `AppCoordinator.refresh()`
     // would short-circuit roughly never and `agents` would be reassigned
     // on every poll, defeating the whole point of the guard.
     //

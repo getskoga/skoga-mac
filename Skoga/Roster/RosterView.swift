@@ -2,7 +2,8 @@ import SwiftUI
 
 struct RosterView: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(AppCoordinator.self) private var coordinator
+    @Environment(RosterState.self) private var roster
 
     var body: some View {
         VStack(spacing: 0) {
@@ -13,9 +14,9 @@ struct RosterView: View {
                     alignment: .leading,
                     spacing: 14
                 ) {
-                    ForEach(state.filteredSortedAgents) { agent in
+                    ForEach(roster.filteredSortedAgents) { agent in
                         AgentCard(agent: agent) {
-                            state.openConversation(for: agent.id)
+                            coordinator.openConversation(for: agent.id)
                         }
                     }
                 }

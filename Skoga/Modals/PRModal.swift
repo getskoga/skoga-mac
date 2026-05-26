@@ -2,7 +2,9 @@ import SwiftUI
 
 struct PRModal: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(AppCoordinator.self) private var coordinator
+    @Environment(ModalState.self) private var modal
+    @Environment(DaemonClientHolder.self) private var daemon
     let agent: Agent
 
     /// Title and body start empty and get populated once `skoga land
@@ -36,7 +38,7 @@ struct PRModal: View {
                     // strand the CLI subprocess — `skoga land` doesn't get
                     // a SIGTERM from us closing the modal. Block dismissal
                     // there until the call resolves.
-                    if phase != .submitting { state.prAgentId = nil }
+                    if phase != .submitting { modal.prAgentId = nil }
                 }
 
             VStack(spacing: 0) {
@@ -75,7 +77,7 @@ struct PRModal: View {
                     .foregroundStyle(p.inkMute)
             }
             Spacer(minLength: 0)
-            Button { state.prAgentId = nil } label: {
+            Button { modal.prAgentId = nil } label: {
                 Image(skoga: .close).skogaIconSize(12)
                     .foregroundStyle(p.inkMute)
                     .frame(width: 26, height: 26)
@@ -227,7 +229,7 @@ struct PRModal: View {
                 .foregroundStyle(p.inkFaint)
             Spacer()
             HStack(spacing: 6) {
-                if let reviewer = state.githubStatus?.default_reviewer, !reviewer.isEmpty {
+                if let reviewer = daemon.githubStatus?.default_reviewer, !reviewer.isEmpty {
                     pill(text: reviewer, fill: p.paper2)
                 }
                 pill(text: "+ add", fill: p.paper)
@@ -279,7 +281,7 @@ struct PRModal: View {
                     .foregroundStyle(p.inkFaint)
                 Spacer()
                 Button {
-                    state.prAgentId = nil
+                    modal.prAgentId = nil
                 } label: {
                     Text("Cancel")
                         .font(SkogaFont.smallMedium(11.5))
@@ -347,7 +349,7 @@ struct PRModal: View {
         // first appear or after an explicit cancel + reopen.
         guard phase == .loading else { return }
         do {
-            let preview = try await state.client.previewPR(for: agent.id)
+            let preview = try await daemon.client.previewPR(for: agent.id)
             title = preview.title
             bodyText = preview.body
             phase = .ready
@@ -364,18 +366,18 @@ struct PRModal: View {
     private func submit() async {
         phase = .submitting
         do {
-            try await state.client.landPR(for: agent.id, title: title, body: bodyText)
+            try await daemon.client.landPR(for: agent.id, title: title, body: bodyText)
             // `skoga land` can exit 0 even when its internal `gh pr create`
             // step fails (e.g. `gh` missing, token expired) — the push
             // succeeds but no PR is opened. Refresh and verify the daemon
             // now reports a prUrl before claiming success; otherwise keep
             // the modal open with an actionable error so the user isn't
             // left believing a PR exists when none does.
-            await state.refresh()
-            let updated = state.agents.first(where: { $0.id == agent.id })
+            await coordinator.refresh()
+            let updated = coordinator.roster.agents.first(where: { $0.id == agent.id })
             if let url = updated?.prUrl, url != "#" {
-                state.prAgentId = nil
-                state.showToast("Opened PR for \(agent.name). Routing review back to the agent.")
+                modal.prAgentId = nil
+                modal.showToast("Opened PR for \(agent.name). Routing review back to the agent.")
             } else {
                 phase = .failed("skoga land reported success but no PR URL came back. The branch was pushed — check that `gh` is installed (`brew install gh`) and authenticated (`gh auth status`), then retry.")
             }

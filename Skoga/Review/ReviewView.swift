@@ -2,7 +2,8 @@ import SwiftUI
 
 struct ReviewView: View {
     @Environment(\.palette) private var p
-    @Environment(AppState.self) private var state
+    @Environment(AppCoordinator.self) private var coordinator
+    @Environment(RosterState.self) private var roster
 
     /// Review surface = agents with a PR open on GitHub. We *intentionally*
     /// don't list agents that the manager hasn't landed yet — there's no
@@ -11,7 +12,7 @@ struct ReviewView: View {
     /// Manager-driven: the moment `skoga land` succeeds and `prUrl` lands
     /// on the session, the card shows up here.
     private var inReview: [Agent] {
-        state.agents.filter { $0.prUrl != nil }
+        roster.agents.filter { $0.prUrl != nil }
     }
 
     var body: some View {
@@ -34,7 +35,7 @@ struct ReviewView: View {
                 ) {
                     ForEach(inReview) { a in
                         AgentCard(agent: a) {
-                            state.openConversation(for: a.id)
+                            coordinator.openConversation(for: a.id)
                         }
                     }
                 }
