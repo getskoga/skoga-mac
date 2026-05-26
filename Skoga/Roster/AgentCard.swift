@@ -30,7 +30,7 @@ struct AgentCard: View {
                 RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
                     .stroke(borderColor, lineWidth: Tokens.Hairline.width)
             )
-            .shadow(color: hovering ? p.cardShadow : .clear, radius: 14, x: 0, y: 4)
+            .shadow(color: hovering ? p.cardShadow : .clear, radius: hovering ? 14 : 0, x: 0, y: hovering ? 4 : 0)
             .offset(y: hovering ? -1 : 0)
             .animation(.easeOut(duration: 0.12), value: hovering)
             .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.card))

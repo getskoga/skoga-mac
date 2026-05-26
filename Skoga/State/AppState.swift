@@ -91,16 +91,23 @@ final class AppState: ObservableObject {
     /// per-minute load yet so re-polling it is wasted work.
     func refresh() async {
         if isMock {
-            agents = (try? await client.listAgents()) ?? agents
-            activity = (try? await client.activitySeries()) ?? activity
+            if let next = try? await client.listAgents(), next != agents {
+                agents = next
+            }
+            if let series = try? await client.activitySeries(), series != activity {
+                activity = series
+            }
             return
         }
         do {
             let version = try await client.daemonVersion()
-            agents = try await client.listAgents()
-            daemonStatus = .connected(version: version)
+            let next = try await client.listAgents()
+            if next != agents { agents = next }
+            let newStatus: DaemonStatus = .connected(version: version)
+            if daemonStatus != newStatus { daemonStatus = newStatus }
         } catch {
-            daemonStatus = .notRunning(detail: describe(error))
+            let newStatus: DaemonStatus = .notRunning(detail: describe(error))
+            if daemonStatus != newStatus { daemonStatus = newStatus }
         }
     }
 
@@ -320,15 +327,23 @@ final class AppState: ObservableObject {
                     msgs.append(.question(pending))
                 }
             }
-            conversation = msgs
+            // Skip the @Published write when nothing changed — every poll
+            // tick otherwise invalidates every observer of AppState, even
+            // for idle conversations.
+            if conversation != msgs {
+                conversation = msgs
+            }
         } catch {
-            conversation = []
+            if !conversation.isEmpty { conversation = [] }
             showToast("Conversation load failed: \(describe(error))")
         }
         do {
-            timeline = try await client.timeline(for: id)
+            let newTimeline = try await client.timeline(for: id)
+            if timeline != newTimeline {
+                timeline = newTimeline
+            }
         } catch {
-            timeline = []
+            if !timeline.isEmpty { timeline = [] }
         }
     }
 

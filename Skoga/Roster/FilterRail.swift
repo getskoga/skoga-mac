@@ -4,9 +4,13 @@ struct FilterRail: View {
     @Environment(\.palette) private var p
     @EnvironmentObject private var state: AppState
 
+    @State private var queryDraft: String = ""
+    @State private var debounceArmed: Bool = false
+
     var body: some View {
+        let counts = state.counts
         HStack(spacing: 6) {
-            chipGroup
+            chipGroup(counts: counts)
             Spacer(minLength: 0)
             searchField
             dispatchButton
@@ -18,21 +22,21 @@ struct FilterRail: View {
         .overlay(alignment: .bottom) { Hairline() }
     }
 
-    private var chipGroup: some View {
+    private func chipGroup(counts: AppState.Counts) -> some View {
         HStack(spacing: 0) {
-            chip(.all,     label: "All")
+            chip(.all,     label: "All",     count: counts.total)
             divider
-            chip(.running, label: "Running", dot: .running)
+            chip(.running, label: "Running", count: counts.running, dot: .running)
             divider
-            chip(.blocked, label: "Blocked", dot: .blocked)
+            chip(.blocked, label: "Blocked", count: counts.blocked, dot: .blocked)
             divider
-            chip(.prOpen,  label: "PR open", dot: .prOpen)
+            chip(.prOpen,  label: "PR open", count: counts.prOpen,  dot: .prOpen)
             divider
-            chip(.done,    label: "Done",    dot: .done)
+            chip(.done,    label: "Done",    count: counts.done,    dot: .done)
             divider
-            chip(.idle,    label: "Idle",    dot: .idle)
+            chip(.idle,    label: "Idle",    count: counts.idle,    dot: .idle)
             divider
-            chip(.exited,  label: "Exited",  dot: .exited)
+            chip(.exited,  label: "Exited",  count: counts.exited,  dot: .exited)
         }
         .background(
             RoundedRectangle(cornerRadius: Tokens.Radius.chip)
@@ -47,20 +51,8 @@ struct FilterRail: View {
     }
 
     @ViewBuilder
-    private func chip(_ value: AppState.Filter, label: String, dot: AgentStatus? = nil) -> some View {
+    private func chip(_ value: AppState.Filter, label: String, count: Int, dot: AgentStatus? = nil) -> some View {
         let on = state.filter == value
-        let count: Int = {
-            switch value {
-            case .all: state.counts.total
-            case .running: state.counts.running
-            case .blocked: state.counts.blocked
-            case .prOpen: state.counts.prOpen
-            case .done: state.counts.done
-            case .idle: state.counts.idle
-            case .stopping: state.counts.stopping
-            case .exited: state.counts.exited
-            }
-        }()
 
         Button {
             state.filter = value
@@ -87,10 +79,30 @@ struct FilterRail: View {
     private var searchField: some View {
         HStack(spacing: 6) {
             Image(skoga: .search).skogaIconSize(12).foregroundStyle(p.inkMute)
-            TextField("Filter agents, tasks, repos…", text: $state.query)
+            TextField("Filter agents, tasks, repos…", text: $queryDraft)
                 .textFieldStyle(.plain)
                 .font(SkogaFont.small(11.5))
                 .foregroundStyle(p.ink)
+                // Seed the local draft from state.query so a search
+                // persisted via env var or external mutation survives a
+                // view-tree teardown. `debounceArmed` flips true only
+                // after the seed, so the first .task tick can't race
+                // the seed and clobber state.query back to "".
+                .onAppear {
+                    if queryDraft != state.query { queryDraft = state.query }
+                    debounceArmed = true
+                }
+                // Keep the draft in sync with external writes to
+                // state.query (e.g., a future "clear filter" command).
+                .onChange(of: state.query) { _, new in
+                    if queryDraft != new { queryDraft = new }
+                }
+                .task(id: queryDraft) {
+                    guard debounceArmed else { return }
+                    try? await Task.sleep(for: .milliseconds(200))
+                    guard !Task.isCancelled, state.query != queryDraft else { return }
+                    state.query = queryDraft
+                }
         }
         .padding(.horizontal, 10).padding(.vertical, 5)
         .frame(minWidth: 200)

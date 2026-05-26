@@ -141,11 +141,15 @@ private struct ActivityCluster: View {
 
 // MARK: – Helpers
 
+private let groupedDecimalFormatter: NumberFormatter = {
+    let f = NumberFormatter()
+    f.numberStyle = .decimal
+    f.groupingSeparator = ","
+    return f
+}()
+
 private extension Int {
     func formattedWithSeparators() -> String {
-        let f = NumberFormatter()
-        f.numberStyle = .decimal
-        f.groupingSeparator = ","
-        return f.string(from: NSNumber(value: self)) ?? "\(self)"
+        groupedDecimalFormatter.string(from: NSNumber(value: self)) ?? "\(self)"
     }
 }
