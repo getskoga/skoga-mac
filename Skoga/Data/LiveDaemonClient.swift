@@ -9,13 +9,13 @@ final class LiveDaemonClient: DaemonClient {
 
     private let rpc = JSONRPCClient(socketPath: URL.skogaSocket)
 
-    func listAgents() async throws -> [Agent] {
+    nonisolated func listAgents() async throws -> [Agent] {
         let params = AnyEncodable(SessionListParams(include_terminal: false))
         let sessions: [RPCSession] = try await rpc.call("session.list", params: params)
         return sessions.map(Agent.from(rpc:))
     }
 
-    func conversation(for agentId: String) async throws -> [ConversationMessage] {
+    nonisolated func conversation(for agentId: String) async throws -> [ConversationMessage] {
         // skogad reconstructs the conversation by parsing Claude Code's own
         // transcript jsonl for the session. If the session has no recorded
         // agent_session_id yet (very fresh) or the daemon is older than this

@@ -17,9 +17,9 @@ final class MockDaemonClient: DaemonClient {
     /// rewrites the persisted reviewer in place.
     private var githubStatusState: RPCGitHubStatus = MockDaemonClient.seedGitHubStatus
 
-    func listAgents() async throws -> [Agent] { agentsCache }
+    nonisolated func listAgents() async throws -> [Agent] { agentsCache }
 
-    func conversation(for agentId: String) async throws -> [ConversationMessage] {
+    nonisolated func conversation(for agentId: String) async throws -> [ConversationMessage] {
         conversationCache[agentId] ?? []
     }
 
