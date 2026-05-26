@@ -362,6 +362,36 @@ extension RPCPendingQuestion {
     }
 }
 
+// MARK: – session.recent_repos
+
+/// One entry in the `session.recent_repos` response (see getskoga/skoga#91).
+/// Each entry aggregates every past `session.create` against `repo_root`
+/// into a single pill the Dispatch screen renders — `last_used` drives
+/// ordering, `runs_count` lets the UI hint at activity (not currently
+/// shown, but kept on the wire for future use).
+struct RPCRecentRepo: Decodable, Hashable, Identifiable {
+    let repo_root: String
+    let display_name: String
+    let last_used: Date
+    let runs_count: Int
+
+    /// `Identifiable` over `repo_root` because the daemon dedups by path,
+    /// so it's stable across refetches. Lets `ForEach` keep the pill's
+    /// selection state stable when the polled list reshuffles by
+    /// `last_used`.
+    var id: String { repo_root }
+}
+
+struct SessionRecentReposParams: Encodable {
+    /// Cap on the number of entries returned. `nil` lets the daemon
+    /// apply its default (currently 8).
+    let limit: Int?
+}
+
+struct SessionRecentReposResponse: Decodable {
+    let repos: [RPCRecentRepo]
+}
+
 // MARK: – github.status / github.set_default_reviewer
 
 /// Wire shape of `github.status` (see getskoga/skoga#97). All fields are

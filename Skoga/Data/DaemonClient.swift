@@ -165,6 +165,13 @@ protocol DaemonClient: AnyObject {
     /// callers should treat thrown errors as transport failures, not
     /// auth failures.
     func credentialsTest(provider: RPCCredentialProvider) async throws -> RPCCredentialsTestResult
+
+    /// Recently-used host repos derived from past `session.create` calls
+    /// (`session.recent_repos`). Ordered by `last_used` desc, deduped by
+    /// path, capped daemon-side. Used by Dispatch to render one-click
+    /// repo pills. Returns an empty array on older daemons that don't
+    /// speak this RPC — the screen falls back to the folder picker.
+    func recentRepos() async throws -> [RPCRecentRepo]
 }
 
 /// CLI-derived PR title + body used to pre-fill the PR modal. Mirrors the
