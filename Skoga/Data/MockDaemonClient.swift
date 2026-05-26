@@ -49,6 +49,12 @@ final class MockDaemonClient: DaemonClient {
         // No-op.
     }
 
+    func shipSession(id: String) async throws {
+        // No-op. Mock has no real worktree to tear down — the auto-ship
+        // path is only meaningful against a live daemon, which is what
+        // actually moves the session through Shipping → Done.
+    }
+
     func sendInput(sessionId: String, text: String) async throws {
         // No-op. Mock mode has no real agent to forward to; succeeding
         // silently lets designers exercise the composer end-to-end.

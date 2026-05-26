@@ -146,6 +146,14 @@ struct SessionKillResponse: Decodable {
     let session: RPCSession
 }
 
+struct SessionShipParams: Encodable {
+    let id: String
+}
+
+struct SessionShipResponse: Decodable {
+    let session: RPCSession
+}
+
 struct SessionSendInputParams: Encodable {
     let id: String
     /// Free-form text the daemon will paste into the agent's tmux pane

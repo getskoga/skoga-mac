@@ -46,6 +46,16 @@ protocol DaemonClient: AnyObject {
     /// asynchronously; subscribers see the `session.killed` event when done.
     func killSession(id: String) async throws
 
+    /// Drive a session into the post-merge teardown (`session.ship`). Mirrors
+    /// `killSession` but lands in `Done` rather than `Killed`. Called
+    /// automatically by the coordinator when a session transitions to
+    /// `pr-merged` so a merged PR autocloses its agent session the same way
+    /// `skoga ship` does from the CLI. Throws on transport failure or when
+    /// the daemon rejects (session unknown, already terminal, or already
+    /// mid-teardown — the latter two are expected races and the auto-ship
+    /// caller swallows them).
+    func shipSession(id: String) async throws
+
     /// Push a follow-up user message to a running agent (`session.send_input`).
     /// The daemon pastes `text` into the agent's tmux pane via bracketed
     /// paste — multi-line input arrives at Claude as one paste event. Throws
