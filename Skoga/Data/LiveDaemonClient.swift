@@ -209,6 +209,22 @@ final class LiveDaemonClient: DaemonClient {
         ])
     }
 
+    func githubStatus() async throws -> RPCGitHubStatus {
+        // METHOD_NOT_FOUND propagates as-is — the Settings view distinguishes
+        // an outdated daemon (skogad < getskoga/skoga#97) from "gh is genuinely
+        // missing" so the install CTA never lies about which side needs fixing.
+        try await rpc.call("github.status")
+    }
+
+    @discardableResult
+    func githubSetDefaultReviewer(_ reviewer: String) async throws -> RPCGitHubStatus {
+        let params = AnyEncodable(GitHubSetDefaultReviewerParams(reviewer: reviewer))
+        let resp: GitHubSetDefaultReviewerResponse = try await rpc.call(
+            "github.set_default_reviewer", params: params
+        )
+        return resp.status
+    }
+
     /// Spawn `skoga <args>`, await termination, capture stdout. Stderr is
     /// folded into the error message on failure so the user sees the same
     /// preflight-failure / conflict text the terminal would surface.

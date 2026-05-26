@@ -2,7 +2,7 @@ import SwiftUI
 import Foundation
 
 enum AppView: String, Hashable {
-    case roster, conversation, dispatch, review, telemetry
+    case roster, conversation, dispatch, review, telemetry, settings
 }
 
 /// Top-level app state mirroring the React App's local state — view selection, filters,
@@ -34,6 +34,21 @@ final class AppState: ObservableObject {
     @Published private(set) var conversation: [ConversationMessage] = []
     @Published private(set) var timeline: [TimelineEntry] = []
     @Published private(set) var daemonStatus: DaemonStatus
+    /// Last fetched `gh` CLI status from the daemon. `nil` before the
+    /// first fetch completes — Settings → GitHub renders a loading row
+    /// in that window, and the PR modal's reviewer field falls back to
+    /// the "+ add" placeholder.
+    @Published private(set) var githubStatus: RPCGitHubStatus?
+    /// True when the daemon doesn't speak `github.status` (METHOD_NOT_FOUND).
+    /// Surfaced as a distinct Settings row so the user sees "Upgrade the
+    /// daemon" instead of a misleading "Install gh CLI" CTA when in fact
+    /// `gh` may already be on disk and authenticated.
+    @Published private(set) var githubDaemonUnsupported: Bool = false
+    /// Localized error from the most recent github.status fetch, kept
+    /// only when we have no cached status to fall back on. Background
+    /// poll failures while a status is already in hand stay silent —
+    /// the existing UI doesn't need to flicker on every transient drop.
+    @Published private(set) var githubStatusError: String?
 
     let client: DaemonClient
     private let isMock: Bool
@@ -46,6 +61,12 @@ final class AppState: ObservableObject {
 
     func bootstrap() async {
         await refresh()
+        // Fire-and-forget the gh-status fetch — it shells out to
+        // `gh auth status` on the daemon side, which costs a few hundred
+        // ms. Blocking the bootstrap means the Roster takes that long to
+        // appear; the PR modal and Settings each await the same call on
+        // their own surface anyway.
+        Task { await refreshGitHubStatus() }
         startEventLoop()
         startPollingFallback()
 
@@ -80,6 +101,58 @@ final class AppState: ObservableObject {
             daemonStatus = .connected(version: version)
         } catch {
             daemonStatus = .notRunning(detail: describe(error))
+        }
+    }
+
+    /// Re-fetch `gh` CLI status from the daemon. Called at bootstrap, when
+    /// the Settings page opens, and on demand while the sign-in sheet is
+    /// polling (every 2s) until `authenticated` flips true.
+    ///
+    /// Three failure modes, three different UI affordances:
+    /// - METHOD_NOT_FOUND → outdated daemon; surface a daemon-upgrade row.
+    /// - any other failure with no cached status → surface the error so
+    ///   the user isn't staring at `Checking gh status…` forever.
+    /// - any other failure with a cached status → swallow silently so the
+    ///   sheet's 2s poll doesn't flicker the page on a transient drop.
+    func refreshGitHubStatus() async {
+        do {
+            let updated = try await client.githubStatus()
+            githubStatus = updated
+            githubDaemonUnsupported = false
+            githubStatusError = nil
+        } catch let JSONRPCError.rpc(rpcError) where rpcError.code == -32601 {
+            githubDaemonUnsupported = true
+            githubStatusError = nil
+        } catch {
+            githubDaemonUnsupported = false
+            if githubStatus == nil {
+                githubStatusError = describe(error)
+            }
+        }
+    }
+
+    /// Persist the PR-modal default reviewer to the daemon's config.
+    /// Trim + treat empty as a clear so the Settings text field can both
+    /// set and unset the value with the same Save action. Surfaces
+    /// failures via a toast — losing this silently would leave the user
+    /// thinking the value stuck.
+    func setDefaultReviewer(_ reviewer: String) async {
+        let trimmed = reviewer.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            let updated = try await client.githubSetDefaultReviewer(trimmed)
+            githubStatus = updated
+            // Toast off the daemon's canonical form rather than the user's
+            // input. The daemon may normalize (strip a leading `@`,
+            // lowercase the handle, expand org aliases) — toasting the
+            // pre-normalized text would tell the user a different story
+            // than the value that actually landed in config.
+            if let persisted = updated.default_reviewer, !persisted.isEmpty {
+                showToast("Default reviewer set to \(persisted).")
+            } else {
+                showToast("Cleared default reviewer.")
+            }
+        } catch {
+            showToast("Couldn't save reviewer: \(describe(error))")
         }
     }
 
@@ -314,6 +387,7 @@ final class AppState: ObservableObject {
         case .dispatch:     "Dispatch · new run"
         case .review:       "Review · \(counts.prOpen) open"
         case .telemetry:    "Telemetry"
+        case .settings:     "Settings"
         }
     }
 

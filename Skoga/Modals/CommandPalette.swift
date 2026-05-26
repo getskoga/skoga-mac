@@ -135,6 +135,9 @@ struct CommandPalette: View {
             .init(id: "telemetry", label: "Go to Telemetry", icon: .telemetry) {
                 state.view = .telemetry; state.openAgentId = nil
             },
+            .init(id: "settings", label: "Open Settings", icon: .settings) {
+                state.view = .settings; state.openAgentId = nil
+            },
         ]
     }
 
