@@ -639,11 +639,12 @@ private struct SkogaLandPreviewPayload: Decodable {
 extension Agent {
     /// Translate a daemon `Session` into a Mac `Agent`. `tokens` and
     /// `cost` come from the daemon's transcript-derived `usage` block
-    /// (see getskoga/skoga#86); older daemons that don't emit `usage`
-    /// fall back to 0 so the UI renders "0 tok / $0.00" rather than
-    /// crashing. Fields the daemon doesn't expose yet (commits, files)
-    /// are zeroed; `name`/`role` are derived from the id and the
-    /// configured agent adapter.
+    /// (see getskoga/skoga#86); `commits` and `files` come from the
+    /// cached `diff_stat` field (see getskoga/skoga#87). Either can be
+    /// absent on older daemons or while the first refresh is still in
+    /// flight — both fall back to 0 / `nil` so the UI renders zeros
+    /// rather than crashing. `name`/`role` are derived from the id and
+    /// the configured agent adapter.
     static func from(rpc s: RPCSession) -> Agent {
         let pendingQuestion = s.pending_question?.toConversationMessage()
         let pendingQuestionPayload: ConversationMessage.QuestionPayload? = {
@@ -697,8 +698,12 @@ extension Agent {
             runtime: runtimeLabel(since: s.created_at),
             tokens: tokens,
             cost: cost,
-            commits: 0,
-            files: 0,
+            // `nil` diff_stat (older daemon, or the cache hasn't been
+            // populated since session create yet) renders as 0/0 so the
+            // run-details / card meta rows don't have to special-case
+            // absence — same approach as the `usage` fallback above.
+            commits: s.diff_stat?.commits ?? 0,
+            files: s.diff_stat?.files_changed ?? 0,
             attn: attn,
             attnMessage: attnMessage,
             prUrl: s.landed_pr_url,
@@ -715,7 +720,9 @@ extension Agent {
             // closed-without-merge remotely but hasn't begun teardown.
             // `.shipping` is already mid-teardown, so we skip it to avoid
             // a redundant rejected RPC every poll.
-            needsAutoShip: s.state == .prMerged || s.state == .prClosed
+            needsAutoShip: s.state == .prMerged || s.state == .prClosed,
+            base: s.base,
+            baseSha: s.base_sha
         )
     }
 }
