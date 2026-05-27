@@ -102,9 +102,9 @@ enum SettingsSectionID: String, CaseIterable, Hashable, Identifiable {
         case .worktrees:      ["Root directory for agent checkouts",
                                "Cleanup policy after merge",
                                "Disk-quota guardrails"]
-        case .editor:         ["Default editor binary",
-                               "Hand-off command for review",
-                               "Auto-open PR diffs"]
+        // Editor has its own panel — see `EditorSettingsSection`. No
+        // roadmap here; the PlaceholderSection branch is unreachable.
+        case .editor:         []
         case .keyboard:       ["Navigation shortcuts",
                                "Dispatch and Review shortcuts",
                                "Customizable chords"]

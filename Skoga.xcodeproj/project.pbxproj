@@ -20,6 +20,7 @@
 		303029A15B9017AA387563AB /* DaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3CC5FADA740026853822A19 /* DaemonClient.swift */; };
 		31BC5CD04C1B7237C7B5CB6E /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFAFBFFB8FA9968FD7AC98FF /* ConversationView.swift */; };
 		3E70103B56C8294DDCA1E434 /* NordicNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B445CBB1DD16119CE39FCC9 /* NordicNames.swift */; };
+		4150C94C17D0F4FC501E3DEA /* EditorSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49EE4BE4620A6158671227A8 /* EditorSettingsSection.swift */; };
 		4639FEBCD92E5073935BB33D /* JSONRPCConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3457E04866B98C322F63CCB3 /* JSONRPCConnection.swift */; };
 		4B1E391149D1356D9FD5286A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 04B3C5B56A345134FAE70ACC /* Assets.xcassets */; };
 		4B666D2DD45E99850F918565 /* Sidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAD982A7CF77B3D772232722 /* Sidebar.swift */; };
@@ -76,6 +77,7 @@
 		38E26794A30DE016A10EB598 /* BudgetsSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetsSettingsSection.swift; sourceTree = "<group>"; };
 		3D127034A44088EC6FED081A /* BugReportModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BugReportModal.swift; sourceTree = "<group>"; };
 		3F594D7BABF3680BF59BBE69 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		49EE4BE4620A6158671227A8 /* EditorSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorSettingsSection.swift; sourceTree = "<group>"; };
 		49F7F15D58C08252650D51B5 /* WindowAccessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowAccessor.swift; sourceTree = "<group>"; };
 		4A25157E2CF810158C87A5EC /* SettingsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsCard.swift; sourceTree = "<group>"; };
 		4FAC023DD953B7C1C85F0027 /* FilterRail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterRail.swift; sourceTree = "<group>"; };
@@ -212,6 +214,7 @@
 			isa = PBXGroup;
 			children = (
 				38E26794A30DE016A10EB598 /* BudgetsSettingsSection.swift */,
+				49EE4BE4620A6158671227A8 /* EditorSettingsSection.swift */,
 				8531B097CEC08B13BAF87F29 /* GitHubSettingsSection.swift */,
 				C7599A3E829C97AA86843F66 /* ModelsSettingsSection.swift */,
 				5B6E36E5C280653D25A1DDF9 /* NotificationsSettingsSection.swift */,
@@ -427,6 +430,7 @@
 				2144EFB928D43BAB7EEC4CE7 /* DaemonClientHolder.swift in Sources */,
 				540A532678F1E33044D42AFF /* DaemonStatusBanner.swift in Sources */,
 				7580499EE0EB855F91C98963 /* DispatchView.swift in Sources */,
+				4150C94C17D0F4FC501E3DEA /* EditorSettingsSection.swift in Sources */,
 				73E10F6654C9374EC0A04E83 /* EmbeddedTUIChrome.swift in Sources */,
 				BFF1C77E6332943D4D93EEA1 /* FilterRail.swift in Sources */,
 				4E43B5924A3C404A9C85CF4E /* GitHubSettingsSection.swift in Sources */,

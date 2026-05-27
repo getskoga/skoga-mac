@@ -179,6 +179,9 @@ private struct ConvActionsFooter: View {
 
 private struct ConvSidePanel: View {
     @Environment(\.palette) private var p
+    @Environment(\.openSettings) private var openSettings
+    @Environment(ModalState.self) private var modal
+    @Environment(DaemonClientHolder.self) private var daemon
     let agent: Agent
     let timeline: [TimelineEntry]
 
@@ -239,10 +242,65 @@ private struct ConvSidePanel: View {
     private var actionsBlock: some View {
         block(title: "Quick actions") {
             VStack(spacing: 6) {
-                quickAction(label: "View commits on GitHub", icon: .github)
-                quickAction(label: "Drop into editor (worktree)", icon: .loop)
-                quickAction(label: "Ping me when done", icon: .watch)
+                quickAction(label: "View commits on GitHub", icon: .github) {}
+                quickAction(label: "Drop into editor (worktree)", icon: .doc) {
+                    Task { await dropIntoEditor() }
+                }
+                quickAction(label: "Ping me when done", icon: .watch) {}
             }
+        }
+    }
+
+    /// Hand the agent's worktree to whichever editor the user picked in
+    /// Settings → Editor, opening the agent's changed files as tabs
+    /// alongside the workspace root.
+    ///
+    /// We try the daemon for the file list but tolerate it not knowing
+    /// how — `changedFiles` returns nil against older daemons (no
+    /// `session.changed_files` method), and a thrown error from a live
+    /// daemon shouldn't block the user from still getting the folder
+    /// open. Either path gracefully degrades to "folder only" rather
+    /// than failing the action outright.
+    ///
+    /// Off-happy-path:
+    /// * daemon didn't surface a worktree → toast + bail.
+    /// * user picked `custom` but never filled the command → toast and
+    ///   open Settings so they can finish the setup.
+    /// * launch fails (`/usr/bin/open` throws) → surface the underlying
+    ///   error as a toast.
+    private func dropIntoEditor() async {
+        let choice = EditorPrefs.readSelected()
+        let custom = EditorPrefs.readCustomCommand()
+        let files: [String] = await {
+            // Skip the round-trip for editors that can't use a file list
+            // anyway — Finder/Xcode/Terminal ignore it.
+            guard choice.supportsFileTabs else { return [] }
+            do {
+                return try await daemon.client.changedFiles(for: agent.id) ?? []
+            } catch {
+                return []
+            }
+        }()
+        let result = EditorLauncher.open(
+            worktree: agent.hostWorktree,
+            choice: choice,
+            customCommand: custom,
+            changedFiles: files
+        )
+        switch result {
+        case .opened(let used):
+            // Don't claim "with N files" when N is 0 — the toast would
+            // read confusingly on a fresh session.
+            let visibleFiles = used.supportsFileTabs ? min(files.count, EditorLauncher.maxFileTabs) : 0
+            let suffix = visibleFiles > 0 ? " with \(visibleFiles) changed file\(visibleFiles == 1 ? "" : "s")" : ""
+            modal.showToast("Opening worktree in \(used.displayName)\(suffix)…")
+        case .noWorktree:
+            modal.showToast("No worktree path for this session yet.")
+        case .unconfigured:
+            modal.showToast("Set a custom editor command in Settings → Editor.")
+            openSettings()
+        case .failed(let message):
+            modal.showToast(message)
         }
     }
 
@@ -275,8 +333,8 @@ private struct ConvSidePanel: View {
         }
     }
 
-    private func quickAction(label: String, icon: SkogaIcon) -> some View {
-        Button {} label: {
+    private func quickAction(label: String, icon: SkogaIcon, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
             HStack(spacing: 8) {
                 Image(skoga: icon).skogaIconSize(12)
                 Text(label)

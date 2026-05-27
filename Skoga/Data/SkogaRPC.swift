@@ -280,6 +280,22 @@ struct RPCDiffStat: Decodable, Equatable {
     let lines_removed: Int
 }
 
+// MARK: – session.changed_files
+
+struct SessionChangedFilesParams: Encodable {
+    let id: String
+}
+
+/// Files the agent has touched in this session — committed since base
+/// + uncommitted (staged + unstaged) + untracked, deduped and sorted
+/// by the daemon. Paths are relative to the worktree root so the Mac
+/// can prefix them with the worktree path before handing them to
+/// editors. Used by the "Drop into editor" quick action to open the
+/// changed files as tabs alongside the worktree root.
+struct SessionChangedFilesResponse: Decodable {
+    let files: [String]
+}
+
 // MARK: – PTY streaming (session.attach_stream / pty_write / pty_resize)
 
 struct SessionAttachStreamParams: Encodable {

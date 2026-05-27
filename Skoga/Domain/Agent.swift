@@ -104,6 +104,13 @@ struct Agent: Identifiable, Hashable {
     /// `pr-merged` and `shipping` into one pill) because shipping a session
     /// that's already shipping would just be a redundant rejected RPC.
     let needsAutoShip: Bool
+    /// Filesystem path to the session's linked git worktree, mirroring
+    /// `RPCSession.worktree`. Surfaced here so the "Drop into editor"
+    /// quick action (issue #9) can hand the path off to the user's
+    /// editor of choice. `nil` for sessions whose daemon doesn't expose
+    /// it yet or where path resolution failed daemon-side — the action
+    /// degrades to a "couldn't resolve worktree" toast in that case.
+    let hostWorktree: String?
 
     /// Memberwise init with a default for `pendingQuestion` so design
     /// seeds (all 20+ Agent literals in MockDaemonClient) don't have to
@@ -130,7 +137,8 @@ struct Agent: Identifiable, Hashable {
         rebasePromptDispatchedAt: Date? = nil,
         needsAutoShip: Bool = false,
         base: String = "main",
-        baseSha: String? = nil
+        baseSha: String? = nil,
+        hostWorktree: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -154,6 +162,7 @@ struct Agent: Identifiable, Hashable {
         self.pendingQuestion = pendingQuestion
         self.rebasePromptDispatchedAt = rebasePromptDispatchedAt
         self.needsAutoShip = needsAutoShip
+        self.hostWorktree = hostWorktree
     }
 
     /// `branch` after the first slash, used to label rows like "auth-scope-refresh".
@@ -221,7 +230,8 @@ struct Agent: Identifiable, Hashable {
             lhs.prUrl == rhs.prUrl &&
             lhs.pendingQuestion == rhs.pendingQuestion &&
             lhs.rebasePromptDispatchedAt == rhs.rebasePromptDispatchedAt &&
-            lhs.needsAutoShip == rhs.needsAutoShip
+            lhs.needsAutoShip == rhs.needsAutoShip &&
+            lhs.hostWorktree == rhs.hostWorktree
     }
 
     func hash(into hasher: inout Hasher) {
@@ -246,5 +256,6 @@ struct Agent: Identifiable, Hashable {
         hasher.combine(pendingQuestion)
         hasher.combine(rebasePromptDispatchedAt)
         hasher.combine(needsAutoShip)
+        hasher.combine(hostWorktree)
     }
 }
