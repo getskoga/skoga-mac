@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0440F79167C3EF08AEAB6DE2 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7A3CA26832995CEBDFEED8 /* Tokens.swift */; };
+		04A6186AE10DC3AA7A0EA2B1 /* BugReportModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D127034A44088EC6FED081A /* BugReportModal.swift */; };
 		0904869BDE0C1F4B33955791 /* AppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B94EED290C1327115DD4B695 /* AppView.swift */; };
 		0E1FEB24354422C20E477006 /* SkogaRPC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DE9B05F7B39ED2F2A214B4 /* SkogaRPC.swift */; };
 		10F388F0EA51E3ADE2CC0FD2 /* SkogaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E6D30C0F5B11763748C1C22 /* SkogaApp.swift */; };
@@ -73,6 +74,7 @@
 		324080D75957A3776C6AE643 /* PlaceholderSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderSection.swift; sourceTree = "<group>"; };
 		3457E04866B98C322F63CCB3 /* JSONRPCConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONRPCConnection.swift; sourceTree = "<group>"; };
 		38E26794A30DE016A10EB598 /* BudgetsSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetsSettingsSection.swift; sourceTree = "<group>"; };
+		3D127034A44088EC6FED081A /* BugReportModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BugReportModal.swift; sourceTree = "<group>"; };
 		3F594D7BABF3680BF59BBE69 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		49F7F15D58C08252650D51B5 /* WindowAccessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowAccessor.swift; sourceTree = "<group>"; };
 		4A25157E2CF810158C87A5EC /* SettingsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsCard.swift; sourceTree = "<group>"; };
@@ -150,6 +152,7 @@
 		40A0C6AEAF94719F1F67D011 /* Modals */ = {
 			isa = PBXGroup;
 			children = (
+				3D127034A44088EC6FED081A /* BugReportModal.swift */,
 				7B1B80DC49DE0A5D893A17CB /* CommandPalette.swift */,
 				636564F61F4F65B4CC82B789 /* PRModal.swift */,
 				F8D5A2A540B7469A07861F7F /* StopConfirmModal.swift */,
@@ -413,6 +416,7 @@
 				1CF54B406250832E21C31E97 /* AppCoordinator.swift in Sources */,
 				0904869BDE0C1F4B33955791 /* AppView.swift in Sources */,
 				F360C48B877A3A7CA94F4939 /* BudgetsSettingsSection.swift in Sources */,
+				04A6186AE10DC3AA7A0EA2B1 /* BugReportModal.swift in Sources */,
 				B038B3D3555C717A97F1D66A /* CockpitStrip.swift in Sources */,
 				C0B8611AF2746532CA6B30F5 /* Color+Oklch.swift in Sources */,
 				661CD394C01C7CDCEA758DEE /* CommandPalette.swift in Sources */,
