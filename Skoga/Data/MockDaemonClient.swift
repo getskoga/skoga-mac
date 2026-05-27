@@ -155,6 +155,15 @@ final class MockDaemonClient: DaemonClient {
         }
     }
 
+    func changedFiles(for sessionId: String) async throws -> [String]? {
+        // Mock mode has no real worktree to enumerate, and the editor
+        // launcher already short-circuits on `agent.hostWorktree == nil`
+        // (which is true for every seed). Return an empty list so the
+        // launcher sees a clean "no files to open" rather than nil
+        // (which the live path uses to mean "older daemon").
+        []
+    }
+
     func landPR(for sessionId: String, title: String, body: String) async throws {
         // Pretend the land succeeded. No way to actually push from mock —
         // the design surface is the only thing consuming this path.

@@ -152,6 +152,16 @@ protocol DaemonClient: AnyObject {
     /// for the modal to be useful.
     func diffStat(for sessionId: String) async throws -> RPCDiffStat?
 
+    /// Paths (relative to the worktree root) of every file the agent has
+    /// touched in this session — committed since base + uncommitted
+    /// (staged + unstaged) + untracked. The Mac's "Drop into editor"
+    /// quick action calls this so editors that accept multi-arg launches
+    /// (VS Code / Cursor / Zed) can open the changed files as tabs in
+    /// addition to the worktree root. Returns `nil` on `METHOD_NOT_FOUND`
+    /// so the action degrades to "folder only" against older daemons
+    /// rather than failing.
+    func changedFiles(for sessionId: String) async throws -> [String]?
+
     /// Drive a full `skoga land <id> --title ... --body ... --yes` flow:
     /// squash, rebase, push, open PR via `gh`. The Mac app deliberately
     /// shells out to the CLI rather than reimplementing the flow in Swift —

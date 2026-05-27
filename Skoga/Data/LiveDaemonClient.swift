@@ -270,6 +270,23 @@ final class LiveDaemonClient: DaemonClient {
         }
     }
 
+    func changedFiles(for sessionId: String) async throws -> [String]? {
+        // Pre-#changed_files daemons return METHOD_NOT_FOUND; swallow it
+        // so the editor action gracefully falls back to "open the
+        // worktree folder, no tabs" instead of throwing. Other RPC
+        // errors (transport, session-not-found) propagate so the UI
+        // can surface them.
+        let params = AnyEncodable(SessionChangedFilesParams(id: sessionId))
+        do {
+            let resp: SessionChangedFilesResponse = try await rpc.call(
+                "session.changed_files", params: params
+            )
+            return resp.files
+        } catch let JSONRPCError.rpc(rpcError) where rpcError.code == -32601 {
+            return nil
+        }
+    }
+
     func landPR(for sessionId: String, title: String, body: String) async throws {
         // `--yes` skips the confirm prompt. Title/body win over the CLI's
         // default-message derivation, so the modal's edits make it all the
@@ -736,7 +753,8 @@ extension Agent {
             // a redundant rejected RPC every poll.
             needsAutoShip: s.state == .prMerged || s.state == .prClosed,
             base: s.base,
-            baseSha: s.base_sha
+            baseSha: s.base_sha,
+            hostWorktree: s.worktree
         )
     }
 }
