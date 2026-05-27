@@ -630,9 +630,13 @@ private struct SkogaLandPreviewPayload: Decodable {
 // MARK: – RPCSession → Agent
 
 extension Agent {
-    /// Translate a daemon `Session` into a Mac `Agent`. Fields the daemon
-    /// doesn't expose yet (tokens, cost, commits, files) are zeroed;
-    /// `name`/`role` are derived from the id and the configured agent adapter.
+    /// Translate a daemon `Session` into a Mac `Agent`. `tokens` and
+    /// `cost` come from the daemon's transcript-derived `usage` block
+    /// (see getskoga/skoga#86); older daemons that don't emit `usage`
+    /// fall back to 0 so the UI renders "0 tok / $0.00" rather than
+    /// crashing. Fields the daemon doesn't expose yet (commits, files)
+    /// are zeroed; `name`/`role` are derived from the id and the
+    /// configured agent adapter.
     static func from(rpc s: RPCSession) -> Agent {
         let pendingQuestion = s.pending_question?.toConversationMessage()
         let pendingQuestionPayload: ConversationMessage.QuestionPayload? = {
@@ -658,6 +662,19 @@ extension Agent {
             return nil
         }()
 
+        // `tokens_total` is `u64` on the wire — clamp into `Int` so a
+        // pathological session can't trap on Int(_:) truncation. Any
+        // 64-bit Mac will accept the full range; the clamp is belt-and-
+        // suspenders against a malformed daemon emission.
+        let tokens = s.usage.map { Int(clamping: $0.tokens_total) } ?? 0
+        let cost = s.usage?.cost_usd ?? 0
+        let usageByModel: [String: Agent.ModelUsage] = s.usage?.by_model.reduce(into: [:]) { acc, kv in
+            acc[kv.key] = Agent.ModelUsage(
+                tokens: Int(clamping: kv.value.tokens_total),
+                cost: kv.value.cost_usd
+            )
+        } ?? [:]
+
         return Agent(
             id: s.id,
             name: prettyName(from: s.id),
@@ -671,13 +688,14 @@ extension Agent {
             repo: prettyRepo(from: s.repo_root),
             branch: s.branch,
             runtime: runtimeLabel(since: s.created_at),
-            tokens: 0,
-            cost: 0,
+            tokens: tokens,
+            cost: cost,
             commits: 0,
             files: 0,
             attn: attn,
             attnMessage: attnMessage,
             prUrl: s.landed_pr_url,
+            usageByModel: usageByModel,
             pendingQuestion: pendingQuestionPayload,
             // Only meaningful while the daemon still has us in `.conflicted`.
             // The daemon clears the field on any transition out of conflict

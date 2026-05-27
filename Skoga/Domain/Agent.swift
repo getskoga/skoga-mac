@@ -36,6 +36,16 @@ enum AgentStatus: String, CaseIterable, Codable, Hashable {
 }
 
 struct Agent: Identifiable, Hashable {
+    /// Per-model slice of a session's cumulative token + cost totals.
+    /// Built from the daemon's `SessionUsage.by_model` map and rolled up
+    /// across the roster by the Telemetry view. `tokens` is the four-bucket
+    /// sum (input + output + cache_creation + cache_read) so the by-model
+    /// table totals reconcile with the session-level "tokens" cell.
+    struct ModelUsage: Hashable {
+        let tokens: Int
+        let cost: Double
+    }
+
     let id: String
     let name: String
     let role: String
@@ -47,6 +57,11 @@ struct Agent: Identifiable, Hashable {
     let runtime: String
     let tokens: Int
     let cost: Double
+    /// Per-model breakdown of this session's `tokens`/`cost`. Empty for
+    /// mock seeds and for sessions whose daemon doesn't compute usage yet
+    /// (pre-getskoga/skoga#86) — Telemetry falls back to bucketing by
+    /// `Agent.model` when this is empty so the table still renders.
+    let usageByModel: [String: ModelUsage]
     let commits: Int
     let files: Int
     let attn: Bool
@@ -95,6 +110,7 @@ struct Agent: Identifiable, Hashable {
         attn: Bool,
         attnMessage: String?,
         prUrl: String?,
+        usageByModel: [String: ModelUsage] = [:],
         pendingQuestion: ConversationMessage.QuestionPayload? = nil,
         rebasePromptDispatchedAt: Date? = nil,
         needsAutoShip: Bool = false
@@ -115,6 +131,7 @@ struct Agent: Identifiable, Hashable {
         self.attn = attn
         self.attnMessage = attnMessage
         self.prUrl = prUrl
+        self.usageByModel = usageByModel
         self.pendingQuestion = pendingQuestion
         self.rebasePromptDispatchedAt = rebasePromptDispatchedAt
         self.needsAutoShip = needsAutoShip
@@ -175,6 +192,7 @@ struct Agent: Identifiable, Hashable {
             lhs.branch == rhs.branch &&
             lhs.tokens == rhs.tokens &&
             lhs.cost == rhs.cost &&
+            lhs.usageByModel == rhs.usageByModel &&
             lhs.commits == rhs.commits &&
             lhs.files == rhs.files &&
             lhs.attn == rhs.attn &&
@@ -196,6 +214,7 @@ struct Agent: Identifiable, Hashable {
         hasher.combine(branch)
         hasher.combine(tokens)
         hasher.combine(cost)
+        hasher.combine(usageByModel)
         hasher.combine(commits)
         hasher.combine(files)
         hasher.combine(attn)

@@ -4,6 +4,11 @@ struct TelemetryView: View {
     @Environment(\.palette) private var p
     @Environment(RosterState.self) private var roster
 
+    /// Daily cap, bound to the Settings → Budgets slider's storage key so
+    /// the hero card redraws live when the user drags the slider — the
+    /// Cockpit "Spend" cell binds to the same key for the same reason.
+    @AppStorage(BudgetPrefs.Cap.daily) private var dailyBudget: Double = BudgetPrefs.Cap.dailyDefault
+
     struct ModelStat {
         let model: String
         let runs: Int
@@ -24,11 +29,41 @@ struct TelemetryView: View {
     }
     private var attnCount: Int { roster.agents.filter(\.attn).count }
 
+    /// Roll up runs/tokens/spend per model across the roster. Prefer
+    /// the daemon's per-message `usageByModel` breakdown (which can
+    /// attribute a single session to multiple models — e.g. a Sonnet
+    /// session that planned with Opus) over `Agent.model` (the launch
+    /// pin, only one string). Falls back to the launch pin when the
+    /// daemon hasn't computed usage for that session yet (pre-#86) so
+    /// the table still renders something for mock seeds.
+    ///
+    /// `runs` counts each session once per distinct model it touched
+    /// — so a session that used both Opus and Sonnet shows up as one
+    /// run in each model's row. `$/run` then reads as "average cost
+    /// per session-that-touched-this-model", matching how the field
+    /// is interpreted elsewhere in the issue.
     private var byModel: [ModelStat] {
         var dict: [String: ModelStat] = [:]
         for a in roster.agents {
-            let s = dict[a.model] ?? ModelStat(model: a.model, runs: 0, cost: 0, tokens: 0)
-            dict[a.model] = ModelStat(model: a.model, runs: s.runs + 1, cost: s.cost + a.cost, tokens: s.tokens + a.tokens)
+            if a.usageByModel.isEmpty {
+                let s = dict[a.model] ?? ModelStat(model: a.model, runs: 0, cost: 0, tokens: 0)
+                dict[a.model] = ModelStat(
+                    model: a.model,
+                    runs: s.runs + 1,
+                    cost: s.cost + a.cost,
+                    tokens: s.tokens + a.tokens
+                )
+            } else {
+                for (model, mu) in a.usageByModel {
+                    let s = dict[model] ?? ModelStat(model: model, runs: 0, cost: 0, tokens: 0)
+                    dict[model] = ModelStat(
+                        model: model,
+                        runs: s.runs + 1,
+                        cost: s.cost + mu.cost,
+                        tokens: s.tokens + mu.tokens
+                    )
+                }
+            }
         }
         return dict.values.sorted { $0.runs > $1.runs }
     }
@@ -63,7 +98,9 @@ struct TelemetryView: View {
         HStack(spacing: 14) {
             heroCard(label: "spend",
                      value: String(format: "$%.2f", totalSpend),
-                     sub: String(format: "of $40.00 budget · %d%%", Int(totalSpend / 40 * 100)))
+                     sub: String(format: "of $%.2f budget · %d%%",
+                                 dailyBudget,
+                                 dailyBudget > 0 ? Int((totalSpend / dailyBudget * 100).rounded()) : 0))
             heroCard(label: "tokens",
                      value: String(format: "%.2fM", Double(totalTokens) / 1_000_000),
                      sub: "\(roster.agents.count) agents · avg \(roster.agents.isEmpty ? 0 : totalTokens / roster.agents.count / 1000)k each")
