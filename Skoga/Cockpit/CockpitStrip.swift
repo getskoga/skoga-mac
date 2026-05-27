@@ -6,11 +6,14 @@ struct CockpitStrip: View {
     @Environment(\.palette) private var p
     @Environment(RosterState.self) private var roster
 
-    /// Daily cap, bound to the Settings → Budgets slider's storage key so
-    /// dragging the slider redraws this cell live. `BudgetPrefs.readDouble`
-    /// would return the same value but bypass SwiftUI's invalidation,
-    /// pinning the cell to the next 5s roster poll.
+    /// Daily cap, bound to the Settings → Budgets storage key so editing
+    /// the field redraws this cell live. `BudgetPrefs.readDouble` would
+    /// return the same value but bypass SwiftUI's invalidation, pinning
+    /// the cell to the next 5s roster poll.
     @AppStorage(BudgetPrefs.Cap.daily) private var dailyBudget: Double = BudgetPrefs.Cap.dailyDefault
+    /// Same binding so the "no cap" sub-label tracks the master toggle
+    /// without waiting for a roster repoll.
+    @AppStorage(BudgetPrefs.Behavior.capsEnabled) private var capsEnabled: Bool = BudgetPrefs.Behavior.capsEnabledDefault
 
     var body: some View {
         let counts = roster.counts
@@ -54,14 +57,17 @@ struct CockpitStrip: View {
                 label: "Spend",
                 value: String(format: "$%.2f", spend.today),
                 unit: "today",
-                // Guard against a zero budget (slider parked at the
-                // bottom of its range, or a direct UserDefaults write)
-                // so the strip never renders a `NaN%` cell.
-                sub: String(format: "$%.0f budget · %d%%",
-                            dailyBudget,
-                            dailyBudget > 0
-                                ? Int((spend.today / dailyBudget * 100).rounded())
-                                : 0),
+                // Drop the budget / percent half of the sub when caps
+                // are off — there's nothing to compare against. Still
+                // guard against a zero stored cap so the strip never
+                // renders a `NaN%` cell when caps are on.
+                sub: capsEnabled
+                    ? String(format: "$%.0f budget · %d%%",
+                             dailyBudget,
+                             dailyBudget > 0
+                                 ? Int((spend.today / dailyBudget * 100).rounded())
+                                 : 0)
+                    : "tracking · no cap",
                 dot: .done,
                 attention: false
             )
