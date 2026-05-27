@@ -112,6 +112,13 @@ final class LiveDaemonClient: DaemonClient {
         )
     }
 
+    func injectFeedback(sessionId: String) async throws {
+        let params = AnyEncodable(SessionInjectFeedbackParams(id: sessionId))
+        let _: SessionInjectFeedbackResponse = try await rpc.call(
+            "session.inject_feedback", params: params
+        )
+    }
+
     func pendingQuestion(for agentId: String) async throws -> RPCPendingQuestion? {
         // Older daemons (pre-#100) don't expose this method; swallow
         // METHOD_NOT_FOUND so the conversation view still renders.

@@ -74,6 +74,16 @@ protocol DaemonClient: AnyObject {
     /// daemon.
     func resolveRebaseConflict(sessionId: String) async throws
 
+    /// Manually re-deliver the most recent PR review activity to the agent
+    /// (`session.inject_feedback`). The daemon's watcher normally pastes
+    /// new comments / reviews automatically and emits a `pr-feedback`
+    /// event; this is the "resend the latest review" escape hatch for
+    /// when the agent didn't act on it or the routed prompt got lost
+    /// in a crash. Throws on `METHOD_NOT_FOUND` against an older daemon,
+    /// when the session isn't in a state where feedback makes sense
+    /// (no PR open, no recorded feedback), or on tmux / worktree errors.
+    func injectFeedback(sessionId: String) async throws
+
     /// Fetch the session's in-flight `AskUserQuestion`, if any. Returns nil
     /// when the agent has no pending picker. Used as a polled fallback for
     /// older daemons that don't yet include `pending_question` on
