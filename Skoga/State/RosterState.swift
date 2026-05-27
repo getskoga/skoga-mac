@@ -19,6 +19,15 @@ final class RosterState {
     private(set) var agents: [Agent] = []
     private(set) var activity: [Double] = []
 
+    /// Daemon-aggregated total spend (USD) across every session started
+    /// today, terminal sessions included. Populated by the coordinator
+    /// from `spend.today`; `nil` against older daemons that don't speak
+    /// the RPC, in which case `spend.today` (below) falls back to
+    /// summing the live `agents` array. Kept separate from `agents` so
+    /// terminal sessions contribute to the cap readout without polluting
+    /// the open-roster surfaces.
+    private(set) var todaySpend: Double?
+
     /// UI-driven; mutated directly from `FilterRail` and any future filter
     /// surface (command palette, etc.) without going through the coordinator.
     var filter: Filter = .all
@@ -34,6 +43,10 @@ final class RosterState {
 
     func apply(activity next: [Double]) {
         if activity != next { activity = next }
+    }
+
+    func apply(todaySpend next: Double?) {
+        if todaySpend != next { todaySpend = next }
     }
 
     struct Counts {
@@ -70,13 +83,15 @@ final class RosterState {
         )
     }
 
-    /// `today` sums every session's `cost` (daemon-derived from the Claude
-    /// Code transcript jsonl, see getskoga/skoga#86). The roster is the
+    /// `today` prefers the daemon's `spend.today` rollup (terminal
+    /// sessions included) and only falls back to summing the live
+    /// `agents` array when the daemon hasn't supplied a number yet
+    /// (cold start, older daemon without the RPC). The roster is the
     /// canonical client-side cost source — anything in the chrome that
     /// wants "today's spend" reads through this slice. The matching daily
     /// cap is read by each View via `@AppStorage(BudgetPrefs.Cap.daily)`.
     var spend: Spend {
-        Spend(today: agents.reduce(0) { $0 + $1.cost })
+        Spend(today: todaySpend ?? agents.reduce(0) { $0 + $1.cost })
     }
 
     var filteredSortedAgents: [Agent] {

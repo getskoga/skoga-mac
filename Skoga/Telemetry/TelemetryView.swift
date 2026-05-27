@@ -19,9 +19,11 @@ struct TelemetryView: View {
         let tokens: Int
     }
 
-    private var totalSpend: Double {
-        roster.agents.reduce(0) { $0 + $1.cost }
-    }
+    /// Read through the roster slice rather than re-summing `agents`
+    /// directly — `roster.spend.today` prefers the daemon's `spend.today`
+    /// rollup, which includes terminal sessions. Summing `agents` here
+    /// would understate spend the moment any session shipped.
+    private var totalSpend: Double { roster.spend.today }
     private var totalTokens: Int {
         roster.agents.reduce(0) { $0 + $1.tokens }
     }

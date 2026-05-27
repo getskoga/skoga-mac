@@ -32,6 +32,16 @@ protocol DaemonClient: AnyObject {
     /// bootstrap to gate against an installed-but-too-old skogad.
     func daemonVersion() async throws -> String
 
+    /// Total spend in USD across every session started today, including
+    /// terminal/closed ones (`spend.today`). `listAgents` only returns
+    /// open sessions — without this, the Cockpit / Budgets readouts
+    /// would drop spend the moment a session terminated. Returns `nil`
+    /// against older daemons that don't speak this RPC; the roster
+    /// slice falls back to summing the open-agent costs in that case.
+    /// `nonisolated` for the same polling-frequency reason as
+    /// `listAgents` — called on every 5s refresh tick.
+    nonisolated func spendToday() async throws -> Double?
+
     /// Start a new skoga session. `agent` is the adapter name (e.g. `"claude"`);
     /// `base` is the branch to fork from (typically `"main"`); `repoRoot` is
     /// the absolute path to the host clone. `initialPrompt`, when non-empty,

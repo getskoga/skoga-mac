@@ -55,6 +55,20 @@ final class LiveDaemonClient: DaemonClient {
         return resp.version
     }
 
+    nonisolated func spendToday() async throws -> Double? {
+        // Older daemons don't expose this method yet — swallow
+        // METHOD_NOT_FOUND so the roster falls back to summing the live
+        // (open-only) agent costs. Any other RPC error propagates so the
+        // coordinator can keep the prior value rather than letting a flaky
+        // tick clobber the cap readout.
+        do {
+            let resp: SpendTodayResponse = try await rpc.call("spend.today")
+            return resp.total_usd
+        } catch let JSONRPCError.rpc(rpcError) where rpcError.code == -32601 {
+            return nil
+        }
+    }
+
     func createSession(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?) async throws -> Agent {
         // auto_launch tells skogad to spawn the detached `skoga
         // _dispatch_launch` subprocess that actually starts the agent in
