@@ -651,7 +651,7 @@ extension Agent {
         // post-land hook, but that's the agent doing the right thing, not
         // a needs-attention signal. Suppress `attn` for these states so
         // the card doesn't render with the red blocked treatment.
-        let inReview = s.state == .prOpen || s.state == .prMerged || s.state == .shipping
+        let inReview = s.state == .prOpen || s.state == .prMerged || s.state == .prClosed || s.state == .shipping
         let attn = (waiting && !inReview) || conflicted
 
         let attnMessage: String? = {
@@ -703,11 +703,12 @@ extension Agent {
             // here as well means a stale value from an in-flight race never
             // leaks into the non-conflicted card.
             rebasePromptDispatchedAt: s.state == .conflicted ? s.rebase_prompt_dispatched_at : nil,
-            // `.prMerged` exactly (not `.shipping`) is the auto-ship trigger:
-            // the daemon has reconciled the PR as merged remotely but hasn't
-            // begun teardown. `.shipping` is already mid-teardown, so we
-            // skip it to avoid a redundant rejected RPC every poll.
-            needsAutoShip: s.state == .prMerged
+            // `.prMerged` / `.prClosed` (not `.shipping`) are the auto-ship
+            // triggers: the daemon has reconciled the PR as merged or
+            // closed-without-merge remotely but hasn't begun teardown.
+            // `.shipping` is already mid-teardown, so we skip it to avoid
+            // a redundant rejected RPC every poll.
+            needsAutoShip: s.state == .prMerged || s.state == .prClosed
         )
     }
 }
@@ -747,8 +748,11 @@ private extension AgentStatus {
             // `.shipping` is the post-merge teardown — the PR landed and the
             // daemon is winding the worktree down. Surfacing it as PR merged
             // (rather than a distinct "shipping" pill) keeps the user-facing
-            // story simple: open → merged → done.
+            // story simple: open → merged → done. `.prClosed` gets its own
+            // pill (below) so an abandoned PR doesn't read as "merged".
             self = .prMerged
+        case .prClosed:
+            self = .prClosed
         case .done:
             self = .done
         }

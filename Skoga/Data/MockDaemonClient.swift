@@ -527,6 +527,7 @@ private extension MockDaemonClient {
         case .done:     headWhat = "Done — branch ready, no PR yet."
         case .prOpen:   headWhat = "PR open — awaiting review."
         case .prMerged: headWhat = "PR merged into `main`."
+        case .prClosed: headWhat = "PR closed without merging."
         case .stopping: headWhat = "Stopping — teardown in progress."
         case .exited:   headWhat = "Exited — process ended."
         }
