@@ -7,7 +7,6 @@ final class MockDaemonClient: DaemonClient {
 
     private let agentsCache: [Agent] = MockDaemonClient.seedAgents
     private let conversationCache: [String: [ConversationMessage]] = MockDaemonClient.seedConversations
-    private let timelineCache: [TimelineEntry] = MockDaemonClient.seedTimeline
     private let activityCache: [Double] = MockDaemonClient.seedActivity
 
     /// In-memory `gh` status the mock client returns. Designers can flip
@@ -33,8 +32,14 @@ final class MockDaemonClient: DaemonClient {
     func activitySeries() async throws -> [Double] { activityCache }
 
     func timeline(for agentId: String) async throws -> [TimelineEntry] {
-        // The design ships one timeline (Astrid's) and reuses it for all agents.
-        timelineCache
+        // Hand-crafted timelines (Astrid's storyboard) take priority; everyone
+        // else gets a small timeline synthesized from their own metadata so the
+        // Activity panel reads as scoped to the agent on screen. Designers
+        // exercising other agents see branch, commit count, and status reflected
+        // back at them without needing a hand-rolled seed for each one.
+        if let bespoke = MockDaemonClient.seedTimelines[agentId] { return bespoke }
+        guard let agent = agentsCache.first(where: { $0.id == agentId }) else { return [] }
+        return MockDaemonClient.synthesizeTimeline(for: agent)
     }
 
     func daemonVersion() async throws -> String { "mock" }
@@ -493,7 +498,15 @@ private extension MockDaemonClient {
             runtimeLabel: nil, initialOverride: nil)),
     ]
 
-    static let seedTimeline: [TimelineEntry] = [
+    /// Hand-crafted timelines keyed by agent id. Astrid is the storyboard
+    /// agent so she gets the most detail; everyone else falls through to
+    /// `synthesizeTimeline(for:)`, which builds a small per-agent feed from
+    /// the agent's own metadata.
+    static let seedTimelines: [String: [TimelineEntry]] = [
+        "astrid": astridTimeline,
+    ]
+
+    static let astridTimeline: [TimelineEntry] = [
         .init(kind: .thought, when: "now",   what: "Waiting on resume-semantics decision."),
         .init(kind: .tool,    when: "2:36p", what: "Ran `pnpm -w test cart` — 3 failed, 22 passed."),
         .init(kind: .commit,  when: "2:34p", what: "Commit `4f12a9d` — useCart consumes xstate hook."),
@@ -502,4 +515,49 @@ private extension MockDaemonClient {
         .init(kind: .thought, when: "2:14p", what: "Plan: mirror reducer states, keep action names."),
         .init(kind: .commit,  when: "2:14p", what: "Branched from `main` · `a91f3d2`."),
     ]
+
+    static func synthesizeTimeline(for agent: Agent) -> [TimelineEntry] {
+        var entries: [TimelineEntry] = []
+
+        let headWhat: String
+        switch agent.status {
+        case .running:  headWhat = "Working on `\(agent.branch)`."
+        case .blocked:  headWhat = agent.attnMessage ?? "Blocked — waiting for input."
+        case .idle:     headWhat = agent.task
+        case .done:     headWhat = "Done — branch ready, no PR yet."
+        case .prOpen:   headWhat = "PR open — awaiting review."
+        case .prMerged: headWhat = "PR merged into `main`."
+        case .stopping: headWhat = "Stopping — teardown in progress."
+        case .exited:   headWhat = "Exited — process ended."
+        }
+        entries.append(.init(kind: .thought, when: "now", what: headWhat))
+
+        let commitCount = min(agent.commits, 3)
+        let when = ["just now", "a bit ago", "earlier"]
+        for i in 0..<commitCount {
+            let hash = shortHash("\(agent.id)#\(i)")
+            entries.append(.init(kind: .commit, when: when[i],
+                                 what: "Commit `\(hash)` on `\(agent.branch)`."))
+        }
+
+        entries.append(.init(kind: .commit, when: "earlier",
+                             what: "Branched from `main` · `\(shortHash(agent.id + "-base"))`."))
+
+        return entries
+    }
+
+    /// Deterministic 7-char hex that mimics a git short SHA. FNV-1a 64-bit
+    /// folded down so a given agent id always renders the same fake hash —
+    /// keeps the synthesized timeline stable across polls (TimelineEntry's
+    /// id is built from the `what` string, so a stable hash means stable
+    /// row identity / no SwiftUI ForEach tear-downs).
+    private static func shortHash(_ seed: String) -> String {
+        var h: UInt64 = 14695981039346656037
+        for b in seed.utf8 {
+            h ^= UInt64(b)
+            h &*= 1099511628211
+        }
+        let hex = String(h & 0x0FFFFFFF, radix: 16)
+        return String(repeating: "0", count: max(0, 7 - hex.count)) + hex
+    }
 }
