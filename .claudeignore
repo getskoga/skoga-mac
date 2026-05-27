@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# Xcode user-specific
+xcuserdata/
+*.xcuserstate
+*.xcuserstatevalue
+
+# Build artifacts
+build/
+DerivedData/
+*.dSYM/
+*.dSYM.zip
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+
+# Dependencies
+Pods/
+Carthage/Build/
+
+# Iteration screenshots (dev/debug artifacts)
+screenshots/
