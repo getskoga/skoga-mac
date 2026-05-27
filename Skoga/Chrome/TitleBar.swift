@@ -42,6 +42,10 @@ struct TitleBar: View {
                     modal.commandPaletteOpen = true
                 }
                 GhostIconButton(icon: .watch) {}
+                GhostIconButton(icon: .bug) {
+                    modal.bugReportOpen = true
+                }
+                .help("Report a bug")
                 GhostIconButton(icon: .settings) {
                     openSettings()
                 }

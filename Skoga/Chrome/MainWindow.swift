@@ -49,6 +49,11 @@ struct MainWindow: View {
                 CommandPalette()
                     .transition(.opacity)
             }
+
+            if modal.bugReportOpen {
+                BugReportModal()
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            }
         }
         .onExitCommand { modal.commandPaletteOpen = false }
         .background(WindowAccessor(onWindow: { coordinator.registerMainWindow($0) }))

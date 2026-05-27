@@ -14,6 +14,7 @@ final class ModalState {
     var prAgentId: String? = nil
     var stopAgentId: String? = nil
     var commandPaletteOpen: Bool = false
+    var bugReportOpen: Bool = false
 
     /// Set only via `showToast` so the dismiss timer's identity check
     /// can de-dup correctly — a direct write would dodge the timer and
