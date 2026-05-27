@@ -31,7 +31,7 @@ final class MockDaemonClient: DaemonClient {
 
     func activitySeries() async throws -> [Double] { activityCache }
 
-    func timeline(for agentId: String) async throws -> [TimelineEntry] {
+    nonisolated func timeline(for agentId: String) async throws -> [TimelineEntry] {
         // Hand-crafted timelines (Astrid's storyboard) take priority; everyone
         // else gets a small timeline synthesized from their own metadata so the
         // Activity panel reads as scoped to the agent on screen. Designers
@@ -502,11 +502,11 @@ private extension MockDaemonClient {
     /// agent so she gets the most detail; everyone else falls through to
     /// `synthesizeTimeline(for:)`, which builds a small per-agent feed from
     /// the agent's own metadata.
-    static let seedTimelines: [String: [TimelineEntry]] = [
+    nonisolated static let seedTimelines: [String: [TimelineEntry]] = [
         "astrid": astridTimeline,
     ]
 
-    static let astridTimeline: [TimelineEntry] = [
+    nonisolated static let astridTimeline: [TimelineEntry] = [
         .init(kind: .thought, when: "now",   what: "Waiting on resume-semantics decision."),
         .init(kind: .tool,    when: "2:36p", what: "Ran `pnpm -w test cart` — 3 failed, 22 passed."),
         .init(kind: .commit,  when: "2:34p", what: "Commit `4f12a9d` — useCart consumes xstate hook."),
@@ -516,7 +516,7 @@ private extension MockDaemonClient {
         .init(kind: .commit,  when: "2:14p", what: "Branched from `main` · `a91f3d2`."),
     ]
 
-    static func synthesizeTimeline(for agent: Agent) -> [TimelineEntry] {
+    nonisolated static func synthesizeTimeline(for agent: Agent) -> [TimelineEntry] {
         var entries: [TimelineEntry] = []
 
         let headWhat: String
@@ -551,7 +551,7 @@ private extension MockDaemonClient {
     /// keeps the synthesized timeline stable across polls (TimelineEntry's
     /// id is built from the `what` string, so a stable hash means stable
     /// row identity / no SwiftUI ForEach tear-downs).
-    private static func shortHash(_ seed: String) -> String {
+    nonisolated private static func shortHash(_ seed: String) -> String {
         var h: UInt64 = 14695981039346656037
         for b in seed.utf8 {
             h ^= UInt64(b)
