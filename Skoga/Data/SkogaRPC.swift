@@ -132,6 +132,7 @@ enum RPCSessionState: String, Decodable {
     case agentExited     = "agent-exited"
     case prOpen          = "pr-open"
     case prMerged        = "pr-merged"
+    case prClosed        = "pr-closed"
     case shipping
     case killing
     case done

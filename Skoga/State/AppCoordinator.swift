@@ -104,23 +104,30 @@ final class AppCoordinator {
     }
 
     /// Fire `session.ship` on any session the daemon has flagged as
-    /// `.prMerged` but that we haven't already auto-shipped. Mirrors what
-    /// the user would get by running `skoga ship` from the CLI — the PR
-    /// landed, so the session should autoclose. Mock mode is excluded
-    /// because the mock has no real teardown path. Errors are swallowed
-    /// (with one tracked retry permitted on the next poll) so a transient
-    /// RPC failure doesn't deadlock the auto-ship for this session id.
+    /// `.prMerged` / `.prClosed` but that we haven't already auto-shipped.
+    /// Mirrors what the user would get by running `skoga ship` from the CLI
+    /// — the PR landed (or was abandoned), so the session should autoclose.
+    /// Mock mode is excluded because the mock has no real teardown path.
+    /// Errors are swallowed (with one tracked retry permitted on the next
+    /// poll) so a transient RPC failure doesn't deadlock the auto-ship for
+    /// this session id.
     private func autoShipMergedSessions() {
         guard !daemon.isMock else { return }
         for agent in roster.agents where agent.needsAutoShip && !autoShippedSessionIds.contains(agent.id) {
             autoShippedSessionIds.insert(agent.id)
             let id = agent.id
             let name = agent.name
+            // Capture status now: by the time the ship RPC returns the
+            // daemon has already advanced to `.shipping`, so a later read
+            // wouldn't be able to tell merged from closed.
+            let toast = agent.status == .prClosed
+                ? "PR closed — closing \(name)."
+                : "PR merged — closing \(name)."
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 do {
                     try await self.daemon.client.shipSession(id: id)
-                    self.modal.showToast("PR merged — closing \(name).")
+                    self.modal.showToast(toast)
                 } catch {
                     // Drop from the set so the next poll retries. The
                     // expected races (already shipping / already done)

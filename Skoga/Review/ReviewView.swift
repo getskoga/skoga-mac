@@ -11,8 +11,14 @@ struct ReviewView: View {
     /// run here would bury the things that actually need a reviewer's eye.
     /// Manager-driven: the moment `skoga land` succeeds and `prUrl` lands
     /// on the session, the card shows up here.
+    ///
+    /// `prUrl` alone isn't enough: it stays set through `.prMerged` /
+    /// `.prClosed` / `.shipping` / `.done` (the daemon keeps the landed
+    /// URL on the session for the audit log). Status-gate to `.prOpen`
+    /// so a session in its brief auto-ship window doesn't linger here
+    /// — by then the PR is no longer up for review.
     private var inReview: [Agent] {
-        roster.agents.filter { $0.prUrl != nil }
+        roster.agents.filter { $0.prUrl != nil && $0.status == .prOpen }
     }
 
     var body: some View {

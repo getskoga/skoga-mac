@@ -1,7 +1,7 @@
 import Foundation
 
 enum AgentStatus: String, CaseIterable, Codable, Hashable {
-    case running, blocked, prOpen, prMerged, done, idle, stopping, exited
+    case running, blocked, prOpen, prMerged, prClosed, done, idle, stopping, exited
 
     var label: String {
         switch self {
@@ -9,6 +9,7 @@ enum AgentStatus: String, CaseIterable, Codable, Hashable {
         case .blocked:  "Blocked"
         case .prOpen:   "PR open"
         case .prMerged: "PR merged"
+        case .prClosed: "PR closed"
         case .done:     "Done"
         case .idle:     "Idle"
         case .stopping: "Stopping"
@@ -21,6 +22,9 @@ enum AgentStatus: String, CaseIterable, Codable, Hashable {
     /// gets stuck mid-teardown is something the user needs to *see* and act on.
     /// `.exited` lands after `.idle` — both are "agent isn't doing anything"
     /// but exited carries less urgency (process is gone, not just paused).
+    /// `.prClosed` (abandoned PR) sits next to `.prMerged` — both are
+    /// post-review terminal-ish states; the visual + auto-ship treatment is
+    /// the same, only the toast text and pill color differ.
     var sortRank: Int {
         switch self {
         case .blocked:  0
@@ -28,9 +32,10 @@ enum AgentStatus: String, CaseIterable, Codable, Hashable {
         case .stopping: 2
         case .prOpen:   3
         case .prMerged: 4
-        case .done:     5
-        case .idle:     6
-        case .exited:   7
+        case .prClosed: 5
+        case .done:     6
+        case .idle:     7
+        case .exited:   8
         }
     }
 }
@@ -80,14 +85,13 @@ struct Agent: Identifiable, Hashable {
     /// any transition out of `.conflicted`, so a new conflict re-arms
     /// the button automatically.
     let rebasePromptDispatchedAt: Date?
-    /// True when the daemon's raw RPC state is `pr-merged` — the PR landed
-    /// remotely but `session.ship` hasn't been called yet. The coordinator
-    /// uses this to fire an automatic ship so a merged PR autocloses its
-    /// session the same way `skoga ship` would. Distinct from
-    /// `AgentStatus.prMerged`, which collapses `pr-merged` and `shipping`
-    /// (already mid-teardown) into one pill — we need to know the
-    /// difference because shipping a session that's already shipping
-    /// would just be a redundant rejected RPC.
+    /// True when the daemon's raw RPC state is `pr-merged` or `pr-closed`
+    /// — the PR landed or was abandoned remotely but `session.ship` hasn't
+    /// been called yet. The coordinator uses this to fire an automatic ship
+    /// so a finished PR autocloses its session the same way `skoga ship`
+    /// would. Distinct from `AgentStatus.prMerged` (which collapses
+    /// `pr-merged` and `shipping` into one pill) because shipping a session
+    /// that's already shipping would just be a redundant rejected RPC.
     let needsAutoShip: Bool
 
     /// Memberwise init with a default for `pendingQuestion` so design
