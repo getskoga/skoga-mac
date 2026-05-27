@@ -6,6 +6,12 @@ struct CockpitStrip: View {
     @Environment(\.palette) private var p
     @Environment(RosterState.self) private var roster
 
+    /// Daily cap, bound to the Settings → Budgets slider's storage key so
+    /// dragging the slider redraws this cell live. `BudgetPrefs.readDouble`
+    /// would return the same value but bypass SwiftUI's invalidation,
+    /// pinning the cell to the next 5s roster poll.
+    @AppStorage(BudgetPrefs.Cap.daily) private var dailyBudget: Double = BudgetPrefs.Cap.dailyDefault
+
     var body: some View {
         let counts = roster.counts
         let spend = roster.spend
@@ -48,9 +54,14 @@ struct CockpitStrip: View {
                 label: "Spend",
                 value: String(format: "$%.2f", spend.today),
                 unit: "today",
+                // Guard against a zero budget (slider parked at the
+                // bottom of its range, or a direct UserDefaults write)
+                // so the strip never renders a `NaN%` cell.
                 sub: String(format: "$%.0f budget · %d%%",
-                            spend.budget,
-                            Int((spend.today / spend.budget * 100).rounded())),
+                            dailyBudget,
+                            dailyBudget > 0
+                                ? Int((spend.today / dailyBudget * 100).rounded())
+                                : 0),
                 dot: .done,
                 attention: false
             )

@@ -48,7 +48,13 @@ final class RosterState {
         let tokens: Int
     }
 
-    struct Spend { let today: Double; let budget: Double }
+    /// Today's spend across the live roster. The daily *cap* (the
+    /// denominator the Cockpit / Telemetry / Budgets surfaces compare
+    /// against) is read directly from `@AppStorage(BudgetPrefs.Cap.daily)`
+    /// in each consuming View so SwiftUI invalidates on a slider drag;
+    /// piping it through this slice would lock the Cockpit strip to
+    /// the next 5s poll for slider edits.
+    struct Spend { let today: Double }
 
     var counts: Counts {
         Counts(
@@ -64,7 +70,14 @@ final class RosterState {
         )
     }
 
-    var spend: Spend { Spend(today: agents.reduce(0) { $0 + $1.cost }, budget: 40) }
+    /// `today` sums every session's `cost` (daemon-derived from the Claude
+    /// Code transcript jsonl, see getskoga/skoga#86). The roster is the
+    /// canonical client-side cost source — anything in the chrome that
+    /// wants "today's spend" reads through this slice. The matching daily
+    /// cap is read by each View via `@AppStorage(BudgetPrefs.Cap.daily)`.
+    var spend: Spend {
+        Spend(today: agents.reduce(0) { $0 + $1.cost })
+    }
 
     var filteredSortedAgents: [Agent] {
         var xs = agents

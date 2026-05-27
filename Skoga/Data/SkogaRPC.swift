@@ -83,6 +83,47 @@ struct RPCSession: Decodable {
     /// "Prompt sent" state so a double-click can't paste the fix-up
     /// prompt twice into the agent's TUI.
     let rebase_prompt_dispatched_at: Date?
+    /// Cumulative token + cost totals across the session, computed by the
+    /// daemon from the Claude Code transcript jsonl (see getskoga/skoga#86).
+    /// `nil` for older daemons that don't compute usage yet, or while the
+    /// transcript hasn't produced an assistant turn yet — both render as
+    /// "0 tok / $0.00" in the UI rather than as an error.
+    let usage: RPCSessionUsage?
+}
+
+/// Cumulative token + cost totals for a session, mirroring
+/// `crates/skoga-core/src/protocol.rs::SessionUsage`. `cost_usd` is the
+/// sum across `by_model.values()`; tokens are summed across all the
+/// per-model buckets. A bucket whose model id isn't in the daemon's
+/// price config contributes `0` to cost but its tokens still count
+/// toward `tokens_total`.
+struct RPCSessionUsage: Decodable, Equatable {
+    let tokens_input: UInt64
+    let tokens_output: UInt64
+    let tokens_cache_creation: UInt64
+    let tokens_cache_read: UInt64
+    let tokens_total: UInt64
+    let cost_usd: Double
+    let by_model: [String: RPCModelUsage]
+}
+
+struct RPCModelUsage: Decodable, Equatable {
+    let tokens_input: UInt64
+    let tokens_output: UInt64
+    let tokens_cache_creation: UInt64
+    let tokens_cache_read: UInt64
+    let cost_usd: Double
+
+    /// Sum of all four token buckets — what the by-model telemetry table
+    /// renders as "Tokens". Mirrors `SessionUsage.tokens_total` for the
+    /// session-level rollup; computed on the Mac side because the daemon
+    /// only carries the four buckets per model, not the per-model total.
+    var tokens_total: UInt64 {
+        tokens_input
+            &+ tokens_output
+            &+ tokens_cache_creation
+            &+ tokens_cache_read
+    }
 }
 
 enum RPCSessionState: String, Decodable {
