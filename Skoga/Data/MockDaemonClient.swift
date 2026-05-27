@@ -44,6 +44,15 @@ final class MockDaemonClient: DaemonClient {
 
     func daemonVersion() async throws -> String { "mock" }
 
+    nonisolated func spendToday() async throws -> Double? {
+        // Mock has no terminal-vs-open distinction — every seeded session
+        // is "open". Summing the cache mirrors what spend.today would
+        // return server-side against the same set, so the Cockpit /
+        // Budgets readouts render the same number with or without a
+        // daemon-derived total.
+        agentsCache.reduce(0) { $0 + $1.cost }
+    }
+
     func createSession(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?) async throws -> Agent {
         // No-op in mock mode; the design has no notion of starting a real session.
         throw NSError(domain: "MockDaemonClient", code: 0,

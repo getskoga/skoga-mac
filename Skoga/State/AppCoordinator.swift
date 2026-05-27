@@ -90,6 +90,9 @@ final class AppCoordinator {
             if let series = try? await daemon.client.activitySeries() {
                 roster.apply(activity: series)
             }
+            if let total = try? await daemon.client.spendToday() {
+                roster.apply(todaySpend: total)
+            }
             return
         }
         do {
@@ -100,6 +103,14 @@ final class AppCoordinator {
             autoShipMergedSessions()
         } catch {
             daemon.setDaemonStatus(.notRunning(detail: error.toastMessage))
+        }
+        // Spend rolls up independently of the agent list — a transport
+        // hiccup here shouldn't flip the connection banner or drop the
+        // roster. `try?` keeps the prior `todaySpend` on transport
+        // failure; METHOD_NOT_FOUND comes back as `.success(nil)` and
+        // applies nil so the roster falls back to summing live agents.
+        if let total = try? await daemon.client.spendToday() {
+            roster.apply(todaySpend: total)
         }
     }
 

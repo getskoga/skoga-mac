@@ -239,6 +239,21 @@ struct SessionInjectFeedbackResponse: Decodable {
     let session: RPCSession
 }
 
+// MARK: – spend.today
+
+/// Wire shape of `spend.today` — total cost in USD across ALL sessions
+/// started today (running + terminal), aggregated server-side. The
+/// per-session `listAgents` path only sees open sessions, so this is
+/// what the Cockpit / Budgets / Telemetry surfaces read to avoid
+/// spend dropping the moment a session terminates.
+struct SpendTodayResponse: Decodable {
+    let total_usd: Double
+    /// RFC3339 timestamp of when the daemon last rolled the total up.
+    /// Decoded but unused today — kept on the wire so a future "as of
+    /// 2:36p" caption can read it without a daemon change.
+    let as_of: String
+}
+
 // MARK: – session.diff_stat
 
 struct SessionDiffStatParams: Encodable {
