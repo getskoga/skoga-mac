@@ -331,9 +331,26 @@ final class AppCoordinator {
     private func startEventLoop() {
         let stream = daemon.client.events()
         Task { [weak self] in
-            for await _ in stream {
+            for await event in stream {
                 await self?.refresh()
+                if event.type == "pr-feedback", let id = event.session_id {
+                    await self?.handlePRFeedback(sessionId: id)
+                }
             }
+        }
+    }
+
+    /// Daemon's PR watcher just pasted review activity into the agent. We've
+    /// already refetched the roster (the event loop calls `refresh()` first),
+    /// so the agent's status / timestamps are current — now toast so the user
+    /// notices, and re-pull the open conversation + timeline so the routed
+    /// prompt and "Routed feedback from …" timeline entry show up without
+    /// waiting for the 5s poll.
+    private func handlePRFeedback(sessionId: String) async {
+        let name = roster.agents.first(where: { $0.id == sessionId })?.name ?? "agent"
+        modal.showToast("Routed PR feedback to \(name).")
+        if conversation.openAgentId == sessionId {
+            await loadConversation(sessionId)
         }
     }
 

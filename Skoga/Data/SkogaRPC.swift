@@ -217,6 +217,14 @@ struct SessionResolveRebaseConflictResponse: Decodable {
     let session: RPCSession
 }
 
+struct SessionInjectFeedbackParams: Encodable {
+    let id: String
+}
+
+struct SessionInjectFeedbackResponse: Decodable {
+    let session: RPCSession
+}
+
 // MARK: – session.diff_stat
 
 struct SessionDiffStatParams: Encodable {

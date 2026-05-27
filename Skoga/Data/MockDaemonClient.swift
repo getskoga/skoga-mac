@@ -71,6 +71,12 @@ final class MockDaemonClient: DaemonClient {
         // attnMessage / rebasePromptDispatchedAt values, not this call.
     }
 
+    func injectFeedback(sessionId: String) async throws {
+        // No-op. Mock has no real PR watcher / cached review activity to
+        // re-deliver — designers exercise the toast/timeline surface via
+        // seeded data, not this call.
+    }
+
     func pendingQuestion(for agentId: String) async throws -> RPCPendingQuestion? {
         // No-op for the mock — designers exercise the question UI via
         // the seeded `.question(...)` conversation rows, not the live
