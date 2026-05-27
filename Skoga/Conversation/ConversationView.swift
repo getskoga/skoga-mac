@@ -199,7 +199,7 @@ private struct ConvSidePanel: View {
             VStack(spacing: 5) {
                 kv("repo", agent.repo, mono: true)
                 kv("branch", agent.branch, mono: true)
-                kv("base", "main · a91f3d2", mono: true)
+                kv("base", baseLabel, mono: true)
                 kv("model", agent.model, mono: true)
                 kv("runtime", agent.runtime, mono: true)
                 kv("spend", String(format: "$%.2f · %dk tok", agent.cost, agent.tokens / 1000), mono: true)
@@ -207,6 +207,15 @@ private struct ConvSidePanel: View {
                 kv("files", "\(agent.files)", mono: true)
             }
         }
+    }
+
+    /// `main · a91f3d2` when the daemon resolved a base SHA at session
+    /// create, just `main` otherwise. The seven-char prefix matches git's
+    /// `--short` default so the value lines up with what `git log` shows
+    /// when the user pivots into the worktree to investigate.
+    private var baseLabel: String {
+        guard let sha = agent.baseSha, !sha.isEmpty else { return agent.base }
+        return "\(agent.base) · \(sha.prefix(7))"
     }
 
     private var activityBlock: some View {

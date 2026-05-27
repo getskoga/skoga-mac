@@ -59,6 +59,17 @@ struct Agent: Identifiable, Hashable {
     let task: String
     let repo: String
     let branch: String
+    /// Base branch the session was forked from (`s.base` on the wire).
+    /// Used by the conversation side-panel's run-details row alongside
+    /// `baseSha` so the user can see which long-lived branch this run
+    /// will eventually merge into.
+    let base: String
+    /// Short SHA the session was forked at, if the daemon resolved one.
+    /// Rendered as the suffix after `base` (e.g. "main · a91f3d2") so
+    /// debugging long-lived runs against a moving target branch is
+    /// possible. `nil` for legacy sessions persisted before the daemon
+    /// started recording this, and for mock seeds that don't bother.
+    let baseSha: String?
     let runtime: String
     let tokens: Int
     let cost: Double
@@ -117,7 +128,9 @@ struct Agent: Identifiable, Hashable {
         usageByModel: [String: ModelUsage] = [:],
         pendingQuestion: ConversationMessage.QuestionPayload? = nil,
         rebasePromptDispatchedAt: Date? = nil,
-        needsAutoShip: Bool = false
+        needsAutoShip: Bool = false,
+        base: String = "main",
+        baseSha: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -127,6 +140,8 @@ struct Agent: Identifiable, Hashable {
         self.task = task
         self.repo = repo
         self.branch = branch
+        self.base = base
+        self.baseSha = baseSha
         self.runtime = runtime
         self.tokens = tokens
         self.cost = cost
@@ -194,6 +209,8 @@ struct Agent: Identifiable, Hashable {
             lhs.task == rhs.task &&
             lhs.repo == rhs.repo &&
             lhs.branch == rhs.branch &&
+            lhs.base == rhs.base &&
+            lhs.baseSha == rhs.baseSha &&
             lhs.tokens == rhs.tokens &&
             lhs.cost == rhs.cost &&
             lhs.usageByModel == rhs.usageByModel &&
@@ -216,6 +233,8 @@ struct Agent: Identifiable, Hashable {
         hasher.combine(task)
         hasher.combine(repo)
         hasher.combine(branch)
+        hasher.combine(base)
+        hasher.combine(baseSha)
         hasher.combine(tokens)
         hasher.combine(cost)
         hasher.combine(usageByModel)

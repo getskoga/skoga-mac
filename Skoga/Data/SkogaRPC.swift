@@ -54,6 +54,13 @@ struct RPCSession: Decodable {
     let task: String
     let agent: String
     let base: String
+    /// SHA the session's branch was forked from. Resolved by the daemon at
+    /// `session.create` against the freshly-fetched sandbox tracking ref and
+    /// persisted on the session record. `nil` for legacy sessions created
+    /// before the field landed and for the rare case where the ref-resolve
+    /// failed at create time. The conversation side-panel renders
+    /// `base · short(base_sha)` when set, falling back to just `base`.
+    let base_sha: String?
     let branch: String
     let repo_root: String
     /// Filesystem path to the session's linked git worktree. Needed by the
@@ -89,6 +96,13 @@ struct RPCSession: Decodable {
     /// transcript hasn't produced an assistant turn yet — both render as
     /// "0 tok / $0.00" in the UI rather than as an error.
     let usage: RPCSessionUsage?
+    /// Cached `merge_base(HEAD, base)..HEAD` diff stats for the session,
+    /// populated by the daemon on `session.list` (see getskoga/skoga#87).
+    /// `nil` means "never computed yet" — the side panel and agent card
+    /// fall back to zeros until the next refresh fills it in. Distinct
+    /// from the standalone `session.diff_stat` RPC, which the PR modal
+    /// uses to force a fresh recompute regardless of cache state.
+    let diff_stat: RPCDiffStat?
 }
 
 /// Cumulative token + cost totals for a session, mirroring
