@@ -2,8 +2,12 @@ import SwiftUI
 
 /// Settings → Budgets. Maps to PDF p7 / issue #22:
 ///
-/// 1. **Spend caps** — per-run / daily / monthly dollar sliders, the
-///    "soft stop on cap" toggle, and the alert-at threshold (50/75/80/100%).
+/// 1. **Spend caps** — a master "enforce caps" toggle, three numeric
+///    dollar fields (per-run / daily / monthly), the "soft stop on cap"
+///    toggle, and the alert-at threshold (50/75/80/100%). The master
+///    toggle dims the three fields and the behavior card when off so
+///    the daemon never stops a run, but usage still totals here and in
+///    Cockpit.
 /// 2. **Today (live)** — current spend, daily cap, and percent consumed.
 ///    Pulled from `RosterState.spend` (the same source the Cockpit
 ///    strip's "Spend" instrument reads) so the panel and the chrome
@@ -21,6 +25,12 @@ import SwiftUI
 struct BudgetsSettingsSection: View {
     @Environment(\.palette) private var p
     @Environment(RosterState.self) private var roster
+
+    /// Master gate for cap enforcement. When off, the three dollar
+    /// fields and the behavior card still show their saved values
+    /// (so toggling back on restores intent) but render dimmed and
+    /// non-interactive, and the "Today" panel drops its progress bar.
+    @AppStorage(BudgetPrefs.Behavior.capsEnabled) private var capsEnabled: Bool = BudgetPrefs.Behavior.capsEnabledDefault
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -50,46 +60,54 @@ struct BudgetsSettingsSection: View {
         }
     }
 
-    // MARK: – Card 1: Spend caps (three sliders)
+    // MARK: – Card 1: Spend caps (master toggle + three numeric inputs)
 
     private var spendCapsCard: some View {
         SettingsCard {
             VStack(alignment: .leading, spacing: 0) {
                 SettingsCardLabel("SPEND CAPS")
-                    .padding(.bottom, 6)
+                    .padding(.bottom, 14)
+
+                EnforceCapsRow()
+                    .padding(.bottom, 14)
+
+                Hairline()
+                    .padding(.bottom, 14)
+
                 Text("Three ceilings, applied independently. Whichever you trip first wins — a $5 per-run cap stops a single session even if your daily and monthly budgets still have room.")
                     .font(SkogaFont.body(12))
                     .foregroundStyle(p.inkMute)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.bottom, 18)
+                    .opacity(capsEnabled ? 1 : 0.5)
 
                 VStack(alignment: .leading, spacing: 22) {
-                    DollarCapSlider(
+                    DollarCapInput(
                         key: BudgetPrefs.Cap.perRun,
                         defaultValue: BudgetPrefs.Cap.perRunDefault,
-                        range: 1...20,
-                        step: 1,
+                        suggestedRange: 1...20,
                         icon: .bolt,
                         title: "Per-run cap",
-                        subtitle: "Stops a single session once it crosses this number."
+                        subtitle: "Stops a single session once it crosses this number.",
+                        enabled: capsEnabled
                     )
-                    DollarCapSlider(
+                    DollarCapInput(
                         key: BudgetPrefs.Cap.daily,
                         defaultValue: BudgetPrefs.Cap.dailyDefault,
-                        range: 5...200,
-                        step: 5,
+                        suggestedRange: 5...200,
                         icon: .clock,
                         title: "Daily cap",
-                        subtitle: "Cumulative spend across every session in a calendar day."
+                        subtitle: "Cumulative spend across every session in a calendar day.",
+                        enabled: capsEnabled
                     )
-                    DollarCapSlider(
+                    DollarCapInput(
                         key: BudgetPrefs.Cap.monthly,
                         defaultValue: BudgetPrefs.Cap.monthlyDefault,
-                        range: 100...3000,
-                        step: 50,
+                        suggestedRange: 100...3000,
                         icon: .doc,
                         title: "Monthly cap",
-                        subtitle: "Rolling 30-day total. Resets at the start of each calendar month."
+                        subtitle: "Rolling 30-day total. Resets at the start of each calendar month.",
+                        enabled: capsEnabled
                     )
                 }
             }
@@ -111,6 +129,10 @@ struct BudgetsSettingsSection: View {
                 }
             }
         }
+        // Behavior is meaningless when no cap can trip — dim and lock
+        // the whole card rather than leaving controls hot but inert.
+        .opacity(capsEnabled ? 1 : 0.5)
+        .disabled(!capsEnabled)
     }
 
     // MARK: – Card 3: Today (live)
@@ -171,9 +193,11 @@ enum BudgetPrefs {
         static let monthlyDefault: Double = 800
     }
     enum Behavior {
+        static let capsEnabled           = "skoga.budgets.behavior.capsEnabled"
         static let softStop              = "skoga.budgets.behavior.softStop"
         static let alertThresholdPercent = "skoga.budgets.behavior.alertThresholdPercent"
 
+        static let capsEnabledDefault:           Bool = true
         static let softStopDefault:              Bool = true
         static let alertThresholdPercentDefault: Int  = 80
     }
@@ -189,7 +213,8 @@ enum BudgetPrefs {
     ]
 
     private static let boolDefaults: [String: Bool] = [
-        Behavior.softStop: Behavior.softStopDefault,
+        Behavior.capsEnabled: Behavior.capsEnabledDefault,
+        Behavior.softStop:    Behavior.softStopDefault,
     ]
 
     /// Discrete alert-threshold steps the issue calls out. Centralized
@@ -213,40 +238,42 @@ enum BudgetPrefs {
     }
 }
 
-// MARK: – Dollar cap slider row
+// MARK: – Dollar cap input row
 
-/// One cap row: icon tile + title/subtitle on the left, current dollar
-/// value + slider on the right. The slider's tint maps to the same
-/// forest accent the rest of Settings uses for "the user did something"
-/// affordances.
-private struct DollarCapSlider: View {
+/// One cap row: icon tile + title/subtitle on the left, a numeric
+/// dollar field on the right. We dropped the slider — a fixed track
+/// either pinches users who want $5,000 monthly caps or wastes
+/// resolution on users who want $20. Typing a number is direct and
+/// uncapped; `suggestedRange` only feeds the "Typical" hint below.
+private struct DollarCapInput: View {
     @Environment(\.palette) private var p
     let key: String
     let defaultValue: Double
-    let range: ClosedRange<Double>
-    let step: Double
+    let suggestedRange: ClosedRange<Double>
     let icon: SkogaIcon
     let title: String
     let subtitle: String
+    let enabled: Bool
 
     @AppStorage private var value: Double
+    @FocusState private var focused: Bool
 
     init(
         key: String,
         defaultValue: Double,
-        range: ClosedRange<Double>,
-        step: Double,
+        suggestedRange: ClosedRange<Double>,
         icon: SkogaIcon,
         title: String,
-        subtitle: String
+        subtitle: String,
+        enabled: Bool
     ) {
         self.key = key
         self.defaultValue = defaultValue
-        self.range = range
-        self.step = step
+        self.suggestedRange = suggestedRange
         self.icon = icon
         self.title = title
         self.subtitle = subtitle
+        self.enabled = enabled
         self._value = AppStorage(wrappedValue: defaultValue, key)
     }
 
@@ -263,7 +290,7 @@ private struct DollarCapSlider: View {
             )
 
             VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title)
                             .font(SkogaFont.bodyMedium(13))
@@ -274,38 +301,100 @@ private struct DollarCapSlider: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 8)
-                    Text(formatDollars(value))
-                        .font(SkogaFont.serifValue(20))
-                        .foregroundStyle(p.ink)
-                        .monospacedDigit()
-                        .accessibilityHidden(true)
+                    dollarField
                 }
-
-                Slider(value: $value, in: range, step: step)
-                    .tint(p.forest)
-                    .controlSize(.small)
-                    .accessibilityLabel(title)
-                    .accessibilityValue(formatDollars(value))
-
-                HStack {
-                    Text(formatDollars(range.lowerBound))
-                        .font(SkogaFont.monoTiny(9.5))
-                        .foregroundStyle(p.inkFaint)
-                    Spacer()
-                    Text(formatDollars(range.upperBound))
-                        .font(SkogaFont.monoTiny(9.5))
-                        .foregroundStyle(p.inkFaint)
-                }
+                Text("Typical: \(formatDollars(suggestedRange.lowerBound))–\(formatDollars(suggestedRange.upperBound))")
+                    .font(SkogaFont.monoTiny(9.5))
+                    .foregroundStyle(p.inkFaint)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .opacity(enabled ? 1 : 0.5)
+        .disabled(!enabled)
     }
 
-    /// Whole dollars (no cents) since every step is an integer. Switching
-    /// to `%.2f` would just add visual noise — the daily cap will never
-    /// land on $39.50.
+    /// `$` glyph sits in the chrome (not in the editable text) so the
+    /// user can't delete it. `.number.precision(.fractionLength(0))`
+    /// keeps the typed value whole-dollar — `AppStorage` still stores
+    /// a `Double`, which matches what every consumer reads.
+    @ViewBuilder private var dollarField: some View {
+        HStack(spacing: 1) {
+            Text("$")
+                .font(SkogaFont.serifValue(20))
+                .foregroundStyle(p.ink2)
+            TextField("", value: $value, format: .number.precision(.fractionLength(0)))
+                .textFieldStyle(.plain)
+                .multilineTextAlignment(.trailing)
+                .font(SkogaFont.serifValue(20))
+                .foregroundStyle(p.ink)
+                .monospacedDigit()
+                .frame(width: 64)
+                .focused($focused)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 5)
+        .background(
+            RoundedRectangle(cornerRadius: Tokens.Radius.input)
+                .fill(p.paper3)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Tokens.Radius.input)
+                .stroke(focused ? p.forest : p.rule, lineWidth: Tokens.Hairline.width)
+        )
+        .accessibilityLabel(title)
+        .accessibilityValue(formatDollars(value))
+    }
+
+    /// Whole dollars (no cents) — the field's formatter trims to
+    /// integer precision, and the "Typical" hint should match.
     private func formatDollars(_ v: Double) -> String {
         "$\(Int(v.rounded()))"
+    }
+}
+
+// MARK: – Enforce caps master toggle
+
+/// Master switch that gates the three cap fields and the behavior card.
+/// Off = the daemon never stops a run for spend; we still tally usage
+/// in the "Today" panel and in Cockpit/Telemetry, but no cap can trip.
+private struct EnforceCapsRow: View {
+    @Environment(\.palette) private var p
+
+    @AppStorage(BudgetPrefs.Behavior.capsEnabled) private var enabled: Bool = BudgetPrefs.Behavior.capsEnabledDefault
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 7).fill(p.paper3)
+                Image(skoga: .shield).skogaIconSize(13).foregroundStyle(p.ink2)
+            }
+            .frame(width: 28, height: 28)
+            .overlay(
+                RoundedRectangle(cornerRadius: 7)
+                    .stroke(p.rule, lineWidth: Tokens.Hairline.width)
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Enforce caps")
+                    .font(SkogaFont.bodyMedium(13))
+                    .foregroundStyle(p.ink)
+                // Spell out the off-state so flipping the switch doesn't
+                // feel like a quiet defaults change — the user is opting
+                // out of a safety rail.
+                Text(enabled
+                     ? "Stop or pause a run when it crosses one of the limits below."
+                     : "Caps are off — runs are never stopped, but spend is still tracked.")
+                    .font(SkogaFont.body(12))
+                    .foregroundStyle(p.inkMute)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Toggle("Enforce caps", isOn: $enabled)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .tint(p.forest)
+                .controlSize(.small)
+        }
     }
 }
 
@@ -452,20 +541,23 @@ private struct TodaySpendPanel: View {
     @Environment(\.palette) private var p
     @Environment(RosterState.self) private var roster
 
+    @AppStorage(BudgetPrefs.Behavior.capsEnabled) private var capsEnabled: Bool = BudgetPrefs.Behavior.capsEnabledDefault
     @AppStorage(BudgetPrefs.Cap.daily) private var dailyCap: Double = BudgetPrefs.Cap.dailyDefault
     @AppStorage(BudgetPrefs.Behavior.alertThresholdPercent) private var alertPercent: Int = BudgetPrefs.Behavior.alertThresholdPercentDefault
 
     private var today: Double { roster.spend.today }
     /// Guard against a zero cap (someone setting `$5` and bumping it to
     /// `$0` via direct UserDefaults write) — division by zero on a
-    /// percent would put `NaN` on screen. Treat <= 0 as "no cap".
+    /// percent would put `NaN` on screen. Treat caps-off or <= 0 as
+    /// "no cap" so the same render path catches both.
     private var pct: Double {
-        guard dailyCap > 0 else { return 0 }
+        guard capsEnabled, dailyCap > 0 else { return 0 }
         return min(max(today / dailyCap, 0), 1)
     }
     private var pctInt: Int { Int((pct * 100).rounded()) }
 
     private var barColor: Color {
+        if !capsEnabled { return p.inkMute }
         if pctInt >= 100 { return p.ember }
         if pctInt >= alertPercent { return p.amber }
         return p.forest
@@ -478,17 +570,24 @@ private struct TodaySpendPanel: View {
                     .font(SkogaFont.serifValue(28))
                     .foregroundStyle(p.ink)
                     .monospacedDigit()
-                Text("of \(formatDollars(dailyCap)) daily cap")
+                Text(capsEnabled ? "of \(formatDollars(dailyCap)) daily cap" : "tracked · caps off")
                     .font(SkogaFont.monoSmall(11))
                     .foregroundStyle(p.inkMute)
                 Spacer()
-                Text("\(pctInt)%")
-                    .font(SkogaFont.mono(12))
-                    .foregroundStyle(barColor)
-                    .monospacedDigit()
+                if capsEnabled {
+                    Text("\(pctInt)%")
+                        .font(SkogaFont.mono(12))
+                        .foregroundStyle(barColor)
+                        .monospacedDigit()
+                }
             }
 
-            BudgetBar(progress: pct, color: barColor)
+            // Hide the meter outright when caps are off — there's no
+            // ceiling to render against, and a flat-empty bar would
+            // read as "you've spent $0" instead of "tracking only".
+            if capsEnabled {
+                BudgetBar(progress: pct, color: barColor)
+            }
 
             // Footnote rotates between three messages depending on the
             // band, so the panel reads like a status line rather than a
@@ -501,8 +600,11 @@ private struct TodaySpendPanel: View {
     }
 
     private var footnote: String {
+        if !capsEnabled {
+            return "Enforcement is off. Today's spend is still totalled here and in Cockpit, but no run will be stopped."
+        }
         if dailyCap <= 0 {
-            return "Daily cap isn't set. Adjust the slider above to enable enforcement."
+            return "Daily cap isn't set. Enter a number above to enable enforcement."
         }
         if pctInt >= 100 {
             return "Daily cap exceeded. New runs will \(BudgetPrefs.readBool(BudgetPrefs.Behavior.softStop) ? "pause and ask before continuing" : "be killed immediately")."

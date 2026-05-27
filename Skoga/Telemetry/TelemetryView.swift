@@ -4,10 +4,13 @@ struct TelemetryView: View {
     @Environment(\.palette) private var p
     @Environment(RosterState.self) private var roster
 
-    /// Daily cap, bound to the Settings → Budgets slider's storage key so
-    /// the hero card redraws live when the user drags the slider — the
+    /// Daily cap, bound to the Settings → Budgets storage key so the
+    /// hero card redraws live when the user edits the field — the
     /// Cockpit "Spend" cell binds to the same key for the same reason.
     @AppStorage(BudgetPrefs.Cap.daily) private var dailyBudget: Double = BudgetPrefs.Cap.dailyDefault
+    /// Same gate the Cockpit strip reads — when caps are off, the hero
+    /// card drops the "/ budget · %" half of its sub-label.
+    @AppStorage(BudgetPrefs.Behavior.capsEnabled) private var capsEnabled: Bool = BudgetPrefs.Behavior.capsEnabledDefault
 
     struct ModelStat {
         let model: String
@@ -98,9 +101,11 @@ struct TelemetryView: View {
         HStack(spacing: 14) {
             heroCard(label: "spend",
                      value: String(format: "$%.2f", totalSpend),
-                     sub: String(format: "of $%.2f budget · %d%%",
-                                 dailyBudget,
-                                 dailyBudget > 0 ? Int((totalSpend / dailyBudget * 100).rounded()) : 0))
+                     sub: capsEnabled
+                         ? String(format: "of $%.2f budget · %d%%",
+                                  dailyBudget,
+                                  dailyBudget > 0 ? Int((totalSpend / dailyBudget * 100).rounded()) : 0)
+                         : "tracking · no cap")
             heroCard(label: "tokens",
                      value: String(format: "%.2fM", Double(totalTokens) / 1_000_000),
                      sub: "\(roster.agents.count) agents · avg \(roster.agents.isEmpty ? 0 : totalTokens / roster.agents.count / 1000)k each")
