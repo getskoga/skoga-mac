@@ -46,7 +46,7 @@ struct CockpitStrip: View {
                 label: "Up for review",
                 value: "\(counts.prOpen)",
                 unit: "PRs",
-                sub: "avg age 1h 12m",
+                sub: reviewAvgAgeSub(counts.reviewAvgAge),
                 dot: .prOpen,
                 attention: false
             )
@@ -169,4 +169,18 @@ private extension Int {
     func formattedWithSeparators() -> String {
         groupedDecimalFormatter.string(from: NSNumber(value: self)) ?? "\(self)"
     }
+}
+
+/// Format the Up-for-review cell sub-label from `RosterState.Counts.reviewAvgAge`.
+/// `nil` → "—" (no PRs); under a minute → "avg age <1m" so a just-opened PR
+/// reads as fresh rather than "0m"; otherwise "avg age 42m" / "avg age 1h 30m"
+/// matching the runtime label format used elsewhere on the card.
+private func reviewAvgAgeSub(_ seconds: TimeInterval?) -> String {
+    guard let seconds else { return "—" }
+    if seconds < 60 { return "avg age <1m" }
+    let minutes = Int(seconds / 60)
+    if minutes < 60 { return "avg age \(minutes)m" }
+    let hours = minutes / 60
+    let remMin = minutes % 60
+    return "avg age \(hours)h \(remMin)m"
 }
