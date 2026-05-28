@@ -121,7 +121,7 @@ final class RosterState {
         let now = Date()
         let ages = agents.lazy
             .filter { $0.status == .prOpen }
-            .compactMap { prOpenedAt[$0.id] }
+            .compactMap { self.prOpenedAt[$0.id] }
             .map { now.timeIntervalSince($0) }
         let avg: TimeInterval? = {
             var total: TimeInterval = 0
