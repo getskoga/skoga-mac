@@ -29,7 +29,7 @@ final class MockDaemonClient: DaemonClient {
         conversationCache[agentId] ?? []
     }
 
-    func activitySeries() async throws -> [Double] { activityCache }
+    nonisolated func activitySeries() async throws -> [Double] { activityCache }
 
     nonisolated func timeline(for agentId: String) async throws -> [TimelineEntry] {
         // Hand-crafted timelines (Astrid's storyboard) take priority; everyone

@@ -254,6 +254,27 @@ struct SpendTodayResponse: Decodable {
     let as_of: String
 }
 
+// MARK: – cockpit.activity
+
+/// Wire shape of `cockpit.activity` (getskoga/skoga#89). The daemon
+/// maintains an in-memory ring buffer of the last 30 one-minute buckets,
+/// summed across every live session. Each bucket carries a Unix epoch
+/// start timestamp and the raw `tokens/min` rate; the renderer
+/// (`ActivityBars`) normalizes to the max of the series so the bar
+/// scale stays sensible whether the guild is emitting 3k or 3M tok/min.
+struct CockpitActivityResponse: Decodable {
+    let buckets: [CockpitActivityBucket]
+}
+
+struct CockpitActivityBucket: Decodable {
+    /// Unix epoch seconds at the start of the minute bucket. Unused by
+    /// the current sparkline (the bars are anchored to "last 30m"
+    /// implicitly) but kept on the wire so a future hover tooltip can
+    /// render the bucket's wall-clock time.
+    let start: Int
+    let tokens_per_min: Double
+}
+
 // MARK: – session.diff_stat
 
 struct SessionDiffStatParams: Encodable {

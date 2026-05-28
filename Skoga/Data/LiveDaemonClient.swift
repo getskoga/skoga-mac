@@ -31,7 +31,20 @@ final class LiveDaemonClient: DaemonClient {
         }
     }
 
-    func activitySeries() async throws -> [Double] { [] }
+    nonisolated func activitySeries() async throws -> [Double] {
+        // Daemon emits raw tokens/min per minute bucket; ActivityBars
+        // normalizes against the max-of-series so the bar scale stays
+        // sensible whether the guild is emitting 3k or 3M tok/min.
+        // Older daemons (pre-getskoga/skoga#89) don't expose this RPC —
+        // swallow METHOD_NOT_FOUND so the cockpit shows a flat baseline
+        // rather than the connection banner flipping to .notRunning.
+        do {
+            let resp: CockpitActivityResponse = try await rpc.call("cockpit.activity")
+            return resp.buckets.map(\.tokens_per_min)
+        } catch let JSONRPCError.rpc(rpcError) where rpcError.code == -32601 {
+            return []
+        }
+    }
 
     nonisolated func timeline(for agentId: String) async throws -> [TimelineEntry] {
         // Mirrors `conversation(for:)` — older daemons (pre-getskoga/skoga#115)
