@@ -59,7 +59,7 @@ enum SettingsSectionID: String, CaseIterable, Hashable, Identifiable {
     /// placeholder card.
     var blurb: String {
         switch self {
-        case .general:        "App-wide preferences — theme, launch at login, and update channel."
+        case .general:        "App-wide preferences — theme, launch at login, and where Skoga opens."
         case .appearance:     "Density, font tuning, and theme overrides beyond the system mode."
         case .modelsKeys:     "Provider API keys and which models each agent is allowed to pick from."
         case .budgets:        "Monthly cost ceilings and per-agent spend limits."
@@ -78,43 +78,52 @@ enum SettingsSectionID: String, CaseIterable, Hashable, Identifiable {
     /// Used by `PlaceholderSection` so an unimplemented row still tells
     /// the user *what* is coming, not just that "something" is — per
     /// issue #20's "never a dead-end coming soon" rule.
+    ///
+    /// Sections with their own dedicated panel keep a roadmap too as a
+    /// defensive fallback: `SettingsShell` routes them directly, so
+    /// PlaceholderSection is unreachable in practice — but if the
+    /// routing ever regresses, a non-empty roadmap means the user
+    /// still sees a coherent card instead of a blank header with an
+    /// empty bullet list. Bullets reflect what *did* ship so they read
+    /// honestly even from the fallback path.
     var roadmap: [String] {
         switch self {
-        case .general:        ["Light / dark / system theme toggle",
+        case .general:        ["Theme (system · light · dark)",
                                "Launch Skoga at login",
-                               "Update channel (stable · beta)"]
+                               "Open at (Roster · last view)"]
         case .appearance:     ["UI density (compact · comfortable)",
                                "Font face and serif/mono pairing",
                                "Per-window background tuning"]
         case .modelsKeys:     ["Anthropic / OpenAI / Google API keys",
                                "Default model per agent role",
                                "Allow-list of models each agent may pick"]
-        // Budgets has its own panel — see `BudgetsSettingsSection`. No
-        // roadmap here; the PlaceholderSection branch is unreachable.
-        case .budgets:        []
+        case .budgets:        ["Per-run / daily / monthly spend caps",
+                               "Soft-stop vs hard-kill on cap",
+                               "Alert-at threshold (50 / 75 / 80 / 100%)"]
         case .agents:         ["Default role and tooling for new agents",
                                "Shared system prompts and templates",
                                "Auto-resume policy after disconnect"]
-        // Notifications has its own panel — see
-        // `NotificationsSettingsSection`. No roadmap here; the
-        // PlaceholderSection branch is unreachable for this case.
-        case .notifications:  []
+        case .notifications:  ["What wakes you (blocked · finished · budget)",
+                               "Desktop banners + sound on attention only",
+                               "Quiet hours with wrap-around support"]
         case .worktrees:      ["Root directory for agent checkouts",
                                "Cleanup policy after merge",
                                "Disk-quota guardrails"]
-        // Editor has its own panel — see `EditorSettingsSection`. No
-        // roadmap here; the PlaceholderSection branch is unreachable.
-        case .editor:         []
-        case .keyboard:       ["Navigation shortcuts",
-                               "Dispatch and Review shortcuts",
-                               "Customizable chords"]
-        case .privacy:        ["Telemetry opt-out",
-                               "Conversation retention window",
-                               "Export and erase"]
+        case .editor:         ["Default editor (VS Code · Cursor · Zed · …)",
+                               "Custom shell command with {path} / {files}",
+                               "Used by Conversation → Drop into editor"]
+        case .keyboard:       ["Catalog of wired shortcuts",
+                               "Grouped Global · Modal",
+                               "Rebinding (future)"]
+        case .privacy:        ["Telemetry opt-in",
+                               "Reset first-run state",
+                               "Clear local Skoga state (~/.skoga/)"]
         case .about:          ["App and daemon versions",
-                               "Protocol compatibility",
-                               "Open-source acknowledgements"]
-        case .github:         []
+                               "Acknowledgements and licenses",
+                               "Re-run onboarding"]
+        case .github:         ["gh CLI install + sign-in flow",
+                               "Default reviewer for new PRs",
+                               "Scopes the daemon needs to push"]
         }
     }
 }

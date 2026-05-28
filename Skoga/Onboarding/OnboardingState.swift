@@ -70,6 +70,18 @@ final class OnboardingState {
         completed = false
     }
 
+    /// Hard reset — wipes the persisted data blob and the completed
+    /// flag so the next launch behaves like a brand-new install.
+    /// Backs Settings → Privacy → "Reset first-run state", which is
+    /// the developer / QA escape hatch (the About panel's "Re-run
+    /// onboarding" preserves data on purpose).
+    func resetFirstRun() {
+        data = OnboardingData()
+        UserDefaults.standard.removeObject(forKey: Self.dataKey)
+        step = 0
+        completed = false
+    }
+
     /// Mark the wizard finished. The persisted `data` blob is left
     /// intact so a later restart can pre-fill the same values.
     func finish() {
