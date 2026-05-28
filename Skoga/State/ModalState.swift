@@ -27,7 +27,7 @@ final class ModalState {
     /// spawn a timer; only the timer whose remembered text still matches
     /// the live toast clears it, so an early dismiss can't clobber a
     /// later message that fired within the window.
-    func showToast(_ message: String, duration: TimeInterval = 3.4) {
+    func showToast(_ message: String, duration: TimeInterval = 6.0) {
         toast = message
         Task { [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
