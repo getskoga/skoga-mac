@@ -25,6 +25,46 @@ final class MockDaemonClient: DaemonClient {
 
     nonisolated func listAgents() async throws -> [Agent] { agentsCache }
 
+    nonisolated func listTerminalSessions(
+        limit: Int?,
+        cursor: String?,
+        since: Date?,
+        until: Date?
+    ) async throws -> TerminalSessionPage {
+        // The seed history is a fixed list ordered newest-first by
+        // createdAt. We page through it deterministically so the
+        // History view's "Load more" affordance can be exercised
+        // without a live daemon.
+        let all = MockDaemonClient.seedTerminalSessions
+        let filtered = all.filter { agent in
+            if let since, agent.createdAt < since { return false }
+            if let until, agent.createdAt > until { return false }
+            return true
+        }
+        let pageSize = max(1, min(limit ?? 50, 200))
+        let offset = MockDaemonClient.decodeCursor(cursor)
+        let start = min(offset, filtered.count)
+        let end = min(start + pageSize, filtered.count)
+        let slice = Array(filtered[start..<end])
+        let next = end < filtered.count ? MockDaemonClient.encodeCursor(end) : nil
+        return TerminalSessionPage(
+            sessions: slice,
+            nextCursor: next,
+            totalEstimate: filtered.count
+        )
+    }
+
+    /// Offset-as-cursor for the mock pager. The real daemon's cursor is
+    /// opaque (it encodes `(terminal_at, id)`) but for the mock we just
+    /// need a stable round-trip so "Load more" advances by `pageSize`.
+    nonisolated static func encodeCursor(_ offset: Int) -> String {
+        "mock-offset:\(offset)"
+    }
+    nonisolated static func decodeCursor(_ cursor: String?) -> Int {
+        guard let cursor, cursor.hasPrefix("mock-offset:") else { return 0 }
+        return Int(cursor.dropFirst("mock-offset:".count)) ?? 0
+    }
+
     nonisolated func conversation(for agentId: String) async throws -> [ConversationMessage] {
         conversationCache[agentId] ?? []
     }
@@ -465,6 +505,150 @@ private extension MockDaemonClient {
     static let seedConversations: [String: [ConversationMessage]] = [
         "astrid": astridConversation,
         "bjorn":  bjornConversation,
+        "hist-1": histArvidConversation,
+        "hist-2": histDagnyConversation,
+    ]
+
+    /// History seeds — sessions in terminal states so the History view
+    /// has plausible rows in mock mode. `createdAt` is staggered so the
+    /// date-range chips ("Today / Last 7d / Last 30d") all have something
+    /// to filter on. Order here is the order the mock pager returns
+    /// (newest first, by `createdAt`).
+    static let seedTerminalSessions: [Agent] = {
+        let now = Date()
+        return [
+            Agent(id: "hist-1", name: "Arvid", role: "frontend / web",
+                  model: "claude-sonnet-4-7", status: .done,
+                  task: "Promote the new pricing table behind growthbook flag `pricing_v3`.",
+                  repo: "skoga/monolith-web", branch: "arvid/pricing-v3-flag",
+                  runtime: "1h 14m", tokens: 142_300, cost: 1.18,
+                  commits: 5, files: 9, attn: false, attnMessage: nil,
+                  prUrl: "https://github.com/getskoga/monolith-web/pull/812",
+                  createdAt: now.addingTimeInterval(-3600 * 4)),
+
+            Agent(id: "hist-2", name: "Dagný", role: "backend / api",
+                  model: "claude-sonnet-4-7", status: .prMerged,
+                  task: "Migrate /v1/usage to /v2 with cursor pagination + idempotency keys.",
+                  repo: "skoga/ledger-svc", branch: "dagny/usage-v2",
+                  runtime: "3h 02m", tokens: 311_500, cost: 2.64,
+                  commits: 11, files: 17, attn: false, attnMessage: nil,
+                  prUrl: "https://github.com/getskoga/ledger-svc/pull/441",
+                  createdAt: now.addingTimeInterval(-3600 * 22)),
+
+            Agent(id: "hist-3", name: "Inge", role: "devops / ci",
+                  model: "claude-sonnet-4-7", status: .exited,
+                  task: "Triage flaky `migrate-pg-16` job — believed transient, not reproduced.",
+                  repo: "skoga/core-runtime", branch: "inge/flaky-migrate",
+                  runtime: "28m", tokens: 41_200, cost: 0.36,
+                  commits: 0, files: 0, attn: false, attnMessage: nil, prUrl: nil,
+                  createdAt: now.addingTimeInterval(-3600 * 48)),
+
+            Agent(id: "hist-4", name: "Sven", role: "security",
+                  model: "gpt-5-codex", status: .prClosed,
+                  task: "Revoke + rotate webhook signing keys after staging leak.",
+                  repo: "skoga/ledger-svc", branch: "sven/webhook-key-rotate",
+                  runtime: "1h 47m", tokens: 184_100, cost: 1.46,
+                  commits: 6, files: 11, attn: false, attnMessage: nil,
+                  prUrl: "https://github.com/getskoga/ledger-svc/pull/438",
+                  createdAt: now.addingTimeInterval(-3600 * 72)),
+
+            Agent(id: "hist-5", name: "Mette", role: "docs",
+                  model: "gpt-5-mini", status: .done,
+                  task: "Rewrite onboarding guide for the new Dispatch screen.",
+                  repo: "skoga/docs", branch: "mette/onboarding-rewrite",
+                  runtime: "52m", tokens: 67_400, cost: 0.14,
+                  commits: 3, files: 5, attn: false, attnMessage: nil, prUrl: nil,
+                  createdAt: now.addingTimeInterval(-86400 * 5)),
+
+            Agent(id: "hist-6", name: "Kjell", role: "refactor",
+                  model: "claude-sonnet-4-7", status: .prMerged,
+                  task: "Extract the audit-emit helpers into their own crate to break the cycle.",
+                  repo: "skoga/core-runtime", branch: "kjell/audit-extract",
+                  runtime: "4h 12m", tokens: 412_900, cost: 3.51,
+                  commits: 14, files: 28, attn: false, attnMessage: nil,
+                  prUrl: "https://github.com/getskoga/core-runtime/pull/233",
+                  createdAt: now.addingTimeInterval(-86400 * 8)),
+
+            Agent(id: "hist-7", name: "Tove", role: "perf",
+                  model: "claude-sonnet-4-7", status: .done,
+                  task: "Profile + cap memory growth in the worker pool — confirmed leak in handle cache.",
+                  repo: "skoga/core-runtime", branch: "tove/worker-cap",
+                  runtime: "2h 33m", tokens: 224_600, cost: 1.91,
+                  commits: 7, files: 12, attn: false, attnMessage: nil,
+                  prUrl: "https://github.com/getskoga/core-runtime/pull/231",
+                  createdAt: now.addingTimeInterval(-86400 * 12)),
+
+            Agent(id: "hist-8", name: "Aksel", role: "data / etl",
+                  model: "claude-sonnet-4-7", status: .exited,
+                  task: "One-off backfill of `events.region` for legacy rows; aborted after ID collisions.",
+                  repo: "skoga/etl", branch: "aksel/region-backfill",
+                  runtime: "39m", tokens: 52_800, cost: 0.44,
+                  commits: 1, files: 2, attn: false, attnMessage: nil, prUrl: nil,
+                  createdAt: now.addingTimeInterval(-86400 * 17)),
+
+            Agent(id: "hist-9", name: "Nora", role: "qa / e2e",
+                  model: "gpt-5-codex", status: .prMerged,
+                  task: "Add Playwright coverage for the refund-storm scenario; baseline + spike.",
+                  repo: "skoga/monolith-web", branch: "nora/refund-storm-e2e",
+                  runtime: "1h 56m", tokens: 178_300, cost: 1.52,
+                  commits: 4, files: 8, attn: false, attnMessage: nil,
+                  prUrl: "https://github.com/getskoga/monolith-web/pull/801",
+                  createdAt: now.addingTimeInterval(-86400 * 22)),
+
+            Agent(id: "hist-10", name: "Eivor", role: "backend / svc",
+                  model: "claude-sonnet-4-7", status: .done,
+                  task: "Stub a feature-flag-driven slow-path for the legacy billing exporter.",
+                  repo: "skoga/ledger-svc", branch: "eivor/billing-slowpath",
+                  runtime: "2h 18m", tokens: 198_200, cost: 1.71,
+                  commits: 6, files: 10, attn: false, attnMessage: nil,
+                  prUrl: "https://github.com/getskoga/ledger-svc/pull/432",
+                  createdAt: now.addingTimeInterval(-86400 * 27)),
+        ]
+    }()
+
+    /// Hand-rolled transcript for `hist-1` (Arvid) so the read-only
+    /// conversation view in Phase 4 has a representative seed. Mirrors
+    /// the message/tool/write shape the live daemon emits via
+    /// `session.conversation`.
+    static let histArvidConversation: [ConversationMessage] = [
+        .msg(.init(
+            from: "you", when: "Mon · 10:02a",
+            text: ["Promote the new pricing table behind a growthbook flag — `pricing_v3`. Default off, ramp manually."],
+            runtimeLabel: nil, initialOverride: "M")),
+        .msg(.init(
+            from: "arvid", when: "Mon · 10:02a",
+            text: ["Working in `skoga/monolith-web` on `arvid/pricing-v3-flag`. Will wrap the new table + price calls behind a `useFeature('pricing_v3')` gate."],
+            runtimeLabel: "claude-sonnet-4-7", initialOverride: nil)),
+        .tool(.init(tool: "read", path: "app/(marketing)/pricing/PricingTable.tsx", lines: "1–186", cmd: nil, result: nil)),
+        .tool(.init(tool: "shell", path: nil, lines: nil, cmd: "rg -nF 'PricingTable' --type=tsx", result: "11 matches across 4 files")),
+        .write(.init(path: "app/(marketing)/pricing/PricingTable.tsx", adds: 38, rems: 12)),
+        .write(.init(path: "app/(marketing)/pricing/PricingTableV3.tsx", adds: 184, rems: 0)),
+        .write(.init(path: "lib/featureFlags.ts", adds: 4, rems: 0)),
+        .tool(.init(tool: "shell", path: nil, lines: nil, cmd: "pnpm -w test pricing", result: "42 passed · 0 failed")),
+        .msg(.init(
+            from: "arvid", when: "Mon · 11:16a",
+            text: ["Tests green. Default is `false` server-side, so production renders v2 until someone flips it. Opening PR."],
+            runtimeLabel: nil, initialOverride: nil)),
+    ]
+
+    static let histDagnyConversation: [ConversationMessage] = [
+        .msg(.init(
+            from: "you", when: "Sun · 6:48p",
+            text: ["Migrate /v1/usage to /v2. Cursor pagination, idempotency keys on POST."],
+            runtimeLabel: nil, initialOverride: "M")),
+        .msg(.init(
+            from: "dagny", when: "Sun · 6:48p",
+            text: ["On it. Will keep /v1 alive behind a deprecation header for one release cycle."],
+            runtimeLabel: "claude-sonnet-4-7", initialOverride: nil)),
+        .tool(.init(tool: "read", path: "src/billing/usage.rs", lines: "1–402", cmd: nil, result: nil)),
+        .write(.init(path: "src/billing/usage_v2.rs", adds: 218, rems: 0)),
+        .write(.init(path: "src/billing/idempotency.rs", adds: 94, rems: 0)),
+        .write(.init(path: "src/billing/router.rs", adds: 22, rems: 4)),
+        .tool(.init(tool: "shell", path: nil, lines: nil, cmd: "cargo test --package billing", result: "67 passed · 0 failed")),
+        .msg(.init(
+            from: "dagny", when: "Sun · 9:50p",
+            text: ["All green. Cursor scheme matches the proposal — base64 of (last_id, last_at). PR open."],
+            runtimeLabel: nil, initialOverride: nil)),
     ]
 
     static let astridConversation: [ConversationMessage] = [

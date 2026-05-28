@@ -25,6 +25,18 @@ enum AgentStatus: String, CaseIterable, Codable, Hashable {
     /// `.prClosed` (abandoned PR) sits next to `.prMerged` — both are
     /// post-review terminal-ish states; the visual + auto-ship treatment is
     /// the same, only the toast text and pill color differ.
+    /// Terminal states — the agent process is gone and the tmux pane
+    /// has been torn down, so the live PTY path can't attach. The
+    /// History view drives the user into these sessions and the
+    /// ConversationView branches to a read-only transcript renderer
+    /// when this is true.
+    var isTerminal: Bool {
+        switch self {
+        case .done, .exited, .prMerged, .prClosed: true
+        case .running, .blocked, .prOpen, .idle, .stopping: false
+        }
+    }
+
     var sortRank: Int {
         switch self {
         case .blocked:  0
@@ -111,6 +123,12 @@ struct Agent: Identifiable, Hashable {
     /// it yet or where path resolution failed daemon-side — the action
     /// degrades to a "couldn't resolve worktree" toast in that case.
     let hostWorktree: String?
+    /// Wall-clock timestamp the session was created. Mirrors
+    /// `RPCSession.created_at`. Used by the History view's date-range
+    /// filter and "when" column. Mock seeds get `Date()` via the
+    /// memberwise default so the 20+ existing literals don't have to
+    /// be edited.
+    let createdAt: Date
 
     /// Memberwise init with a default for `pendingQuestion` so design
     /// seeds (all 20+ Agent literals in MockDaemonClient) don't have to
@@ -138,7 +156,8 @@ struct Agent: Identifiable, Hashable {
         needsAutoShip: Bool = false,
         base: String = "main",
         baseSha: String? = nil,
-        hostWorktree: String? = nil
+        hostWorktree: String? = nil,
+        createdAt: Date = Date()
     ) {
         self.id = id
         self.name = name
@@ -163,6 +182,7 @@ struct Agent: Identifiable, Hashable {
         self.rebasePromptDispatchedAt = rebasePromptDispatchedAt
         self.needsAutoShip = needsAutoShip
         self.hostWorktree = hostWorktree
+        self.createdAt = createdAt
     }
 
     /// `branch` after the first slash, used to label rows like "auth-scope-refresh".
@@ -231,7 +251,8 @@ struct Agent: Identifiable, Hashable {
             lhs.pendingQuestion == rhs.pendingQuestion &&
             lhs.rebasePromptDispatchedAt == rhs.rebasePromptDispatchedAt &&
             lhs.needsAutoShip == rhs.needsAutoShip &&
-            lhs.hostWorktree == rhs.hostWorktree
+            lhs.hostWorktree == rhs.hostWorktree &&
+            lhs.createdAt == rhs.createdAt
     }
 
     func hash(into hasher: inout Hasher) {
@@ -257,5 +278,6 @@ struct Agent: Identifiable, Hashable {
         hasher.combine(rebasePromptDispatchedAt)
         hasher.combine(needsAutoShip)
         hasher.combine(hostWorktree)
+        hasher.combine(createdAt)
     }
 }

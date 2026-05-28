@@ -27,24 +27,38 @@ struct ConversationView: View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
                 ConvHeader(agent: agent)
-                // The TUI owns its own input loop, so the skoga composer is
-                // intentionally hidden here — the user types directly into
-                // the SwiftTerm pane. `id(agent.id)` forces SwiftUI to
-                // rebuild the view (and therefore the byte stream
-                // subscription) when the user navigates between agents.
-                // The chrome frames the terminal as its own "embedded app"
-                // with traffic-light buttons + title bar, so it reads as a
-                // distinct thing inside Skoga.
-                EmbeddedTUIChrome(
-                    title: "\(agent.model) — \(agent.branch)",
-                    subtitle: agent.runtime
-                ) {
-                    RemoteTerminalView(sessionId: agent.id, client: daemon.client)
-                        .id(agent.id)
+                // Terminal sessions can't attach to a live PTY (the tmux
+                // pane is gone), so we render the parsed transcript
+                // straight out of `session.conversation` instead — the
+                // same data that's already loaded by `loadConversation`.
+                // Live sessions keep the embedded TUI; the read-only
+                // path here only kicks in for History-style entries.
+                if agent.status.isTerminal {
+                    ParsedTranscriptView(
+                        messages: conversation.conversation,
+                        hasLoaded: conversation.loadedConversationIds.contains(agent.id)
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    // The TUI owns its own input loop, so the skoga composer is
+                    // intentionally hidden here — the user types directly into
+                    // the SwiftTerm pane. `id(agent.id)` forces SwiftUI to
+                    // rebuild the view (and therefore the byte stream
+                    // subscription) when the user navigates between agents.
+                    // The chrome frames the terminal as its own "embedded app"
+                    // with traffic-light buttons + title bar, so it reads as a
+                    // distinct thing inside Skoga.
+                    EmbeddedTUIChrome(
+                        title: "\(agent.model) — \(agent.branch)",
+                        subtitle: agent.runtime
+                    ) {
+                        RemoteTerminalView(sessionId: agent.id, client: daemon.client)
+                            .id(agent.id)
+                    }
+                    .padding(.horizontal, 22)
+                    .padding(.top, 18)
+                    .padding(.bottom, 12)
                 }
-                .padding(.horizontal, 22)
-                .padding(.top, 18)
-                .padding(.bottom, 12)
 
                 ConvActionsFooter(agent: agent)
             }
@@ -155,16 +169,33 @@ private struct ConvActionsFooter: View {
     var body: some View {
         HStack(spacing: 8) {
             Spacer(minLength: 0)
-            PushButton(busy: pushing) {
-                Task { await pushBranch() }
-            }
-            if let url = agent.prUrl {
-                GhostPillButton(label: "View PR on GitHub", icon: .github) {
-                    openPRURL(url)
+            if agent.status.isTerminal {
+                // Terminal sessions can't be pushed to or re-PR'd from here
+                // — the agent process is gone and the worktree has been
+                // torn down. The only action that still makes sense is
+                // jumping to the PR if one was landed; everything else
+                // would either fail at the daemon or be misleading.
+                if let url = agent.prUrl {
+                    GhostPillButton(label: "View PR on GitHub", icon: .github) {
+                        openPRURL(url)
+                    }
+                } else {
+                    Text("Read-only — session is closed")
+                        .font(SkogaFont.small(11.5))
+                        .foregroundStyle(p.inkMute)
                 }
             } else {
-                PrimaryButton(label: "Open as PR", icon: .github, tint: .forest) {
-                    modal.prAgentId = agent.id
+                PushButton(busy: pushing) {
+                    Task { await pushBranch() }
+                }
+                if let url = agent.prUrl {
+                    GhostPillButton(label: "View PR on GitHub", icon: .github) {
+                        openPRURL(url)
+                    }
+                } else {
+                    PrimaryButton(label: "Open as PR", icon: .github, tint: .forest) {
+                        modal.prAgentId = agent.id
+                    }
                 }
             }
         }
@@ -306,15 +337,42 @@ private struct ConvSidePanel: View {
     private var actionsBlock: some View {
         block(title: "Quick actions") {
             VStack(spacing: 6) {
-                quickAction(label: "View commits on GitHub", icon: .github) {
-                    Task { await openCommitsOnGitHub() }
+                if agent.status.isTerminal {
+                    // Worktree-bound actions don't make sense once the
+                    // worktree's been torn down; "Ping me when done" is
+                    // nonsense for an already-terminal session. Only the
+                    // GitHub link survives, and only if the agent left
+                    // a PR behind.
+                    if let url = agent.prUrl {
+                        quickAction(label: "View PR on GitHub", icon: .github) {
+                            openPRURLFromSidePanel(url)
+                        }
+                    } else {
+                        Text("No actions for closed sessions.")
+                            .font(SkogaFont.small(11.5))
+                            .foregroundStyle(p.inkMute)
+                            .padding(.vertical, 4)
+                    }
+                } else {
+                    quickAction(label: "View commits on GitHub", icon: .github) {
+                        Task { await openCommitsOnGitHub() }
+                    }
+                    quickAction(label: "Drop into editor (worktree)", icon: .doc) {
+                        Task { await dropIntoEditor() }
+                    }
+                    quickAction(label: "Ping me when done", icon: .watch) {}
                 }
-                quickAction(label: "Drop into editor (worktree)", icon: .doc) {
-                    Task { await dropIntoEditor() }
-                }
-                quickAction(label: "Ping me when done", icon: .watch) {}
             }
         }
+    }
+
+    /// Side-panel-local helper so the read-only "View PR on GitHub"
+    /// quick action shares the same URL-validation shape as the
+    /// footer's button. Mock seeds use "#" as a placeholder; skip the
+    /// open when that's all we'd hand `NSWorkspace`.
+    private func openPRURLFromSidePanel(_ url: String) {
+        guard url != "#", let parsed = URL(string: url) else { return }
+        NSWorkspace.shared.open(parsed)
     }
 
     /// Open `github.com/<owner>/<repo>/compare/<base>...<branch>` in the

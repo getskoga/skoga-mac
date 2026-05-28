@@ -19,6 +19,17 @@ final class ConversationState {
     private(set) var conversation: [ConversationMessage] = []
     private(set) var timeline: [TimelineEntry] = []
 
+    /// Per-id flag tracking whether `loadConversation` has resolved at
+    /// least once. Read by `ParsedTranscriptView` to distinguish
+    /// "transcript hasn't loaded yet" (show spinner) from "transcript
+    /// loaded and was empty" (show empty state). Without this the
+    /// read-only view flashes its empty state for the few-hundred-ms
+    /// between view appearance and the first `apply(messages:)`. Not
+    /// `@ObservationIgnored` because an empty transcript wouldn't
+    /// flip `conversation` (`apply` diff-guards `[] != []` as false)
+    /// and the view would never re-render to swap the spinner out.
+    private(set) var loadedConversationIds: Set<String> = []
+
     /// UI-driven (the composer's `TextEditor` binds straight to this).
     /// Cleared on conversation open + send; written nowhere else.
     var pendingReply: String = ""
@@ -33,6 +44,10 @@ final class ConversationState {
             conversation = []
             timeline = []
         }
+        // Don't carry "this id already loaded" state across an
+        // openAgent change — re-opening the same session id later
+        // should still go through the spinner pass on first frame.
+        loadedConversationIds.removeAll(keepingCapacity: true)
     }
 
     /// Diff-guarded apply for the conversation/timeline fetch — same
@@ -56,6 +71,15 @@ final class ConversationState {
 
     func clearTimeline() {
         if !timeline.isEmpty { timeline = [] }
+    }
+
+    /// Mark `id` as having had at least one `loadConversation` resolve.
+    /// Called by the coordinator after `client.conversation(for:)`
+    /// returns (success or thrown — both clear the spinner; the
+    /// thrown case also routes through `clearTranscript` so the empty
+    /// state is correct).
+    func markConversationLoaded(_ id: String) {
+        loadedConversationIds.insert(id)
     }
 
     /// Optimistic drop of the pending-question row after the user picks

@@ -82,6 +82,7 @@ This shape made the Mac app possible without code-sharing pain (it's a second cl
 Session state and orchestration:
 
 - `session.list(include_terminal?)` → `[Session]`
+- `session.list_terminal({ limit?, cursor?, since?, until? })` → `{ sessions: [Session], next_cursor?, total_estimate? }`. Paginated, terminal-state-only listing used by the Mac History view (skoga-mac#34). Sort: descending by terminal-transition time, tie-break by id. `cursor` is opaque to the client and stable across daemon restarts. `since`/`until` are RFC3339 timestamps filtering on terminal-transition time. `limit` defaults to 50 and is capped at 200 server-side.
 - `session.create(task, agent, base, repo_root, task_auto?, auto_launch?, initial_prompt?)` → `{ session }`. With `auto_launch: true`, the daemon spawns a detached `skoga _dispatch_launch` subprocess that installs the adapter's in-worktree config and starts the agent in tmux. (`skoga start` invokes the launch path itself; the Mac app's Dispatch view sets `auto_launch: true`.)
 - `session.conversation(id)` → `{ messages }`. Reconstructs the conversation by parsing the Claude Code transcript jsonl for the session. Stable per-record `id`s so subscribers' lists preserve scroll position across refetches.
 - `session.attach(id)` → resolves the tmux session name + (if alive) prepares any pending revise/feedback paste-buffer. The CLI side then exec's `tmux attach-session`; the daemon does not stream PTY.

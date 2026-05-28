@@ -162,6 +162,25 @@ struct SessionListParams: Encodable {
     let include_terminal: Bool
 }
 
+/// Params for `session.list_terminal` — the paginated terminal-state
+/// listing that backs the Mac History view (skoga-mac#34). `since`/`until`
+/// are ISO8601 strings because `JSONEncoder` has no global date strategy
+/// set and the daemon wants RFC3339 timestamps; the coordinator converts
+/// at the boundary. `cursor` is opaque to the client and re-fed verbatim
+/// for the next page.
+struct SessionListTerminalParams: Encodable {
+    let limit: Int?
+    let cursor: String?
+    let since: String?
+    let until: String?
+}
+
+struct SessionListTerminalResponse: Decodable {
+    let sessions: [RPCSession]
+    let next_cursor: String?
+    let total_estimate: Int?
+}
+
 struct SessionCreateParams: Encodable {
     let task: String
     let agent: String
