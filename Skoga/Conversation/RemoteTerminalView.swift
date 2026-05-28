@@ -93,6 +93,19 @@ struct RemoteTerminalView: NSViewRepresentable {
         /// when the window is mid-animation, and short enough that the
         /// human eye reads attach as immediate.
         private let streamOpenDebounceNanos: UInt64 = 150_000_000
+        /// Debounce timer for re-snapshotting after a resize settles. Live
+        /// drags fire dozens of `sizeChanged` callbacks per second; we let
+        /// the live `pty_resize`s flow through immediately so the agent's
+        /// drawing tracks the drag, then once motion stops we tear down
+        /// and re-open `attach_stream` to get a fresh capture-pane that
+        /// includes history at the final width. This is how scrollback
+        /// reconciles back to clean lines — SwiftTerm's reflow can't undo
+        /// damage that was done by cursor-positioned writes earlier.
+        private var resnapshotTask: Task<Void, Never>?
+        /// 250ms gives the user clear visual feedback that drag has ended
+        /// before we paint the new snapshot, without lingering long enough
+        /// to feel sluggish.
+        private let resnapshotDebounceNanos: UInt64 = 250_000_000
 
         func attach(view: TerminalView, sessionId: String, client: DaemonClient) {
             self.view = view
@@ -183,6 +196,8 @@ struct RemoteTerminalView: NSViewRepresentable {
                 self?.streamTask = nil
                 self?.streamOpenTask?.cancel()
                 self?.streamOpenTask = nil
+                self?.resnapshotTask?.cancel()
+                self?.resnapshotTask = nil
             }
         }
 
@@ -191,6 +206,7 @@ struct RemoteTerminalView: NSViewRepresentable {
             // be ending if the view's been removed; cancel is idempotent.
             streamTask?.cancel()
             streamOpenTask?.cancel()
+            resnapshotTask?.cancel()
             if let m = eventMonitor { NSEvent.removeMonitor(m) }
         }
 
@@ -223,14 +239,18 @@ struct RemoteTerminalView: NSViewRepresentable {
                     cols: initialCols > 0 ? initialCols : nil,
                     rows: initialRows > 0 ? initialRows : nil
                 )
-                // Wipe SwiftTerm's buffer before feeding the snapshot so
-                // any stray cells from a prior attach (or from the
-                // default-sized warm-up before our first sizeChanged)
-                // don't bleed through. The snapshot from `tmux capture-pane`
-                // doesn't always begin with an explicit clear, so without
-                // this the top of the pane can hold stale content the
-                // agent never overwrites until its next full redraw.
-                if let clear = "\u{1b}[2J\u{1b}[H".data(using: .utf8) {
+                // Wipe SwiftTerm's buffer (visible AND scrollback) before
+                // feeding the snapshot. `[3J` clears saved lines, `[2J`
+                // clears the visible region, `[H` parks the cursor at
+                // home. Without `[3J` the prior scrollback — possibly
+                // full of cursor-positioned half-renders from the agent's
+                // streaming output — lingers beneath the snapshot, and
+                // scrolling up shows mangled wrapping. We rely on the
+                // daemon's `capture_pane` to include tmux's history in
+                // the snapshot bytes, so the lines that scroll off the
+                // visible pane during snapshot replay refill scrollback
+                // with cleanly-rendered content.
+                if let clear = "\u{1b}[3J\u{1b}[2J\u{1b}[H".data(using: .utf8) {
                     feed(clear)
                 }
                 feed(attached.snapshot)
@@ -314,6 +334,12 @@ struct RemoteTerminalView: NSViewRepresentable {
                     try? await client.ptyResize(
                         sessionId: self.sessionId, cols: cols, rows: rows
                     )
+                    // Re-snapshot after the drag settles so scrollback
+                    // reflects the new width with clean lines from
+                    // tmux's history rather than whatever cursor-
+                    // positioned writes happened to scroll off at the
+                    // old width.
+                    self.scheduleResnapshot()
                 }
             }
         }
@@ -325,6 +351,38 @@ struct RemoteTerminalView: NSViewRepresentable {
                 try? await Task.sleep(nanoseconds: nanos)
                 guard let self, !Task.isCancelled else { return }
                 self.openStreamIfNeeded(cols: self.latestCols, rows: self.latestRows)
+            }
+        }
+
+        private func scheduleResnapshot() {
+            resnapshotTask?.cancel()
+            resnapshotTask = Task { @MainActor [weak self] in
+                guard let nanos = self?.resnapshotDebounceNanos else { return }
+                try? await Task.sleep(nanoseconds: nanos)
+                guard let self, !Task.isCancelled else { return }
+                self.triggerResnapshot()
+            }
+        }
+
+        private func triggerResnapshot() {
+            guard let client else { return }
+            let sid = sessionId
+            let cols = latestCols
+            let rows = latestRows
+            // Tear down the existing subscription before opening a new
+            // one. `consumeStream` opens a fresh attach_stream which
+            // includes a daemon-side `capture_pane` with history at the
+            // current dimensions; the clear sequence at the head of
+            // `consumeStream` wipes SwiftTerm's stale buffer before the
+            // new snapshot replays.
+            streamTask?.cancel()
+            streamTask = Task { [weak self] in
+                await self?.consumeStream(
+                    sessionId: sid,
+                    client: client,
+                    initialCols: cols,
+                    initialRows: rows
+                )
             }
         }
 
