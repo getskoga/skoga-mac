@@ -2,10 +2,12 @@ import Foundation
 
 /// Builds the `github.com/<owner>/<repo>/compare/<base>...<branch>` URL
 /// for the agent's session, used by the conversation side panel's
-/// "View commits on GitHub" quick action. Owner/repo come from
-/// `git config --get remote.origin.url` against the agent's worktree —
-/// the worktree shares its `.git` with the parent checkout, so the
-/// remote resolves identically. Only `github.com` is recognized; other
+/// "View commits on GitHub" quick action. Owner/repo come from the
+/// agent's worktree origin remote — we read `remote.origin.pushurl`
+/// first and fall back to `remote.origin.url`, because Skoga's
+/// sandbox clones set `url` to the host checkout (a local filesystem
+/// path, for cheap local fetches) and only `pushurl` carries the
+/// github.com URL we want here. Only `github.com` is recognized; other
 /// hosts (GHE, GitLab, Bitbucket) fall through as `.notGitHub`.
 enum GitHubCompareLauncher {
     enum Outcome {
@@ -50,12 +52,25 @@ enum GitHubCompareLauncher {
     }
 
     private static func readOriginURL(worktree: String) -> OriginReadResult {
+        // Skoga's sandbox repos set `remote.origin.url` to the user's host
+        // checkout (a local path) so fetches stay local, and put the
+        // github.com URL on `remote.origin.pushurl`. Try pushurl first;
+        // anything but `.ok` (key missing OR a transient git error) falls
+        // through to url so a flaky pushurl probe can't mask a readable
+        // url. If url also fails, we surface its result directly.
+        if case .ok(let value) = readConfigValue(worktree: worktree, key: "remote.origin.pushurl") {
+            return .ok(value)
+        }
+        return readConfigValue(worktree: worktree, key: "remote.origin.url")
+    }
+
+    private static func readConfigValue(worktree: String, key: String) -> OriginReadResult {
         guard let git = resolveGit() else {
             return .error("Couldn't find `git` on this machine.")
         }
         let process = Process()
         process.executableURL = git
-        process.arguments = ["-C", worktree, "config", "--get", "remote.origin.url"]
+        process.arguments = ["-C", worktree, "config", "--get", key]
         let outPipe = Pipe()
         process.standardOutput = outPipe
         // Drain stderr to /dev/null rather than a Pipe — we never read it
@@ -69,7 +84,7 @@ enum GitHubCompareLauncher {
         }
         process.waitUntilExit()
         // `git config --get` exits 1 when the key is missing — that's a
-        // "no origin configured" signal, not a hard error.
+        // "not configured" signal, not a hard error.
         if process.terminationStatus == 1 {
             return .notConfigured
         }
