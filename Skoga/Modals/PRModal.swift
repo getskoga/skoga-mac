@@ -26,11 +26,13 @@ struct PRModal: View {
     /// Lifecycle phases for the modal. Drives the submit button (label /
     /// disabled state), the inline error row, and whether the fields are
     /// editable. `failed` keeps the user's edits — the error is shown
-    /// alongside an enabled Retry, not behind a wipe.
+    /// alongside an enabled Retry, not behind a wipe. There's no
+    /// `submitting` case because `submit()` dismisses the modal up front
+    /// and runs `landPR` in a detached task — the user sees a toast, not
+    /// an in-modal spinner.
     enum Phase: Equatable {
         case loading
         case ready
-        case submitting
         case failed(String)
     }
 
@@ -38,13 +40,7 @@ struct PRModal: View {
         ZStack {
             p.modalScrim
                 .ignoresSafeArea()
-                .onTapGesture {
-                    // Tapping the scrim during an in-flight land would
-                    // strand the CLI subprocess — `skoga land` doesn't get
-                    // a SIGTERM from us closing the modal. Block dismissal
-                    // there until the call resolves.
-                    if phase != .submitting { modal.prAgentId = nil }
-                }
+                .onTapGesture { modal.prAgentId = nil }
 
             VStack(spacing: 0) {
                 head
@@ -332,20 +328,12 @@ struct PRModal: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .disabled(phase == .submitting)
 
                 Button {
-                    Task { await submit() }
+                    submit()
                 } label: {
                     HStack(spacing: 6) {
-                        if phase == .submitting {
-                            ProgressView()
-                                .controlSize(.small)
-                                .progressViewStyle(.circular)
-                                .tint(.white)
-                        } else {
-                            Image(skoga: .github).skogaIconSize(12)
-                        }
+                        Image(skoga: .github).skogaIconSize(12)
                         Text(submitLabel).font(SkogaFont.bodyMedium(12))
                     }
                     .padding(.horizontal, 14)
@@ -365,19 +353,19 @@ struct PRModal: View {
 
     private var submitLabel: String {
         switch phase {
-        case .submitting: return "Opening PR…"
-        case .failed:     return "Retry"
-        default:          return "Open PR on GitHub"
+        case .failed: return "Retry"
+        default:      return "Open PR on GitHub"
         }
     }
 
-    /// Disable Open PR while we don't yet have a real preview to send, or
-    /// while a land is in flight. We don't gate on title/body emptiness —
-    /// the CLI would reject an empty commit message anyway, and surfacing
-    /// the error inline (with the user's text preserved) is better than
-    /// silently disabling the button.
+    /// Disable Open PR while we don't yet have a real preview to send.
+    /// We don't gate on title/body emptiness — the CLI would reject an
+    /// empty commit message anyway, and surfacing the error inline (with
+    /// the user's text preserved) is better than silently disabling the
+    /// button. We also don't gate on an in-flight land, because `submit`
+    /// dismisses the modal up front and reports progress via toasts.
     private var submitDisabled: Bool {
-        phase == .loading || phase == .submitting
+        phase == .loading
     }
 
     /// Fetch real diff numbers in parallel with the Claude-drafted
@@ -417,26 +405,44 @@ struct PRModal: View {
         }
     }
 
-    private func submit() async {
-        phase = .submitting
-        do {
-            try await daemon.client.landPR(for: agent.id, title: title, body: bodyText)
-            // `skoga land` can exit 0 even when its internal `gh pr create`
-            // step fails (e.g. `gh` missing, token expired) — the push
-            // succeeds but no PR is opened. Refresh and verify the daemon
-            // now reports a prUrl before claiming success; otherwise keep
-            // the modal open with an actionable error so the user isn't
-            // left believing a PR exists when none does.
-            await coordinator.refresh()
-            let updated = coordinator.roster.agents.first(where: { $0.id == agent.id })
-            if let url = updated?.prUrl, url != "#" {
-                modal.prAgentId = nil
-                modal.showToast("Opened PR for \(agent.name). Routing review back to the agent.")
-            } else {
-                phase = .failed("skoga land reported success but no PR URL came back. The branch was pushed — check that `gh` is installed (`brew install gh`) and authenticated (`gh auth status`), then retry.")
+    /// `skoga land` can take 10-30s — push, squash, then `gh pr create`
+    /// round-tripping to GitHub. Blocking the modal on that with a
+    /// spinner trained users to assume the app had hung. Instead, dismiss
+    /// up front, toast that work is in flight, and surface the outcome
+    /// (success or failure) via a follow-up toast when `landPR` resolves.
+    /// The `Task` is detached from the view lifecycle so the modal can
+    /// disappear without cancelling the in-flight CLI call.
+    private func submit() {
+        let agentName = agent.name
+        let agentId = agent.id
+        let prTitle = title
+        let prBody = bodyText
+        let client = daemon.client
+        let coordinator = coordinator
+        let modal = modal
+
+        modal.prAgentId = nil
+        modal.showToast("Opening PR for \(agentName) on GitHub…")
+
+        Task { @MainActor in
+            do {
+                try await client.landPR(for: agentId, title: prTitle, body: prBody)
+                // `skoga land` can exit 0 even when its internal
+                // `gh pr create` step fails (e.g. `gh` missing, token
+                // expired) — the push succeeds but no PR is opened.
+                // Refresh and check for a real prUrl before claiming
+                // success, so the user isn't told a PR exists when none
+                // does.
+                await coordinator.refresh()
+                let updated = coordinator.roster.agents.first(where: { $0.id == agentId })
+                if let url = updated?.prUrl, url != "#" {
+                    modal.showToast("Opened PR for \(agentName). Routing review back to the agent.")
+                } else {
+                    modal.showToast("Pushed branch for \(agentName), but GitHub didn't return a PR URL. Check that `gh` is installed and authenticated, then retry.", duration: 8)
+                }
+            } catch {
+                modal.showToast("Failed to open PR for \(agentName): \(error.localizedDescription)", duration: 8)
             }
-        } catch {
-            phase = .failed(error.localizedDescription)
         }
     }
 }
