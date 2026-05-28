@@ -15,6 +15,52 @@ final class LiveDaemonClient: DaemonClient {
         return sessions.map(Agent.from(rpc:))
     }
 
+    nonisolated func listTerminalSessions(
+        limit: Int?,
+        cursor: String?,
+        since: Date?,
+        until: Date?
+    ) async throws -> TerminalSessionPage {
+        let params = AnyEncodable(SessionListTerminalParams(
+            limit: limit,
+            cursor: cursor,
+            since: since.map(Self.isoString(_:)),
+            until: until.map(Self.isoString(_:))
+        ))
+        do {
+            let resp: SessionListTerminalResponse = try await rpc.call(
+                "session.list_terminal", params: params
+            )
+            return TerminalSessionPage(
+                sessions: resp.sessions.map(Agent.from(rpc:)),
+                nextCursor: resp.next_cursor,
+                totalEstimate: resp.total_estimate
+            )
+        } catch let JSONRPCError.rpc(rpcError) where rpcError.code == -32601 {
+            // Older daemon without session.list_terminal — surface as an
+            // empty page so the History view renders its "no history"
+            // state rather than a transport error. The user will see the
+            // same outcome they would with no terminal sessions yet.
+            return TerminalSessionPage(sessions: [], nextCursor: nil, totalEstimate: nil)
+        }
+    }
+
+    /// RFC3339 with fractional seconds, matching the format chrono
+    /// emits on the daemon side. Used for `session.list_terminal`'s
+    /// `since`/`until` since the project's `JSONEncoder` has no global
+    /// date strategy — the boundary converts to a string here so the
+    /// wire shape stays explicit and the param struct stays a plain
+    /// `Encodable` instead of growing a custom `encode(to:)`.
+    private nonisolated static func isoString(_ date: Date) -> String {
+        Self.isoFormatter.string(from: date)
+    }
+
+    private nonisolated static let isoFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
     nonisolated func conversation(for agentId: String) async throws -> [ConversationMessage] {
         // skogad reconstructs the conversation by parsing Claude Code's own
         // transcript jsonl for the session. If the session has no recorded
@@ -775,7 +821,8 @@ extension Agent {
             needsAutoShip: s.state == .prMerged || s.state == .prClosed,
             base: s.base,
             baseSha: s.base_sha,
-            hostWorktree: s.worktree
+            hostWorktree: s.worktree,
+            createdAt: s.created_at
         )
     }
 }

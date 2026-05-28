@@ -24,6 +24,7 @@ struct SkogaApp: App {
                 .environment(coordinator.conversation)
                 .environment(coordinator.modal)
                 .environment(coordinator.daemon)
+                .environment(coordinator.history)
                 .environment(onboarding)
                 .withPalette()
                 .task { await coordinator.bootstrap() }
@@ -54,6 +55,7 @@ struct SkogaApp: App {
                 .environment(coordinator.conversation)
                 .environment(coordinator.modal)
                 .environment(coordinator.daemon)
+                .environment(coordinator.history)
                 .environment(onboarding)
                 .withPalette()
         }

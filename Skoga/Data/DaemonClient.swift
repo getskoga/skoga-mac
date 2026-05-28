@@ -12,6 +12,21 @@ protocol DaemonClient: AnyObject {
     /// stealing frames from typing in the dispatch form or scrolling the
     /// open conversation.
     nonisolated func listAgents() async throws -> [Agent]
+    /// Paginated, terminal-state-only listing for the History view
+    /// (skoga-mac#34). The daemon's `session.list_terminal` returns
+    /// sessions in descending terminal-transition order; the response
+    /// carries an opaque `nextCursor` that callers feed back verbatim
+    /// for the next page. `since`/`until` filter server-side on
+    /// terminal-transition time. `nonisolated` so the decode + RPCSession
+    /// → Agent transform runs off MainActor — terminal histories grow
+    /// unbounded over a user's lifetime and the first page can be a
+    /// few hundred records.
+    nonisolated func listTerminalSessions(
+        limit: Int?,
+        cursor: String?,
+        since: Date?,
+        until: Date?
+    ) async throws -> TerminalSessionPage
     /// `nonisolated` for the same reason as [`listAgents`], with sharper
     /// stakes: `session.conversation` returns the full transcript
     /// reconstructed from Claude's append-only JSONL, which for a
@@ -248,6 +263,16 @@ protocol DaemonClient: AnyObject {
 struct PRPreview: Equatable {
     let title: String
     let body: String
+}
+
+/// One page of terminal sessions from `session.list_terminal`, with the
+/// opaque cursor to feed back for the next page. `nextCursor == nil`
+/// means there are no more pages. `totalEstimate` is best-effort —
+/// useful for "Showing N of ~M" copy but not load-bearing.
+struct TerminalSessionPage: Equatable {
+    let sessions: [Agent]
+    let nextCursor: String?
+    let totalEstimate: Int?
 }
 
 /// Whether the app has a live connection to skogad. Drives the banner shown

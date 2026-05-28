@@ -19,6 +19,7 @@ final class AppCoordinator {
     let conversation: ConversationState
     let modal: ModalState
     let daemon: DaemonClientHolder
+    let history: HistoryState
 
     // ── Visibility gating ────────────────────────────────────
     // The polling loop suspends when the app is hidden (cmd+H) or the
@@ -41,11 +42,29 @@ final class AppCoordinator {
     /// the worst case, but spamming rejected RPCs muddies the audit log.
     @ObservationIgnored private var autoShippedSessionIds: Set<String> = []
 
+    /// View the user was on when they opened the current conversation,
+    /// remembered so the conversation's back button routes them back
+    /// to it instead of always landing on `.roster`. Captured by
+    /// `openConversation(for:)` only when the prior view wasn't
+    /// `.conversation` itself (otherwise navigating between two
+    /// conversations would lose the original anchor).
+    @ObservationIgnored private var conversationOrigin: AppView = .roster
+
+    /// Monotonically-increasing token for in-flight `loadHistory` calls.
+    /// Bumped on entry, captured locally, and re-checked after the await
+    /// so a slower fetch that was superseded by a newer chip click can't
+    /// stamp stale results on top of the user's current selection. The
+    /// underlying RPC isn't cancellable (`withCheckedThrowingContinuation`
+    /// on a worker queue) so we can't rely on `Task.isCancelled` to
+    /// short-circuit — the token discards the late reply instead.
+    @ObservationIgnored private var historyRequestGen: Int = 0
+
     init(client: DaemonClient? = nil, isMock: Bool = true) {
         self.roster = RosterState()
         self.conversation = ConversationState()
         self.modal = ModalState()
         self.daemon = DaemonClientHolder(client: client ?? MockDaemonClient(), isMock: isMock)
+        self.history = HistoryState()
     }
 
     func bootstrap() async {
@@ -395,7 +414,16 @@ final class AppCoordinator {
                 }
                 await self.refresh()
                 if let id = self.conversation.openAgentId {
-                    await self.loadConversation(id)
+                    // Skip the 5s re-poll for terminal sessions —
+                    // their transcript is frozen at the moment of
+                    // teardown so the daemon's reconstruction won't
+                    // produce anything new. Saves a per-tick RPC +
+                    // decode pass per History session the user is
+                    // reading.
+                    let isLiveSession = self.openAgent?.status.isTerminal == false
+                    if isLiveSession {
+                        await self.loadConversation(id)
+                    }
                 }
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
@@ -439,18 +467,33 @@ final class AppCoordinator {
 
     var openAgent: Agent? {
         guard let id = conversation.openAgentId else { return nil }
+        // Terminal sessions live in `history.sessions`, not `roster.agents`
+        // (the roster's `session.list` call hardcodes `include_terminal:
+        // false`). Without the history fallback, clicking a row in the
+        // History view would land on `MainWindow.placeholderView` because
+        // this lookup returns nil for any terminal session id.
         return roster.agents.first(where: { $0.id == id })
+            ?? history.sessions.first(where: { $0.id == id })
     }
 
     func openConversation(for id: String) {
+        if modal.view != .conversation {
+            conversationOrigin = modal.view
+        }
         conversation.setOpenAgent(id)
         modal.view = .conversation
         conversation.pendingReply = ""
         Task { await loadConversation(id) }
     }
 
+    /// Return to whichever surface the user was on before they opened
+    /// this conversation — Roster for a guild click, History for a
+    /// row click in the archive. Kept named "backToRoster" at the
+    /// callsite-shape level for now even though the destination may
+    /// not be Roster; renaming the symbol can come in a separate
+    /// cleanup.
     func backToRoster() {
-        modal.view = .roster
+        modal.view = conversationOrigin
         conversation.setOpenAgent(nil)
     }
 
@@ -464,11 +507,66 @@ final class AppCoordinator {
         conversation.setOpenAgent(nil)
     }
 
+    /// Fetch a page of terminal sessions for the History view. `reset == true`
+    /// drops the prior page list and refetches from the start of the
+    /// current date-range window — used on first open and after the
+    /// user changes the date-range chip. `reset == false` appends the
+    /// next page using `history.nextCursor` — used by the "Load more"
+    /// affordance. Deliberately not on the 5s polling loop: the
+    /// History view is a manually-explored surface and a 5s re-fetch
+    /// of paginated state would invalidate the user's scroll position
+    /// and "Load more" cursor for no real benefit.
+    func loadHistory(reset: Bool) async {
+        // Re-entering the History view should NOT blow away the user's
+        // scroll position + load-more cursor. The top-level
+        // `.task(id: history.dateRange)` re-fires on every view
+        // appearance — bail if the sessions we already have were
+        // loaded for the same dateRange. A real chip change bumps
+        // `history.dateRange`, makes `loadedFor != dateRange`, and the
+        // guard falls through so the refetch actually happens.
+        if reset
+            && history.loadState == .loaded
+            && history.loadedFor == history.dateRange
+            && !history.sessions.isEmpty
+        {
+            return
+        }
+        // Bump and snapshot the generation token *before* mutating any
+        // state — a later call (e.g. rapid date-chip change) will bump
+        // again, and the post-await guards below will see `myGen !=
+        // historyRequestGen` and bail out of both apply and error
+        // paths. Critically, this means the newer request is NOT
+        // dropped (the earlier reentrancy guard's bug); both run, but
+        // only the latest one's results land.
+        historyRequestGen &+= 1
+        let myGen = historyRequestGen
+        if reset {
+            history.reset()
+        }
+        history.setLoading()
+        let cursor = reset ? nil : history.nextCursor
+        let since = history.dateRange.since(now: Date())
+        do {
+            let page = try await daemon.client.listTerminalSessions(
+                limit: nil,
+                cursor: cursor,
+                since: since,
+                until: nil
+            )
+            guard myGen == historyRequestGen else { return }
+            history.apply(page: page, replacing: reset)
+        } catch {
+            guard myGen == historyRequestGen else { return }
+            history.setError(error.toastMessage)
+        }
+    }
+
     func loadConversation(_ id: String) async {
         // Mock client never throws; the live path throws on transport / RPC
         // failures. Empty-conversation is *not* an error (the daemon returns
         // [] for sessions with no transcript yet) — only surface real
         // failures so a fresh session doesn't toast on every open.
+        defer { conversation.markConversationLoaded(id) }
         do {
             var msgs = try await daemon.client.conversation(for: id)
             // The daemon's transcript-based conversation doesn't include the
@@ -505,6 +603,7 @@ final class AppCoordinator {
         case .dispatch:     "Dispatch · new run"
         case .review:       "Review · \(roster.counts.prOpen) open"
         case .telemetry:    "Telemetry"
+        case .history:      "History"
         }
     }
 }

@@ -26,6 +26,9 @@ struct Sidebar: View {
             NavItem(icon: .telemetry, label: "Telemetry", count: nil, active: modal.view == .telemetry) {
                 coordinator.navigate(to: .telemetry)
             }
+            NavItem(icon: .clock,     label: "History",   count: nil, active: modal.view == .history) {
+                coordinator.navigate(to: .history)
+            }
 
             NavSection(title: "Guild · \(roster.agents.count)")
             ForEach(roster.agents.prefix(8)) { agent in
