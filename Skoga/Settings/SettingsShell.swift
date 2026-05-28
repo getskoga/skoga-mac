@@ -151,6 +151,8 @@ struct SettingsShell: View {
             BudgetsSettingsSection()
         case .editor:
             EditorSettingsSection()
+        case .about:
+            AboutSettingsSection()
         default:
             PlaceholderSection(section: selected)
         }

@@ -10,14 +10,21 @@ struct SkogaApp: App {
         return AppCoordinator(client: LiveDaemonClient(), isMock: false)
     }()
 
+    /// First-run wizard state — pulled out of MainWindow because it gates
+    /// the entire app surface. Persists across launches via UserDefaults
+    /// inside `OnboardingState`; `MainWindow` mounts the overlay when
+    /// `completed == false`.
+    @State private var onboarding = OnboardingState()
+
     var body: some Scene {
         Window("Skoga", id: "main") {
-            MainWindow()
+            FirstRunGate()
                 .environment(coordinator)
                 .environment(coordinator.roster)
                 .environment(coordinator.conversation)
                 .environment(coordinator.modal)
                 .environment(coordinator.daemon)
+                .environment(onboarding)
                 .withPalette()
                 .task { await coordinator.bootstrap() }
                 .frame(minWidth: 1100, minHeight: 720)
@@ -47,8 +54,28 @@ struct SkogaApp: App {
                 .environment(coordinator.conversation)
                 .environment(coordinator.modal)
                 .environment(coordinator.daemon)
+                .environment(onboarding)
                 .withPalette()
         }
         .windowResizability(.contentMinSize)
+    }
+}
+
+/// Mounts the onboarding overlay on top of the cockpit until the user
+/// finishes (or explicitly skips). Once `onboarding.completed` flips,
+/// the overlay drops and re-launches go straight to MainWindow.
+private struct FirstRunGate: View {
+    @Environment(OnboardingState.self) private var onboarding
+
+    var body: some View {
+        ZStack {
+            MainWindow()
+            if !onboarding.completed {
+                OnboardingShell()
+                    .transition(.opacity)
+                    .zIndex(1000)
+            }
+        }
+        .animation(.easeOut(duration: 0.28), value: onboarding.completed)
     }
 }
