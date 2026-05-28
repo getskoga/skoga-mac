@@ -10,16 +10,22 @@
 		0440F79167C3EF08AEAB6DE2 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7A3CA26832995CEBDFEED8 /* Tokens.swift */; };
 		04A6186AE10DC3AA7A0EA2B1 /* BugReportModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D127034A44088EC6FED081A /* BugReportModal.swift */; };
 		0904869BDE0C1F4B33955791 /* AppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B94EED290C1327115DD4B695 /* AppView.swift */; };
+		0C703BFCBB174AFE962879C3 /* OnboardingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C3CE6341D7407CD1FFBA94B /* OnboardingState.swift */; };
 		0E1FEB24354422C20E477006 /* SkogaRPC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DE9B05F7B39ED2F2A214B4 /* SkogaRPC.swift */; };
 		10F388F0EA51E3ADE2CC0FD2 /* SkogaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E6D30C0F5B11763748C1C22 /* SkogaApp.swift */; };
+		13D7C6C0B1070FDD6C366597 /* StepReady.swift in Sources */ = {isa = PBXBuildFile; fileRef = 564D44FC512438A77E2F2C09 /* StepReady.swift */; };
 		1CF54B406250832E21C31E97 /* AppCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B0745A9572FDACC189EA67 /* AppCoordinator.swift */; };
 		1D818BC647DB10D6DB150641 /* SettingsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A25157E2CF810158C87A5EC /* SettingsCard.swift */; };
 		1DB2F6B713694BF8E9F4B4D1 /* ConversationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57085F2BA9C6FA7F771E84EC /* ConversationState.swift */; };
 		2144EFB928D43BAB7EEC4CE7 /* DaemonClientHolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02B5BC02C8B2A6EEF79DFFD /* DaemonClientHolder.swift */; };
 		215FFC52A58452CD1B8061D3 /* GitHubCompareLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39C67ACAD79D4BB7F7C96958 /* GitHubCompareLauncher.swift */; };
 		24FB5C42B6D8667D132CE1CD /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA33B6515A779BB69660B110 /* Conversation.swift */; };
+		27C2DE95AC12A97CA1D0B9A4 /* AboutSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F9EC72CF3909D6961F2C367 /* AboutSettingsSection.swift */; };
+		28340A899A73DD7CA34E684C /* OnboardingShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE61C90AD30625B90E08E84E /* OnboardingShell.swift */; };
+		2B68F289DDBB44D323DF06DA /* StepWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64501AE53C21FFEF28FE6304 /* StepWorkspace.swift */; };
 		303029A15B9017AA387563AB /* DaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3CC5FADA740026853822A19 /* DaemonClient.swift */; };
 		31BC5CD04C1B7237C7B5CB6E /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFAFBFFB8FA9968FD7AC98FF /* ConversationView.swift */; };
+		3389B16B7F8752451D8237CF /* StepModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6904AE5A2C71A82546BD51C1 /* StepModel.swift */; };
 		3E70103B56C8294DDCA1E434 /* NordicNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B445CBB1DD16119CE39FCC9 /* NordicNames.swift */; };
 		4150C94C17D0F4FC501E3DEA /* EditorSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49EE4BE4620A6158671227A8 /* EditorSettingsSection.swift */; };
 		4639FEBCD92E5073935BB33D /* JSONRPCConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3457E04866B98C322F63CCB3 /* JSONRPCConnection.swift */; };
@@ -38,7 +44,9 @@
 		73E10F6654C9374EC0A04E83 /* EmbeddedTUIChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6997044FC6F3201B3B5DFA7D /* EmbeddedTUIChrome.swift */; };
 		7580499EE0EB855F91C98963 /* DispatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732368285D5460AB08855A49 /* DispatchView.swift */; };
 		7812EB1D772C88A505B7488B /* StatusPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EAA1E89343E9FE80E819AE0 /* StatusPill.swift */; };
+		792B97FCC47A040D5091B97C /* StepSandbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0092134D6C658A8CF9F68040 /* StepSandbox.swift */; };
 		7F7DEE61027F4C8E7978EE88 /* LiveDaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70C3CDA242BE7EF87A23DDD1 /* LiveDaemonClient.swift */; };
+		800E515C8068882CC591F294 /* OnboardingComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EE80EFADB57ECB78A16AC5D /* OnboardingComponents.swift */; };
 		823115FEF637EEBBC6A8D163 /* PulseDot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C6D36A05B968E62F7CB7BF /* PulseDot.swift */; };
 		86B547E02F159D1FADD8E5D9 /* TelemetryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F47F1D8A4A2158D854110144 /* TelemetryView.swift */; };
 		8C054293BB4CF2C9E24828CD /* SkogaGlyph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81F8C2B09E59496FB397779E /* SkogaGlyph.swift */; };
@@ -46,11 +54,13 @@
 		8D5B6940D68D2D386C81D000 /* MainWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9504CA8AFEE1742998939607 /* MainWindow.swift */; };
 		9525F4D036722C7A08ACF65D /* MockDaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED68B708D3D45C9366760F38 /* MockDaemonClient.swift */; };
 		958EA9D087B23C21A7A0845A /* AgentCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3AEE547F6633CF2722E23E2 /* AgentCard.swift */; };
+		A514F162A820E116B2235EDB /* StepWelcome.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8DA286EBEA25D5577F28B90 /* StepWelcome.swift */; };
 		AA24C55FF75AB355861514D0 /* Agent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3148BC8738DB0F36AA1A85E9 /* Agent.swift */; };
 		B00214FB4957FA51AC2E439B /* RosterState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D8C88BD06BFD2E8CFAB0FF2 /* RosterState.swift */; };
 		B038B3D3555C717A97F1D66A /* CockpitStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA9FE95C049FA34A02C1F2E1 /* CockpitStrip.swift */; };
 		B1FE387B2D3F62BE92234B26 /* WindowAccessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F7F15D58C08252650D51B5 /* WindowAccessor.swift */; };
 		B71786BAFAC4EA91B12BAEB9 /* SettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78635D3F6A65F96AE1FE4DC7 /* SettingsSection.swift */; };
+		BC1BF718B51E9671E5158743 /* StepGitHub.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1DA95528211AC140C2F8D5B /* StepGitHub.swift */; };
 		BDAEC96AB01F6896152A3018 /* ModelsSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7599A3E829C97AA86843F66 /* ModelsSettingsSection.swift */; };
 		BFF1C77E6332943D4D93EEA1 /* FilterRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FAC023DD953B7C1C85F0027 /* FilterRail.swift */; };
 		C0B8611AF2746532CA6B30F5 /* Color+Oklch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 235DA73ACD9025DC61F6CAA5 /* Color+Oklch.swift */; };
@@ -65,8 +75,10 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0092134D6C658A8CF9F68040 /* StepSandbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepSandbox.swift; sourceTree = "<group>"; };
 		011A602CAADDFE550B52C9DB /* Skoga.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Skoga.entitlements; sourceTree = "<group>"; };
 		04B3C5B56A345134FAE70ACC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		0F9EC72CF3909D6961F2C367 /* AboutSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutSettingsSection.swift; sourceTree = "<group>"; };
 		18C6D36A05B968E62F7CB7BF /* PulseDot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseDot.swift; sourceTree = "<group>"; };
 		1D8C88BD06BFD2E8CFAB0FF2 /* RosterState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RosterState.swift; sourceTree = "<group>"; };
 		235DA73ACD9025DC61F6CAA5 /* Color+Oklch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Oklch.swift"; sourceTree = "<group>"; };
@@ -82,12 +94,17 @@
 		49EE4BE4620A6158671227A8 /* EditorSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorSettingsSection.swift; sourceTree = "<group>"; };
 		49F7F15D58C08252650D51B5 /* WindowAccessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowAccessor.swift; sourceTree = "<group>"; };
 		4A25157E2CF810158C87A5EC /* SettingsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsCard.swift; sourceTree = "<group>"; };
+		4EE80EFADB57ECB78A16AC5D /* OnboardingComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingComponents.swift; sourceTree = "<group>"; };
 		4FAC023DD953B7C1C85F0027 /* FilterRail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterRail.swift; sourceTree = "<group>"; };
 		5310DF4FE0BF1441CA5B5858 /* TitleBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleBar.swift; sourceTree = "<group>"; };
+		564D44FC512438A77E2F2C09 /* StepReady.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepReady.swift; sourceTree = "<group>"; };
 		57085F2BA9C6FA7F771E84EC /* ConversationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationState.swift; sourceTree = "<group>"; };
 		5B6E36E5C280653D25A1DDF9 /* NotificationsSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSettingsSection.swift; sourceTree = "<group>"; };
+		5C3CE6341D7407CD1FFBA94B /* OnboardingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingState.swift; sourceTree = "<group>"; };
 		62CC800A856A8D28FA8CB11E /* Skoga.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Skoga.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		636564F61F4F65B4CC82B789 /* PRModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRModal.swift; sourceTree = "<group>"; };
+		64501AE53C21FFEF28FE6304 /* StepWorkspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepWorkspace.swift; sourceTree = "<group>"; };
+		6904AE5A2C71A82546BD51C1 /* StepModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepModel.swift; sourceTree = "<group>"; };
 		6997044FC6F3201B3B5DFA7D /* EmbeddedTUIChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddedTUIChrome.swift; sourceTree = "<group>"; };
 		70C3CDA242BE7EF87A23DDD1 /* LiveDaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDaemonClient.swift; sourceTree = "<group>"; };
 		732368285D5460AB08855A49 /* DispatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DispatchView.swift; sourceTree = "<group>"; };
@@ -104,8 +121,10 @@
 		9B445CBB1DD16119CE39FCC9 /* NordicNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NordicNames.swift; sourceTree = "<group>"; };
 		9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaIcons.swift; sourceTree = "<group>"; };
 		A495BC418BAD2F865FEA74FC /* RemoteTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteTerminalView.swift; sourceTree = "<group>"; };
+		AE61C90AD30625B90E08E84E /* OnboardingShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingShell.swift; sourceTree = "<group>"; };
 		B4B0745A9572FDACC189EA67 /* AppCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCoordinator.swift; sourceTree = "<group>"; };
 		B4DB4F4127774C3FD7EED9C0 /* SettingsShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsShell.swift; sourceTree = "<group>"; };
+		B8DA286EBEA25D5577F28B90 /* StepWelcome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepWelcome.swift; sourceTree = "<group>"; };
 		B94EED290C1327115DD4B695 /* AppView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppView.swift; sourceTree = "<group>"; };
 		C02B5BC02C8B2A6EEF79DFFD /* DaemonClientHolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClientHolder.swift; sourceTree = "<group>"; };
 		C3CC5FADA740026853822A19 /* DaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClient.swift; sourceTree = "<group>"; };
@@ -117,6 +136,7 @@
 		EA9FE95C049FA34A02C1F2E1 /* CockpitStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitStrip.swift; sourceTree = "<group>"; };
 		ED68B708D3D45C9366760F38 /* MockDaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDaemonClient.swift; sourceTree = "<group>"; };
 		EF6164A630675637301F36D4 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
+		F1DA95528211AC140C2F8D5B /* StepGitHub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepGitHub.swift; sourceTree = "<group>"; };
 		F47F1D8A4A2158D854110144 /* TelemetryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryView.swift; sourceTree = "<group>"; };
 		F8D5A2A540B7469A07861F7F /* StopConfirmModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StopConfirmModal.swift; sourceTree = "<group>"; };
 		FA33B6515A779BB69660B110 /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
@@ -135,6 +155,17 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0D004E6571D6A74D445C71E9 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				4EE80EFADB57ECB78A16AC5D /* OnboardingComponents.swift */,
+				AE61C90AD30625B90E08E84E /* OnboardingShell.swift */,
+				5C3CE6341D7407CD1FFBA94B /* OnboardingState.swift */,
+				3022B8C62994855FBBE80CCC /* Steps */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
 		11ABE4C162A4CDFD3D4BF3EA /* Review */ = {
 			isa = PBXGroup;
 			children = (
@@ -151,6 +182,19 @@
 				9B445CBB1DD16119CE39FCC9 /* NordicNames.swift */,
 			);
 			path = Domain;
+			sourceTree = "<group>";
+		};
+		3022B8C62994855FBBE80CCC /* Steps */ = {
+			isa = PBXGroup;
+			children = (
+				F1DA95528211AC140C2F8D5B /* StepGitHub.swift */,
+				6904AE5A2C71A82546BD51C1 /* StepModel.swift */,
+				564D44FC512438A77E2F2C09 /* StepReady.swift */,
+				0092134D6C658A8CF9F68040 /* StepSandbox.swift */,
+				B8DA286EBEA25D5577F28B90 /* StepWelcome.swift */,
+				64501AE53C21FFEF28FE6304 /* StepWorkspace.swift */,
+			);
+			path = Steps;
 			sourceTree = "<group>";
 		};
 		40A0C6AEAF94719F1F67D011 /* Modals */ = {
@@ -216,6 +260,7 @@
 		B8B28DD49CC8973132357BBB /* Sections */ = {
 			isa = PBXGroup;
 			children = (
+				0F9EC72CF3909D6961F2C367 /* AboutSettingsSection.swift */,
 				38E26794A30DE016A10EB598 /* BudgetsSettingsSection.swift */,
 				49EE4BE4620A6158671227A8 /* EditorSettingsSection.swift */,
 				8531B097CEC08B13BAF87F29 /* GitHubSettingsSection.swift */,
@@ -253,6 +298,7 @@
 				6283811BD71C349EDA029110 /* Dispatch */,
 				2591AFF9D2E19C107B3A97AF /* Domain */,
 				40A0C6AEAF94719F1F67D011 /* Modals */,
+				0D004E6571D6A74D445C71E9 /* Onboarding */,
 				11ABE4C162A4CDFD3D4BF3EA /* Review */,
 				ED9290C388E7599C45626052 /* Roster */,
 				D8E53EC3189A1E06F73D80E6 /* Settings */,
@@ -416,6 +462,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				27C2DE95AC12A97CA1D0B9A4 /* AboutSettingsSection.swift in Sources */,
 				C0DCD0495C0135A8877E74D7 /* ActivityBars.swift in Sources */,
 				AA24C55FF75AB355861514D0 /* Agent.swift in Sources */,
 				958EA9D087B23C21A7A0845A /* AgentCard.swift in Sources */,
@@ -446,6 +493,9 @@
 				BDAEC96AB01F6896152A3018 /* ModelsSettingsSection.swift in Sources */,
 				3E70103B56C8294DDCA1E434 /* NordicNames.swift in Sources */,
 				E2D6D2E0E7C708D3E63B83D7 /* NotificationsSettingsSection.swift in Sources */,
+				800E515C8068882CC591F294 /* OnboardingComponents.swift in Sources */,
+				28340A899A73DD7CA34E684C /* OnboardingShell.swift in Sources */,
+				0C703BFCBB174AFE962879C3 /* OnboardingState.swift in Sources */,
 				CC3E912C7C322D76B934024D /* PRModal.swift in Sources */,
 				51E4C485C121F96D95978DE3 /* PlaceholderSection.swift in Sources */,
 				823115FEF637EEBBC6A8D163 /* PulseDot.swift in Sources */,
@@ -462,6 +512,12 @@
 				CCFCAD5B8E9DED56CC8A7D65 /* SkogaIcons.swift in Sources */,
 				0E1FEB24354422C20E477006 /* SkogaRPC.swift in Sources */,
 				7812EB1D772C88A505B7488B /* StatusPill.swift in Sources */,
+				BC1BF718B51E9671E5158743 /* StepGitHub.swift in Sources */,
+				3389B16B7F8752451D8237CF /* StepModel.swift in Sources */,
+				13D7C6C0B1070FDD6C366597 /* StepReady.swift in Sources */,
+				792B97FCC47A040D5091B97C /* StepSandbox.swift in Sources */,
+				A514F162A820E116B2235EDB /* StepWelcome.swift in Sources */,
+				2B68F289DDBB44D323DF06DA /* StepWorkspace.swift in Sources */,
 				5ADEB87BA0B54787FB5E2F22 /* StopConfirmModal.swift in Sources */,
 				86B547E02F159D1FADD8E5D9 /* TelemetryView.swift in Sources */,
 				696B8958E1B7D92FC04551DC /* Theme.swift in Sources */,
