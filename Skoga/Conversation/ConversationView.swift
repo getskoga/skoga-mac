@@ -242,12 +242,37 @@ private struct ConvSidePanel: View {
     private var actionsBlock: some View {
         block(title: "Quick actions") {
             VStack(spacing: 6) {
-                quickAction(label: "View commits on GitHub", icon: .github) {}
+                quickAction(label: "View commits on GitHub", icon: .github) {
+                    Task { await openCommitsOnGitHub() }
+                }
                 quickAction(label: "Drop into editor (worktree)", icon: .doc) {
                     Task { await dropIntoEditor() }
                 }
                 quickAction(label: "Ping me when done", icon: .watch) {}
             }
+        }
+    }
+
+    /// Open `github.com/<owner>/<repo>/compare/<base>...<branch>` in the
+    /// user's default browser. Owner/repo come from
+    /// `git config --get remote.origin.url` in the agent's worktree —
+    /// daemon-side resolution would also work but the local shell-out
+    /// keeps this self-contained. Off-happy-path:
+    /// * no worktree yet (legacy daemon) → toast and bail.
+    /// * remote isn't on github.com (or no `origin` at all) → toast.
+    /// * git invocation itself failed → surface the error as a toast.
+    private func openCommitsOnGitHub() async {
+        guard let worktree = agent.hostWorktree else {
+            modal.showToast("No worktree path for this session yet.")
+            return
+        }
+        switch await GitHubCompareLauncher.resolve(worktree: worktree, base: agent.base, branch: agent.branch) {
+        case .resolved(let url):
+            NSWorkspace.shared.open(url)
+        case .notGitHub:
+            modal.showToast("This repo doesn't have a GitHub remote.")
+        case .failed(let message):
+            modal.showToast(message)
         }
     }
 

@@ -16,6 +16,7 @@
 		1D818BC647DB10D6DB150641 /* SettingsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A25157E2CF810158C87A5EC /* SettingsCard.swift */; };
 		1DB2F6B713694BF8E9F4B4D1 /* ConversationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57085F2BA9C6FA7F771E84EC /* ConversationState.swift */; };
 		2144EFB928D43BAB7EEC4CE7 /* DaemonClientHolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02B5BC02C8B2A6EEF79DFFD /* DaemonClientHolder.swift */; };
+		215FFC52A58452CD1B8061D3 /* GitHubCompareLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39C67ACAD79D4BB7F7C96958 /* GitHubCompareLauncher.swift */; };
 		24FB5C42B6D8667D132CE1CD /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA33B6515A779BB69660B110 /* Conversation.swift */; };
 		303029A15B9017AA387563AB /* DaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3CC5FADA740026853822A19 /* DaemonClient.swift */; };
 		31BC5CD04C1B7237C7B5CB6E /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFAFBFFB8FA9968FD7AC98FF /* ConversationView.swift */; };
@@ -75,6 +76,7 @@
 		324080D75957A3776C6AE643 /* PlaceholderSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderSection.swift; sourceTree = "<group>"; };
 		3457E04866B98C322F63CCB3 /* JSONRPCConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONRPCConnection.swift; sourceTree = "<group>"; };
 		38E26794A30DE016A10EB598 /* BudgetsSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetsSettingsSection.swift; sourceTree = "<group>"; };
+		39C67ACAD79D4BB7F7C96958 /* GitHubCompareLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubCompareLauncher.swift; sourceTree = "<group>"; };
 		3D127034A44088EC6FED081A /* BugReportModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BugReportModal.swift; sourceTree = "<group>"; };
 		3F594D7BABF3680BF59BBE69 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		49EE4BE4620A6158671227A8 /* EditorSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorSettingsSection.swift; sourceTree = "<group>"; };
@@ -167,6 +169,7 @@
 			children = (
 				CFAFBFFB8FA9968FD7AC98FF /* ConversationView.swift */,
 				6997044FC6F3201B3B5DFA7D /* EmbeddedTUIChrome.swift */,
+				39C67ACAD79D4BB7F7C96958 /* GitHubCompareLauncher.swift */,
 				A495BC418BAD2F865FEA74FC /* RemoteTerminalView.swift */,
 			);
 			path = Conversation;
@@ -433,6 +436,7 @@
 				4150C94C17D0F4FC501E3DEA /* EditorSettingsSection.swift in Sources */,
 				73E10F6654C9374EC0A04E83 /* EmbeddedTUIChrome.swift in Sources */,
 				BFF1C77E6332943D4D93EEA1 /* FilterRail.swift in Sources */,
+				215FFC52A58452CD1B8061D3 /* GitHubCompareLauncher.swift in Sources */,
 				4E43B5924A3C404A9C85CF4E /* GitHubSettingsSection.swift in Sources */,
 				4639FEBCD92E5073935BB33D /* JSONRPCConnection.swift in Sources */,
 				7F7DEE61027F4C8E7978EE88 /* LiveDaemonClient.swift in Sources */,
