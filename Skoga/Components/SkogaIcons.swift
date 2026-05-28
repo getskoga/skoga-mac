@@ -7,7 +7,7 @@ enum SkogaIcon: String {
     case roster, dispatch, review, telemetry
     case settings, back, chevron, close, plus, pause, stop
     case branch, bolt, bug, shield, wrench, beaker, doc, github
-    case check, alert, cmd, search, watch, spark, clock, loop
+    case check, alert, cmd, search, watch, spark, clock, loop, push
 
     /// Returns the SF Symbol name. Some are filled (we prefer outlined to match the design).
     var symbol: String {
@@ -39,6 +39,7 @@ enum SkogaIcon: String {
         case .spark:     "sparkles"
         case .clock:     "clock"
         case .loop:      "arrow.triangle.2.circlepath"
+        case .push:      "arrow.up.circle"
         }
     }
 }

@@ -312,6 +312,14 @@ final class LiveDaemonClient: DaemonClient {
         ])
     }
 
+    func pushBranch(for sessionId: String) async throws {
+        // `skoga push` is a thin wrapper around `git push -u` — no squash,
+        // no rewrite. Shelling out (vs reimplementing in Swift) keeps the
+        // dev's git credentials in the CLI process, matching how `land`
+        // already routes its push step.
+        _ = try await runSkoga(args: ["push", sessionId])
+    }
+
     func githubStatus() async throws -> RPCGitHubStatus {
         // METHOD_NOT_FOUND propagates as-is — the Settings view distinguishes
         // an outdated daemon (skogad < getskoga/skoga#97) from "gh is genuinely
