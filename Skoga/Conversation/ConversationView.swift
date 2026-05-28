@@ -318,10 +318,10 @@ private struct ConvSidePanel: View {
     }
 
     /// Open `github.com/<owner>/<repo>/compare/<base>...<branch>` in the
-    /// user's default browser. Owner/repo come from
-    /// `git config --get remote.origin.url` in the agent's worktree —
-    /// daemon-side resolution would also work but the local shell-out
-    /// keeps this self-contained. Off-happy-path:
+    /// user's default browser. Owner/repo come from the agent's worktree
+    /// origin remote — see `GitHubCompareLauncher` for the pushurl/url
+    /// lookup rules. Daemon-side resolution would also work but the
+    /// local shell-out keeps this self-contained. Off-happy-path:
     /// * no worktree yet (legacy daemon) → toast and bail.
     /// * remote isn't on github.com (or no `origin` at all) → toast.
     /// * git invocation itself failed → surface the error as a toast.
