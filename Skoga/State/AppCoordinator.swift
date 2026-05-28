@@ -20,6 +20,7 @@ final class AppCoordinator {
     let modal: ModalState
     let daemon: DaemonClientHolder
     let history: HistoryState
+    let notifications: NotificationsService
 
     // ── Visibility gating ────────────────────────────────────
     // The polling loop suspends when the app is hidden (cmd+H) or the
@@ -65,9 +66,34 @@ final class AppCoordinator {
         self.modal = ModalState()
         self.daemon = DaemonClientHolder(client: client ?? MockDaemonClient(), isMock: isMock)
         self.history = HistoryState()
+        // Singleton — the AppDelegate adaptor already registered it as
+        // the UNUserNotificationCenter delegate in
+        // `applicationWillFinishLaunching`, before this coordinator
+        // existed. Assigning `openSession` here triggers replay of any
+        // click that landed during cold launch via the service's
+        // `didSet` on the property.
+        self.notifications = NotificationsService.shared
+        self.notifications.openSession = { [weak self] id in
+            guard let self else { return }
+            self.openConversation(for: id)
+        }
+        self.notifications.activateWindow = { [weak self] in
+            guard let window = self?.mainWindow else { return }
+            if window.isMiniaturized { window.deminiaturize(nil) }
+            window.makeKeyAndOrderFront(nil)
+        }
+        self.notifications.explainerToast = { [weak self] message in
+            self?.modal.showToast(message, duration: 6)
+        }
     }
 
     func bootstrap() async {
+        // Notification authorization is requested when `FirstRunGate`
+        // observes `onboarding.completed == true` — see
+        // `notifications.start()` call there. Deferring keeps the
+        // first-launch explainer toast from rendering UNDER the
+        // onboarding overlay and avoids racing the system permission
+        // prompt against the wizard.
         await refresh()
         // Fire-and-forget the gh-status fetch — it shells out to
         // `gh auth status` on the daemon side, which costs a few hundred
@@ -366,8 +392,23 @@ final class AppCoordinator {
                 if event.type == "pr-feedback", let id = event.session_id {
                     await self?.handlePRFeedback(sessionId: id)
                 }
+                // Route `notification.*` events to the user-notification
+                // service. Non-notification event types short-circuit
+                // inside the wrapper so the dispatch is free. Goes
+                // through an `await` so the MainActor-isolated
+                // `notifications` property is touched from the right
+                // context — the Task body itself isn't MainActor.
+                await self?.routeToNotifications(event)
             }
         }
+    }
+
+    /// MainActor-isolated wrapper used by `startEventLoop` to route
+    /// daemon events to the notifications service. Pulled out so the
+    /// non-isolated Task body has a single, properly-awaited entry
+    /// point rather than reaching into `notifications` directly.
+    private func routeToNotifications(_ event: RPCEvent) {
+        notifications.handle(event: event)
     }
 
     /// Daemon's PR watcher just pasted review activity into the agent. We've
