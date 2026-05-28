@@ -26,6 +26,16 @@ struct SkogaApp: App {
     /// `completed == false`.
     @State private var onboarding = OnboardingState()
 
+    /// Theme preference set in Settings → General. `nil` = follow the
+    /// system appearance. Bound to `@AppStorage` so flipping the
+    /// segmented picker recolors both Scenes on the next render
+    /// without a relaunch.
+    @AppStorage(AppPrefs.theme) private var themeRaw: String = AppPrefs.ThemeChoice.system.rawValue
+
+    private var preferredColorScheme: ColorScheme? {
+        AppPrefs.ThemeChoice(rawValue: themeRaw)?.colorScheme
+    }
+
     var body: some Scene {
         Window("Skoga", id: "main") {
             FirstRunGate()
@@ -37,7 +47,24 @@ struct SkogaApp: App {
                 .environment(coordinator.history)
                 .environment(onboarding)
                 .withPalette()
-                .task { await coordinator.bootstrap() }
+                .preferredColorScheme(preferredColorScheme)
+                .task {
+                    await coordinator.bootstrap()
+                    // Apply the user's "Open at" preference after
+                    // bootstrap. The SKOGA_VIEW env override is honored
+                    // by bootstrap; skip the lastView restore when it's
+                    // set so design previews land where the env says
+                    // (rather than getting overwritten by the persisted
+                    // last view here). `lastView` ignores the
+                    // conversation surface on write, so a restored
+                    // value lands on a real top-level tab.
+                    if ProcessInfo.processInfo.environment["SKOGA_VIEW"] == nil,
+                       AppPrefs.readOpenAt() == .lastView,
+                       let raw = AppPrefs.readLastView(),
+                       let view = AppView(rawValue: raw) {
+                        coordinator.navigate(to: view)
+                    }
+                }
                 .frame(minWidth: 1100, minHeight: 720)
         }
         .windowStyle(.hiddenTitleBar)
@@ -68,6 +95,7 @@ struct SkogaApp: App {
                 .environment(coordinator.history)
                 .environment(onboarding)
                 .withPalette()
+                .preferredColorScheme(preferredColorScheme)
         }
         .windowResizability(.contentMinSize)
     }

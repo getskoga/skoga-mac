@@ -141,6 +141,8 @@ struct SettingsShell: View {
 
     @ViewBuilder private var content: some View {
         switch selected {
+        case .general:
+            GeneralSettingsSection()
         case .github:
             GitHubSettingsSection()
         case .modelsKeys:
@@ -151,6 +153,10 @@ struct SettingsShell: View {
             BudgetsSettingsSection()
         case .editor:
             EditorSettingsSection()
+        case .keyboard:
+            KeyboardSettingsSection()
+        case .privacy:
+            PrivacySettingsSection()
         case .about:
             AboutSettingsSection()
         default:

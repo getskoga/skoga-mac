@@ -543,9 +543,16 @@ final class AppCoordinator {
     /// `openAgentId` so the conversation slice's open-agent lookup
     /// resolves to nil — otherwise the conversation poll would keep
     /// firing for an agent the user is no longer watching.
+    ///
+    /// Persists the destination under `skoga.app.lastView` so Settings →
+    /// General's "Open at: last view" can restore it on next launch.
+    /// `.conversation` is excluded from persistence by `backToRoster`
+    /// (which is the only path that ever lands there), so a restored
+    /// value always points at a real top-level tab.
     func navigate(to view: AppView) {
         modal.view = view
         conversation.setOpenAgent(nil)
+        UserDefaults.standard.set(view.rawValue, forKey: AppPrefs.lastView)
     }
 
     /// Fetch a page of terminal sessions for the History view. `reset == true`
