@@ -170,6 +170,12 @@ final class MockDaemonClient: DaemonClient {
         try await Task.sleep(nanoseconds: 400_000_000)
     }
 
+    func pushBranch(for sessionId: String) async throws {
+        // Same shape as `landPR` — mock has nothing to actually push, so
+        // we sleep briefly so the UI's pending state has time to render.
+        try await Task.sleep(nanoseconds: 400_000_000)
+    }
+
     func githubStatus() async throws -> RPCGitHubStatus {
         githubStatusState
     }

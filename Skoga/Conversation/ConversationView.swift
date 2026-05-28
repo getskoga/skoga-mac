@@ -137,19 +137,27 @@ private struct ConvHeader: View {
 
 // MARK: – Actions footer
 
-/// Footer sits below the embedded TUI and hosts the "Open as PR" CTA.
-/// The CTA is decoupled from `agent.status` so the manager can always
-/// reach for it; the only gating fact is whether a PR already exists for
-/// this session (`prUrl != nil`) — when one does we swap the CTA for
-/// "View PR on GitHub" so a second click doesn't try to re-land.
+/// Footer sits below the embedded TUI and hosts the "Open as PR" CTA
+/// alongside the always-available "Push" verb. Both CTAs are decoupled
+/// from `agent.status` so the manager can always reach for them. The PR
+/// button toggles to "View PR on GitHub" once `prUrl != nil` so a second
+/// click doesn't try to re-land; the Push button rides along regardless,
+/// since pushing a branch without opening a PR is a first-class use case
+/// (and updating an already-open PR after the agent revises is another).
 private struct ConvActionsFooter: View {
     @Environment(\.palette) private var p
     @Environment(ModalState.self) private var modal
+    @Environment(DaemonClientHolder.self) private var daemon
     let agent: Agent
+
+    @State private var pushing = false
 
     var body: some View {
         HStack(spacing: 8) {
             Spacer(minLength: 0)
+            PushButton(busy: pushing) {
+                Task { await pushBranch() }
+            }
             if let url = agent.prUrl {
                 GhostPillButton(label: "View PR on GitHub", icon: .github) {
                     openPRURL(url)
@@ -172,6 +180,62 @@ private struct ConvActionsFooter: View {
     private func openPRURL(_ url: String) {
         guard url != "#", let parsed = URL(string: url) else { return }
         NSWorkspace.shared.open(parsed)
+    }
+
+    /// Shell `skoga push <id>` via the daemon client and surface the
+    /// outcome as a toast. We guard against double-fire while a push is
+    /// in flight so a rapid second click can't spawn a parallel CLI
+    /// subprocess against the same worktree.
+    private func pushBranch() async {
+        guard !pushing else { return }
+        pushing = true
+        defer { pushing = false }
+        do {
+            try await daemon.client.pushBranch(for: agent.id)
+            modal.showToast("Pushed \(agent.branch) to remote.")
+        } catch {
+            modal.showToast("Push failed: \(error.localizedDescription)")
+        }
+    }
+}
+
+/// Small companion to the existing `GhostPillButton` that swaps its icon
+/// for an inline `ProgressView` while a push is in flight. Lives next to
+/// the PR CTA in the footer and shares the same pill shape so the two
+/// CTAs read as a coordinated pair.
+private struct PushButton: View {
+    @Environment(\.palette) private var p
+    let busy: Bool
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if busy {
+                    ProgressView()
+                        .controlSize(.small)
+                        .progressViewStyle(.circular)
+                } else {
+                    Image(skoga: .push).skogaIconSize(12)
+                }
+                Text(busy ? "Pushing…" : "Push commits")
+                    .font(SkogaFont.smallMedium(11.5))
+            }
+            .foregroundStyle(hovering && !busy ? p.ink : p.ink2)
+            .padding(.horizontal, 10)
+            .frame(height: 26)
+            .background(
+                RoundedRectangle(cornerRadius: Tokens.Radius.chip)
+                    .fill(hovering && !busy ? p.paper3 : p.paper)
+                    .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
+            )
+            .opacity(busy ? 0.7 : 1)
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
+        .onHover { hovering = $0 }
     }
 }
 

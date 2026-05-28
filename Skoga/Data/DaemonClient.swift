@@ -180,6 +180,13 @@ protocol DaemonClient: AnyObject {
     /// daemon; callers refresh to see it.
     func landPR(for sessionId: String, title: String, body: String) async throws
 
+    /// Push the session's branch to its remote as-is — `skoga push <id>`,
+    /// which is a thin wrapper around `git push -u`. No squash, no PR
+    /// creation, no rewrite. Use this to ship branch state to GitHub
+    /// without opening a PR, or to update an already-open PR after the
+    /// agent revises. Throws on push failures (no remote, auth, conflict).
+    func pushBranch(for sessionId: String) async throws
+
     /// Current `gh` CLI state from the daemon's perspective — install,
     /// auth, login handle, scopes, and the persisted default reviewer.
     /// Polled by Settings → GitHub during sign-in to detect when the
