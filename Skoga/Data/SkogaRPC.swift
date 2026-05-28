@@ -429,12 +429,41 @@ struct SessionAnswerQuestionResponse: Decodable {
     let session: RPCSession
 }
 
-/// Lightweight model of the `events.event` notification payload. Only the
-/// fields we route on; the rest of the audit Event schema can be ignored
-/// because we treat any event as a "refetch sessions" trigger.
+/// Lightweight model of the `events.event` notification payload. Most
+/// callers only read `type` + `session_id` and treat the event as a
+/// "refetch sessions" trigger. `payload` is decoded as a generic
+/// `Decodable` shape so the notifications service can pull the
+/// type-specific fields (`headline`, `summary`, `pct`, `silenced`, …)
+/// without forcing every event into a discriminated union.
 struct RPCEvent: Decodable {
     let type: String
     let session_id: String?
+    let payload: RPCEventPayload?
+
+    enum CodingKeys: String, CodingKey {
+        case type, session_id, payload
+    }
+}
+
+/// Type-erased decode of the audit Event's `payload` object. Carries the
+/// union of fields any consumer might want — every field is optional
+/// because the schema is per-event-type. New event types add new
+/// optional fields here without breaking existing decode sites.
+struct RPCEventPayload: Decodable {
+    // notification.attention_needed
+    let headline: String?
+    let summary: String?
+    // notification.run_finished
+    let pr_url: String?
+    let repo: String?
+    let branch: String?
+    // notification.budget_alert
+    let period: String?
+    let pct: Double?
+    let spent_usd: Double?
+    let budget_usd: Double?
+    // All notification.* events — daemon-side silencing decision.
+    let silenced: Bool?
 }
 
 // MARK: – session.conversation

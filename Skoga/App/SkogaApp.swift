@@ -1,7 +1,17 @@
 import SwiftUI
+import AppKit
+import UserNotifications
 
 @main
 struct SkogaApp: App {
+    /// SwiftUI's adaptor for an `NSApplicationDelegate`. The delegate's
+    /// `applicationWillFinishLaunching` is the earliest reliable hook
+    /// for registering the `UNUserNotificationCenter` delegate — it
+    /// runs before any `Scene` materializes and before any `.task`
+    /// modifier fires, so a launch-via-notification click delivered by
+    /// macOS reaches our delegate instead of being dropped.
+    @NSApplicationDelegateAdaptor(SkogaAppDelegate.self) private var appDelegate
+
     @State private var coordinator: AppCoordinator = {
         let mock = ProcessInfo.processInfo.environment["SKOGA_USE_MOCK"] == "1"
         if mock {
@@ -79,5 +89,33 @@ private struct FirstRunGate: View {
             }
         }
         .animation(.easeOut(duration: 0.28), value: onboarding.completed)
+        // Trigger the one-time notification authorization request only
+        // after the onboarding overlay drops. Otherwise the explainer
+        // toast (which `start()` posts ~1.5s before the system prompt)
+        // would render UNDER the zIndex-1000 overlay and be invisible,
+        // and the permission alert would race the wizard. `task(id:)`
+        // re-fires when `completed` flips, and runs immediately for
+        // returning users (where it's already true on first appear).
+        .task(id: onboarding.completed) {
+            if onboarding.completed {
+                NotificationsService.shared.start()
+            }
+        }
+    }
+}
+
+/// `NSApplicationDelegate` adaptor used solely to register the
+/// `UNUserNotificationCenter` delegate at the earliest possible point
+/// in launch — before any SwiftUI scene exists. macOS dispatches a
+/// launch-via-notification response right after the delegate is set,
+/// but if we waited for a `.task` modifier to wire it the click could
+/// be delivered to a nil delegate and silently dropped.
+///
+/// `@MainActor` because AppKit invokes the delegate on the main thread
+/// and the `NotificationsService.shared` we hand off is MainActor-isolated.
+@MainActor
+final class SkogaAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        UNUserNotificationCenter.current().delegate = NotificationsService.shared
     }
 }

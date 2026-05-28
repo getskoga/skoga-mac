@@ -73,6 +73,7 @@
 		D555D4F8DBEB7732ADEA3233 /* ParsedTranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A1BD46D7F2E1FB826A2856 /* ParsedTranscriptView.swift */; };
 		E2D6D2E0E7C708D3E63B83D7 /* NotificationsSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B6E36E5C280653D25A1DDF9 /* NotificationsSettingsSection.swift */; };
 		EC922EC8C5DD24A38493F0ED /* ModalState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DEDFD8AE5B69FA5C48EE1FD /* ModalState.swift */; };
+		F13F397DFCA70E5F76D6F9E3 /* NotificationsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 239F40425CEE55524E667E2C /* NotificationsService.swift */; };
 		F360C48B877A3A7CA94F4939 /* BudgetsSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38E26794A30DE016A10EB598 /* BudgetsSettingsSection.swift */; };
 		F40CF5E71F1B6724136A191B /* RemoteTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A495BC418BAD2F865FEA74FC /* RemoteTerminalView.swift */; };
 		F953B4F6DFAD8786461DD1F8 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296A4F6E32617A28B9E035E9 /* Typography.swift */; };
@@ -88,6 +89,7 @@
 		18C6D36A05B968E62F7CB7BF /* PulseDot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseDot.swift; sourceTree = "<group>"; };
 		1D8C88BD06BFD2E8CFAB0FF2 /* RosterState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RosterState.swift; sourceTree = "<group>"; };
 		235DA73ACD9025DC61F6CAA5 /* Color+Oklch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Oklch.swift"; sourceTree = "<group>"; };
+		239F40425CEE55524E667E2C /* NotificationsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsService.swift; sourceTree = "<group>"; };
 		296A4F6E32617A28B9E035E9 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		2DEDFD8AE5B69FA5C48EE1FD /* ModalState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModalState.swift; sourceTree = "<group>"; };
 		3148BC8738DB0F36AA1A85E9 /* Agent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Agent.swift; sourceTree = "<group>"; };
@@ -248,6 +250,14 @@
 			path = History;
 			sourceTree = "<group>";
 		};
+		6A1C62D5D555EEF5A8AB844B /* Notifications */ = {
+			isa = PBXGroup;
+			children = (
+				239F40425CEE55524E667E2C /* NotificationsService.swift */,
+			);
+			path = Notifications;
+			sourceTree = "<group>";
+		};
 		6A5550E3937E20E53CB337E4 /* Cockpit */ = {
 			isa = PBXGroup;
 			children = (
@@ -320,6 +330,7 @@
 				2591AFF9D2E19C107B3A97AF /* Domain */,
 				66AC99255D7C20C0B6B353EA /* History */,
 				40A0C6AEAF94719F1F67D011 /* Modals */,
+				6A1C62D5D555EEF5A8AB844B /* Notifications */,
 				0D004E6571D6A74D445C71E9 /* Onboarding */,
 				11ABE4C162A4CDFD3D4BF3EA /* Review */,
 				ED9290C388E7599C45626052 /* Roster */,
@@ -519,6 +530,7 @@
 				EC922EC8C5DD24A38493F0ED /* ModalState.swift in Sources */,
 				BDAEC96AB01F6896152A3018 /* ModelsSettingsSection.swift in Sources */,
 				3E70103B56C8294DDCA1E434 /* NordicNames.swift in Sources */,
+				F13F397DFCA70E5F76D6F9E3 /* NotificationsService.swift in Sources */,
 				E2D6D2E0E7C708D3E63B83D7 /* NotificationsSettingsSection.swift in Sources */,
 				800E515C8068882CC591F294 /* OnboardingComponents.swift in Sources */,
 				28340A899A73DD7CA34E684C /* OnboardingShell.swift in Sources */,
