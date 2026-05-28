@@ -78,39 +78,39 @@ final class AppCoordinator {
 
     /// Re-fetch the agent list and, on the live path, update
     /// `daemon.daemonStatus` based on whether `daemon.version` +
-    /// `session.list` round-trip cleanly. The activity series stays on
-    /// whatever the client returned at boot (zero-length on live; the
-    /// seed wave on mock) — skogad doesn't emit per-minute load yet so
-    /// re-polling it is wasted work.
+    /// `session.list` round-trip cleanly. Spend and the cockpit's
+    /// activity sparkline poll alongside on the same tick — both are
+    /// cheap daemon-side rollups (in-memory ring buffer for activity,
+    /// pre-aggregated USD totals for spend) and feed surfaces that
+    /// would otherwise stall on the next refresh after a session
+    /// terminates.
     func refresh() async {
         if daemon.isMock {
             if let next = try? await daemon.client.listAgents() {
                 roster.apply(agents: next)
             }
-            if let series = try? await daemon.client.activitySeries() {
-                roster.apply(activity: series)
+        } else {
+            do {
+                let version = try await daemon.client.daemonVersion()
+                let next = try await daemon.client.listAgents()
+                roster.apply(agents: next)
+                daemon.setDaemonStatus(.connected(version: version))
+                autoShipMergedSessions()
+            } catch {
+                daemon.setDaemonStatus(.notRunning(detail: error.toastMessage))
             }
-            if let total = try? await daemon.client.spendToday() {
-                roster.apply(todaySpend: total)
-            }
-            return
         }
-        do {
-            let version = try await daemon.client.daemonVersion()
-            let next = try await daemon.client.listAgents()
-            roster.apply(agents: next)
-            daemon.setDaemonStatus(.connected(version: version))
-            autoShipMergedSessions()
-        } catch {
-            daemon.setDaemonStatus(.notRunning(detail: error.toastMessage))
-        }
-        // Spend rolls up independently of the agent list — a transport
-        // hiccup here shouldn't flip the connection banner or drop the
-        // roster. `try?` keeps the prior `todaySpend` on transport
-        // failure; METHOD_NOT_FOUND comes back as `.success(nil)` and
-        // applies nil so the roster falls back to summing live agents.
+        // Spend + activity roll up independently of the agent list — a
+        // transport hiccup on either shouldn't flip the connection banner
+        // or drop the roster. `try?` keeps the prior values on transport
+        // failure; METHOD_NOT_FOUND on older daemons returns nil/`[]` and
+        // the consuming surfaces fall back to their own defaults
+        // (sum-of-live-agents for spend, flat baseline for activity).
         if let total = try? await daemon.client.spendToday() {
             roster.apply(todaySpend: total)
+        }
+        if let series = try? await daemon.client.activitySeries() {
+            roster.apply(activity: series)
         }
     }
 

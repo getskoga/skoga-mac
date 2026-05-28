@@ -21,7 +21,15 @@ protocol DaemonClient: AnyObject {
     /// pipeline (JSONDecoder + RPCConversationMessage→domain transform)
     /// off main keeps scroll and animations smooth.
     nonisolated func conversation(for agentId: String) async throws -> [ConversationMessage]
-    func activitySeries() async throws -> [Double]
+    /// 30-bucket guild-pulse sparkline data (`cockpit.activity` — see
+    /// getskoga/skoga#89). Each entry is the raw tokens/min for a
+    /// one-minute bucket, summed across every live session. The
+    /// renderer (`ActivityBars`) normalizes to the max of the series,
+    /// so callers don't need to scale. Returns `[]` against older
+    /// daemons that don't speak this RPC — the cockpit renders a flat
+    /// baseline. `nonisolated` for the same polling-frequency reason
+    /// as `listAgents` — called on every 5s refresh tick.
+    nonisolated func activitySeries() async throws -> [Double]
     /// `nonisolated` for the same reason as [`conversation`]: parsing the
     /// daemon's wire entries (and formatting RFC3339 timestamps for each
     /// row) runs every 5s while the conversation is open. Off-MainActor
