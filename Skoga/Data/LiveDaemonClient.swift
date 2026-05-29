@@ -128,7 +128,7 @@ final class LiveDaemonClient: DaemonClient {
         }
     }
 
-    func createSession(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?) async throws -> Agent {
+    func createSession(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?, namedAgentId: String?) async throws -> Agent {
         // auto_launch tells skogad to spawn the detached `skoga
         // _dispatch_launch` subprocess that actually starts the agent in
         // tmux. The Mac dashboard has no other way to bring the agent up —
@@ -142,6 +142,12 @@ final class LiveDaemonClient: DaemonClient {
         // --model claude-opus-4-7`) and is persisted on the session
         // record; legacy callers / older Mac builds omit it and the
         // daemon falls back to the adapter's CLI default.
+        // named_agent_id stamps the session against a permanent agent
+        // from `agents.list`; the daemon bumps the agent's `last_used`
+        // on accept and increments `total_runs` on terminal success.
+        // Older daemons drop the field silently (`#[serde(default)]`),
+        // so the dispatch still goes through against an ephemeral
+        // identity.
         let trimmed = initialPrompt?.trimmingCharacters(in: .whitespacesAndNewlines)
         let params = AnyEncodable(SessionCreateParams(
             task: task,
@@ -151,7 +157,8 @@ final class LiveDaemonClient: DaemonClient {
             task_auto: false,
             auto_launch: true,
             initial_prompt: (trimmed?.isEmpty ?? true) ? nil : trimmed,
-            agent_model: model
+            agent_model: model,
+            named_agent_id: namedAgentId
         ))
         let resp: SessionCreateResponse = try await rpc.call("session.create", params: params)
         return Agent.from(rpc: resp.session)
@@ -467,6 +474,70 @@ final class LiveDaemonClient: DaemonClient {
             return resp.repos
         } catch let JSONRPCError.rpc(rpcError) where rpcError.code == -32601 {
             return []
+        }
+    }
+
+    func listNamedAgents() async throws -> [NamedAgent] {
+        // Older daemons (pre-getskoga/skoga#33) don't speak `agents.list`;
+        // swallow METHOD_NOT_FOUND so the dispatch grid and sidebar fall
+        // back cleanly to ephemeral-only behavior. Transport/decode errors
+        // still propagate — the consuming surfaces treat them the same as
+        // an empty list, but the polling-fallback in AppCoordinator can
+        // log them.
+        do {
+            let resp: AgentsListResponse = try await rpc.call("agents.list")
+            return resp.agents
+        } catch let JSONRPCError.rpc(rpcError) where rpcError.code == -32601 {
+            return []
+        }
+    }
+
+    @discardableResult
+    func createNamedAgent(name: String, role: String, defaultRepo: String?, defaultModel: String?) async throws -> NamedAgent {
+        let params = AnyEncodable(AgentsCreateParams(
+            name: name,
+            role: role,
+            default_repo: defaultRepo,
+            default_model: defaultModel
+        ))
+        do {
+            let resp: AgentsCreateResponse = try await rpc.call("agents.create", params: params)
+            return resp.agent
+        } catch let JSONRPCError.rpc(rpcError) where rpcError.code == -32601 {
+            // Older daemons (pre-skoga-mac#33 daemon-side work item)
+            // don't speak `agents.create`. Translate -32601 into a
+            // user-friendly error so the conversation-footer save
+            // button toasts "Permanent agents need a newer daemon"
+            // rather than a raw "method not found".
+            throw NamedAgentsError.daemonUnsupported
+        }
+    }
+
+    @discardableResult
+    func updateNamedAgent(id: String, name: String?, role: String?, defaultRepo: String?, defaultModel: String?) async throws -> NamedAgent {
+        let params = AnyEncodable(AgentsUpdateParams(
+            id: id,
+            name: name,
+            role: role,
+            default_repo: defaultRepo,
+            default_model: defaultModel
+        ))
+        do {
+            let resp: AgentsUpdateResponse = try await rpc.call("agents.update", params: params)
+            return resp.agent
+        } catch let JSONRPCError.rpc(rpcError) where rpcError.code == -32601 {
+            throw NamedAgentsError.daemonUnsupported
+        }
+    }
+
+    @discardableResult
+    func deleteNamedAgent(id: String) async throws -> Bool {
+        let params = AnyEncodable(AgentsDeleteParams(id: id))
+        do {
+            let resp: AgentsDeleteResponse = try await rpc.call("agents.delete", params: params)
+            return resp.deleted
+        } catch let JSONRPCError.rpc(rpcError) where rpcError.code == -32601 {
+            throw NamedAgentsError.daemonUnsupported
         }
     }
 
@@ -857,7 +928,8 @@ extension Agent {
             base: s.base,
             baseSha: s.base_sha,
             hostWorktree: s.worktree,
-            createdAt: s.created_at
+            createdAt: s.created_at,
+            namedAgentId: s.named_agent_id
         )
     }
 }

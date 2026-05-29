@@ -143,6 +143,14 @@ struct Agent: Identifiable, Hashable {
     /// memberwise default so the 20+ existing literals don't have to
     /// be edited.
     let createdAt: Date
+    /// Permanent-agent id (`agents.list`) the daemon stamped on the
+    /// session record at `session.create`. `nil` for ephemeral
+    /// dispatches and for sessions persisted before the field
+    /// landed daemon-side. The Sidebar pin uses this to find the
+    /// open session for a permanent agent, falling back to display-
+    /// name match when absent (older daemons) so the pin doesn't
+    /// go dark during the rollout.
+    let namedAgentId: String?
 
     /// Memberwise init with a default for `pendingQuestion` so design
     /// seeds (all 20+ Agent literals in MockDaemonClient) don't have to
@@ -171,7 +179,8 @@ struct Agent: Identifiable, Hashable {
         base: String = "main",
         baseSha: String? = nil,
         hostWorktree: String? = nil,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        namedAgentId: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -197,6 +206,7 @@ struct Agent: Identifiable, Hashable {
         self.needsAutoShip = needsAutoShip
         self.hostWorktree = hostWorktree
         self.createdAt = createdAt
+        self.namedAgentId = namedAgentId
     }
 
     /// `branch` after the first slash, used to label rows like "auth-scope-refresh".
@@ -266,7 +276,8 @@ struct Agent: Identifiable, Hashable {
             lhs.rebasePromptDispatchedAt == rhs.rebasePromptDispatchedAt &&
             lhs.needsAutoShip == rhs.needsAutoShip &&
             lhs.hostWorktree == rhs.hostWorktree &&
-            lhs.createdAt == rhs.createdAt
+            lhs.createdAt == rhs.createdAt &&
+            lhs.namedAgentId == rhs.namedAgentId
     }
 
     func hash(into hasher: inout Hasher) {
@@ -293,5 +304,6 @@ struct Agent: Identifiable, Hashable {
         hasher.combine(needsAutoShip)
         hasher.combine(hostWorktree)
         hasher.combine(createdAt)
+        hasher.combine(namedAgentId)
     }
 }

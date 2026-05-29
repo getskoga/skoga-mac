@@ -159,6 +159,8 @@ struct SettingsShell: View {
             PrivacySettingsSection()
         case .about:
             AboutSettingsSection()
+        case .agents:
+            AgentsSettingsSection()
         default:
             PlaceholderSection(section: selected)
         }
