@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240">
+<g transform="translate(100,16) scale(0.8)"><g><animateTransform attributeName="transform" type="translate" values="0 0;0 -2.5;0 0" keyTimes="0;0.5;1" dur="3.2s" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1" repeatCount="indefinite"/><rect x="-16" y="198" width="32" height="38" rx="9" fill="#6E5238"/><rect x="-16" y="198" width="12" height="38" rx="6" fill="#5C4429"/>
+<path d="M0,98 L92,200 Q69,209 46,200 Q23,209 0,200 Q-23,209 -46,200 Q-69,209 -92,200 L0,98 Z" fill="#123c22"/>
+<path d="M0,58 L70,150 Q52.5,158 35,150 Q17.5,158 0,150 Q-17.5,158 -35,150 Q-52.5,158 -70,150 L0,58 Z" fill="#1a5530"/>
+<path d="M0,20 L46,96 Q34.5,103 23,96 Q11.5,103 0,96 Q-11.5,103 -23,96 Q-34.5,103 -46,96 L0,20 Z" fill="#2c6b41"/>
+<path d="M0,26 L0,10" stroke="#3d8757" stroke-width="4" stroke-linecap="round"/>
+<ellipse cx="-8" cy="8" rx="9" ry="6" fill="#3d8757" transform="rotate(-35 -8 8)"/>
+<ellipse cx="9" cy="8" rx="9" ry="6" fill="#3d8757" transform="rotate(35 9 8)"/>
+<path d="M-58,178 Q-82,178 -92,191 Q-78,196 -64,189 Q-57,184 -58,178 Z" fill="#123c22"/>
+<g><ellipse cx="-17" cy="120" rx="8" ry="10" fill="#0f2a18"><animate attributeName="ry" values="10;10;2.5;2.5;10;10" keyTimes="0;0.56;0.66;0.8;0.9;1" dur="5s" repeatCount="indefinite"/></ellipse>
+<ellipse cx="17" cy="120" rx="8" ry="10" fill="#0f2a18"><animate attributeName="ry" values="10;10;2.5;2.5;10;10" keyTimes="0;0.56;0.66;0.8;0.9;1" dur="5s" repeatCount="indefinite"/></ellipse>
+<circle cx="-14" cy="116" r="2.5" fill="#ece6d6"><animate attributeName="opacity" values="1;1;0;0;1;1" keyTimes="0;0.56;0.64;0.82;0.9;1" dur="5s" repeatCount="indefinite"/></circle>
+<circle cx="20" cy="116" r="2.5" fill="#ece6d6"><animate attributeName="opacity" values="1;1;0;0;1;1" keyTimes="0;0.56;0.64;0.82;0.9;1" dur="5s" repeatCount="indefinite"/></circle>
+<ellipse cx="-31" cy="135" rx="9" ry="5" fill="#c97f4a" opacity="0.8"/><ellipse cx="31" cy="135" rx="9" ry="5" fill="#c97f4a" opacity="0.8"/>
+<path d="M-11,140 Q0,148 11,140" fill="none" stroke="#0f2a18" stroke-width="3" stroke-linecap="round"/></g>
+<g><animateTransform attributeName="transform" type="translate" values="0 0;0 0;-40 -22;-40 -22;0 0;0 0" keyTimes="0;0.5;0.64;0.78;0.92;1" calcMode="spline" keySplines="0 0 1 1;0.3 0 0.3 1;0 0 1 1;0.5 0 0.3 1;0 0 1 1" dur="5s" repeatCount="indefinite"/><animateTransform attributeName="transform" type="rotate" additive="sum" values="0 55 185;0 55 185;-20 55 185;-20 55 185;0 55 185;0 55 185" keyTimes="0;0.5;0.64;0.78;0.92;1" calcMode="spline" keySplines="0 0 1 1;0.3 0 0.3 1;0 0 1 1;0.5 0 0.3 1;0 0 1 1" dur="5s" repeatCount="indefinite"/><g opacity="0"><animate attributeName="opacity" values="0;0.85;0.85;0" keyTimes="0;0.25;0.7;1" dur="2.6s" begin="0s" repeatCount="indefinite"/><animateTransform attributeName="transform" type="translate" values="0 0;0 -18" dur="2.6s" begin="0s" repeatCount="indefinite"/><path d="M50,164 q-5,-7 0,-13 q5,-7 0,-13" fill="none" stroke="#b3a78d" stroke-width="2.5" stroke-linecap="round"/></g><g opacity="0"><animate attributeName="opacity" values="0;0.85;0.85;0" keyTimes="0;0.25;0.7;1" dur="2.6s" begin="1.1s" repeatCount="indefinite"/><animateTransform attributeName="transform" type="translate" values="0 0;0 -18" dur="2.6s" begin="1.1s" repeatCount="indefinite"/><path d="M61,162 q5,-7 0,-13 q-5,-7 0,-13" fill="none" stroke="#b3a78d" stroke-width="2.5" stroke-linecap="round"/></g>
+<rect x="40" y="170" width="30" height="34" rx="6" fill="#c0673f"/>
+<path d="M70,178 Q86,184 70,197" fill="none" stroke="#c0673f" stroke-width="5" stroke-linecap="round"/>
+<ellipse cx="55" cy="170" rx="15" ry="5" fill="#d57c4f"/><ellipse cx="55" cy="171" rx="11" ry="3" fill="#4a2614"/>
+<path d="M34,184 Q23,184 19,193 Q27,199 39,192 Z" fill="#123c22"/></g></g></g>
+</svg>

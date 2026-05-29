@@ -66,6 +66,7 @@
 		B00214FB4957FA51AC2E439B /* RosterState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D8C88BD06BFD2E8CFAB0FF2 /* RosterState.swift */; };
 		B038B3D3555C717A97F1D66A /* CockpitStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA9FE95C049FA34A02C1F2E1 /* CockpitStrip.swift */; };
 		B1FE387B2D3F62BE92234B26 /* WindowAccessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F7F15D58C08252650D51B5 /* WindowAccessor.swift */; };
+		B55D7D8AEE5B4B9326E024D6 /* AnimatedSVG.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0747FBBD7974131069B6135E /* AnimatedSVG.swift */; };
 		B71786BAFAC4EA91B12BAEB9 /* SettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78635D3F6A65F96AE1FE4DC7 /* SettingsSection.swift */; };
 		B74AD933DF060D3FFB390C60 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C1A371B03F1E7D8EEC8F25E /* HistoryView.swift */; };
 		BC1BF718B51E9671E5158743 /* StepGitHub.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1DA95528211AC140C2F8D5B /* StepGitHub.swift */; };
@@ -90,6 +91,7 @@
 		0092134D6C658A8CF9F68040 /* StepSandbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepSandbox.swift; sourceTree = "<group>"; };
 		011A602CAADDFE550B52C9DB /* Skoga.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Skoga.entitlements; sourceTree = "<group>"; };
 		04B3C5B56A345134FAE70ACC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		0747FBBD7974131069B6135E /* AnimatedSVG.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimatedSVG.swift; sourceTree = "<group>"; };
 		0F9EC72CF3909D6961F2C367 /* AboutSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutSettingsSection.swift; sourceTree = "<group>"; };
 		14B24E11B3D8AB61211FC507 /* HistoryToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryToolbar.swift; sourceTree = "<group>"; };
 		18C6D36A05B968E62F7CB7BF /* PulseDot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseDot.swift; sourceTree = "<group>"; };
@@ -323,6 +325,7 @@
 			isa = PBXGroup;
 			children = (
 				90E13C9D4BF28ACDB5B9C1CC /* ActivityBars.swift */,
+				0747FBBD7974131069B6135E /* AnimatedSVG.swift */,
 				8B326243F9BABD1BAF92FE67 /* DaemonStatusBanner.swift */,
 				18C6D36A05B968E62F7CB7BF /* PulseDot.swift */,
 				81F8C2B09E59496FB397779E /* SkogaGlyph.swift */,
@@ -519,6 +522,7 @@
 				AA24C55FF75AB355861514D0 /* Agent.swift in Sources */,
 				958EA9D087B23C21A7A0845A /* AgentCard.swift in Sources */,
 				A0367B1E34A000BC6916699B /* AgentsSettingsSection.swift in Sources */,
+				B55D7D8AEE5B4B9326E024D6 /* AnimatedSVG.swift in Sources */,
 				1CF54B406250832E21C31E97 /* AppCoordinator.swift in Sources */,
 				0904869BDE0C1F4B33955791 /* AppView.swift in Sources */,
 				F360C48B877A3A7CA94F4939 /* BudgetsSettingsSection.swift in Sources */,
