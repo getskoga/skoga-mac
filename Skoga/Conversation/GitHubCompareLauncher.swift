@@ -16,6 +16,37 @@ enum GitHubCompareLauncher {
         case failed(String)
     }
 
+    /// True when `refs/remotes/origin/<branch>` exists in the worktree —
+    /// i.e. the branch has been pushed at least once. We use this purely
+    /// local check (no network) to decide whether the "View commits"
+    /// quick action needs to push before opening the compare URL.
+    /// `git push -u origin <branch>` always updates the remote-tracking
+    /// ref, so its absence is a reliable "never pushed" signal. Returns
+    /// false on any git failure so callers fall through to the push path
+    /// (a redundant push is cheap; an unviewable compare page isn't).
+    static func isBranchPushed(worktree: String, branch: String) async -> Bool {
+        await Task.detached(priority: .userInitiated) {
+            guard let git = resolveGit() else { return false }
+            let process = Process()
+            process.executableURL = git
+            process.arguments = [
+                "-C", worktree,
+                "rev-parse", "--verify", "--quiet",
+                "refs/remotes/origin/\(branch)",
+            ]
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            process.standardInput = FileHandle.nullDevice
+            do {
+                try process.run()
+            } catch {
+                return false
+            }
+            process.waitUntilExit()
+            return process.terminationStatus == 0
+        }.value
+    }
+
     static func resolve(worktree: String, base: String, branch: String) async -> Outcome {
         await Task.detached(priority: .userInitiated) {
             let remote: String
