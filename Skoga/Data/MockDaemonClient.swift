@@ -126,6 +126,17 @@ final class MockDaemonClient: DaemonClient {
         // seeded data, not this call.
     }
 
+    func attachSession(id: String) async throws -> Agent {
+        // Mock has no real worktree or adapter to relaunch. Throw with the
+        // same shape as `createSession` so designers see a clean toast
+        // explaining that revival is a live-daemon-only operation rather
+        // than a silent success that visually looks like nothing happened
+        // (the static seed would re-flip the session back to terminal on
+        // the next refresh tick anyway).
+        throw NSError(domain: "MockDaemonClient", code: 0,
+                      userInfo: [NSLocalizedDescriptionKey: "Attach requires a live skogad. Unset SKOGA_USE_MOCK."])
+    }
+
     func pendingQuestion(for agentId: String) async throws -> RPCPendingQuestion? {
         // No-op for the mock — designers exercise the question UI via
         // the seeded `.question(...)` conversation rows, not the live
@@ -744,6 +755,7 @@ private extension MockDaemonClient {
         case .prClosed: headWhat = "PR closed without merging."
         case .stopping: headWhat = "Stopping — teardown in progress."
         case .exited:   headWhat = "Exited — process ended."
+        case .killed:   headWhat = "Killed — session torn down."
         }
         entries.append(.init(kind: .thought, when: "now", what: headWhat))
 

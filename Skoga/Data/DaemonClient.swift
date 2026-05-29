@@ -117,6 +117,23 @@ protocol DaemonClient: AnyObject {
     /// (no PR open, no recorded feedback), or on tmux / worktree errors.
     func injectFeedback(sessionId: String) async throws
 
+    /// Re-arm a session via the daemon's `session.attach` RPC. Flips
+    /// the daemon's state to `.running`, records the caller's pid
+    /// (informational — tmux is the source of truth for "agent
+    /// alive"), and clears any pending rebase-fix marker so a fresh
+    /// agent supersedes a stale conflict prompt. Throws on daemon-
+    /// terminal sessions (`Done`/`Killed`, whose worktrees are gone)
+    /// and on mid-teardown (`Shipping`/`Killing`). Most "terminal"
+    /// rows in the Mac's History view (AgentExited / PrMerged /
+    /// PrClosed) are non-terminal from the daemon's perspective —
+    /// their worktrees still exist — so this revives them in place.
+    /// The History row drives this so the user can pull a closed
+    /// session back into the active Roster and keep working with
+    /// the original agent + conversation context. Returns the
+    /// updated `Agent` (now `.running`) so the coordinator can
+    /// refresh without round-tripping `session.list`.
+    func attachSession(id: String) async throws -> Agent
+
     /// Fetch the session's in-flight `AskUserQuestion`, if any. Returns nil
     /// when the agent has no pending picker. Used as a polled fallback for
     /// older daemons that don't yet include `pending_question` on

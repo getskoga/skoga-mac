@@ -18,6 +18,7 @@ struct PulseDot: View {
         case .idle:     p.inkFaint
         case .stopping: p.ember
         case .exited:   p.inkMute
+        case .killed:   p.inkMute
         }
     }
 
@@ -25,7 +26,9 @@ struct PulseDot: View {
     /// `.stopping` keeps the pulse because mid-teardown is still in-flight
     /// (and a card that's been stopping for >1s is the kind of thing the
     /// user wants their eye drawn to).
-    private var isQuiet: Bool { status == .idle || status == .exited }
+    private var isQuiet: Bool {
+        status == .idle || status == .exited || status == .killed
+    }
 
     var body: some View {
         ZStack {

@@ -15,6 +15,7 @@ struct StatusPill: View {
         case .idle:     p.inkFaint
         case .stopping: p.ember
         case .exited:   p.inkMute
+        case .killed:   p.inkMute
         }
     }
 

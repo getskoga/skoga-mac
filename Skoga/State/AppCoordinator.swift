@@ -43,6 +43,17 @@ final class AppCoordinator {
     /// the worst case, but spamming rejected RPCs muddies the audit log.
     @ObservationIgnored private var autoShippedSessionIds: Set<String> = []
 
+    /// Just-attached sessions whose `attachSession` returned an Agent but
+    /// whose row hasn't appeared in `roster.agents` yet. The race is
+    /// narrow — the CLI shell-out emits a tmux session that the
+    /// daemon's reconciler picks up on the same tick — but if the
+    /// post-attach `refresh()` lands before the daemon sees the
+    /// relaunched pane, `openAgent` would resolve to nil and the user
+    /// would land on `MainWindow.placeholderView`. Cleared by
+    /// `apply(agents:)` once the roster catches up; consulted last by
+    /// `openAgent`'s fallback chain.
+    @ObservationIgnored private var attachedFallbacks: [String: Agent] = [:]
+
     /// View the user was on when they opened the current conversation,
     /// remembered so the conversation's back button routes them back
     /// to it instead of always landing on `.roster`. Captured by
@@ -133,12 +144,14 @@ final class AppCoordinator {
         if daemon.isMock {
             if let next = try? await daemon.client.listAgents() {
                 roster.apply(agents: next)
+                evictAttachedFallbacks(matchedBy: next)
             }
         } else {
             do {
                 let version = try await daemon.client.daemonVersion()
                 let next = try await daemon.client.listAgents()
                 roster.apply(agents: next)
+                evictAttachedFallbacks(matchedBy: next)
                 daemon.setDaemonStatus(.connected(version: version))
                 autoShipMergedSessions()
             } catch {
@@ -350,6 +363,50 @@ final class AppCoordinator {
         }
     }
 
+    /// Re-arm a session via the daemon's `session.attach` RPC (driven
+    /// through the `skoga attach` CLI so the agent relaunch — tmux
+    /// pane, sandbox wrap, adapter exec — happens too). Flips the
+    /// daemon's state back to `.running` so the existing worktree and
+    /// transcript stay intact. The user lands in the conversation
+    /// view, which automatically switches from the read-only
+    /// `ParsedTranscriptView` to the live embedded TUI once the agent
+    /// flips out of `.isTerminal`. Daemon-terminal sessions
+    /// (`Done`/`Killed`, whose worktrees are gone) and mid-teardown
+    /// sessions surface a clean error toast instead.
+    ///
+    /// Ordering matters here: we stash the returned `Agent` in the
+    /// `attachedFallbacks` cache BEFORE navigating so `openAgent` can
+    /// always resolve, then `refresh()` so the Roster picks up the
+    /// now-live session, and only then `history.remove(id:)` — that
+    /// way a `refresh()` failure leaves the History row intact so the
+    /// user can retry from the same place instead of landing on the
+    /// `MainWindow.placeholderView` with no agent in scope.
+    func attach(agentId: String) async {
+        let prior = history.sessions.first(where: { $0.id == agentId })
+            ?? roster.agents.first(where: { $0.id == agentId })
+        let name = prior?.name ?? "agent"
+        do {
+            let attached = try await daemon.client.attachSession(id: agentId)
+            attachedFallbacks[agentId] = attached
+            await refresh()
+            history.remove(id: agentId)
+            modal.showToast("Reattached to \(name).")
+            openConversation(for: agentId)
+        } catch {
+            modal.showToast("Attach failed: \(error.toastMessage)")
+        }
+    }
+
+    /// Drop any fallback whose id now appears in the freshly-fetched
+    /// roster — the live record supersedes the post-attach snapshot.
+    /// Called from `refresh()` so the cache doesn't grow unboundedly
+    /// across the session's lifetime.
+    private func evictAttachedFallbacks(matchedBy live: [Agent]) {
+        guard !attachedFallbacks.isEmpty else { return }
+        let liveIds = Set(live.map(\.id))
+        attachedFallbacks = attachedFallbacks.filter { !liveIds.contains($0.key) }
+    }
+
     /// Dispatch the rebase-conflict fix-up prompt to a `.conflicted`
     /// session's agent. The daemon does the actual paste; we refresh the
     /// roster so `rebasePromptDispatchedAt` propagates onto the card and
@@ -512,9 +569,13 @@ final class AppCoordinator {
         // (the roster's `session.list` call hardcodes `include_terminal:
         // false`). Without the history fallback, clicking a row in the
         // History view would land on `MainWindow.placeholderView` because
-        // this lookup returns nil for any terminal session id.
+        // this lookup returns nil for any terminal session id. The
+        // attached-fallback entry catches the post-attach window where
+        // the daemon's reconciler hasn't yet surfaced the relaunched
+        // session in `session.list`.
         return roster.agents.first(where: { $0.id == id })
             ?? history.sessions.first(where: { $0.id == id })
+            ?? attachedFallbacks[id]
     }
 
     func openConversation(for id: String) {
