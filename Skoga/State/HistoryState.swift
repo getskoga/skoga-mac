@@ -111,6 +111,20 @@ final class HistoryState {
         loadedFor = nil
     }
 
+    /// Drop a single row by id — used by the coordinator's attach
+    /// action so a freshly-revived session disappears from History
+    /// the moment its daemon RPC returns, rather than lingering as
+    /// a stale terminal row until the user manually re-loads the
+    /// History page. The roster's `apply(agents:)` picks it up on
+    /// the same tick via the post-attach `refresh()`, so the row
+    /// effectively moves Roster-ward in one frame.
+    func remove(id: String) {
+        sessions.removeAll { $0.id == id }
+        if let estimate = totalEstimate, estimate > 0 {
+            totalEstimate = estimate - 1
+        }
+    }
+
     var hasMore: Bool { nextCursor != nil }
 
     /// Client-side free-text filter over the currently-loaded pages.

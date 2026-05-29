@@ -137,14 +137,14 @@ private struct ConvHeader: View {
 
     /// Pause/Stop ride along while the agent still has work to interrupt
     /// (`.running` / `.blocked` / `.idle` / `.stopping`). Terminal states
-    /// (`.exited`, `.done`, `.prOpen`, `.prMerged`, `.prClosed`) omit them
-    /// — there's nothing left to pause and a kill would no-op on a process
-    /// that's already gone.
+    /// (`.exited`, `.killed`, `.done`, `.prOpen`, `.prMerged`, `.prClosed`)
+    /// omit them — there's nothing left to pause and a kill would no-op on
+    /// a process that's already gone.
     private var hasRunControls: Bool {
         guard agent.prUrl == nil else { return false }
         switch agent.status {
-        case .running, .blocked, .idle, .stopping:              return true
-        case .prOpen, .prMerged, .prClosed, .done, .exited:     return false
+        case .running, .blocked, .idle, .stopping:                      return true
+        case .prOpen, .prMerged, .prClosed, .done, .exited, .killed:    return false
         }
     }
 }
@@ -161,28 +161,39 @@ private struct ConvHeader: View {
 private struct ConvActionsFooter: View {
     @Environment(\.palette) private var p
     @Environment(ModalState.self) private var modal
+    @Environment(AppCoordinator.self) private var coordinator
     @Environment(DaemonClientHolder.self) private var daemon
     let agent: Agent
 
     @State private var pushing = false
+    @State private var attaching = false
 
     var body: some View {
         HStack(spacing: 8) {
             Spacer(minLength: 0)
             if agent.status.isTerminal {
-                // Terminal sessions can't be pushed to or re-PR'd from here
-                // — the agent process is gone and the worktree has been
-                // torn down. The only action that still makes sense is
-                // jumping to the PR if one was landed; everything else
-                // would either fail at the daemon or be misleading.
+                // Terminal-from-Mac's-view sessions (done/exited/
+                // killed/PR-merged/PR-closed) can't be pushed to or
+                // re-PR'd from here. The "Attach" CTA bridges back to
+                // a working session via `skoga attach` — but only for
+                // states the daemon will accept (`.canAttach`:
+                // exited/PrMerged/PrClosed, whose worktrees still
+                // exist). Done/Killed have torn-down worktrees so
+                // their footer collapses to just the read-only label
+                // + (if landed) the PR link, rather than offering a
+                // button we know will fail.
+                Text("Read-only — session is closed")
+                    .font(SkogaFont.small(11.5))
+                    .foregroundStyle(p.inkMute)
                 if let url = agent.prUrl {
                     GhostPillButton(label: "View PR on GitHub", icon: .github) {
                         openPRURL(url)
                     }
-                } else {
-                    Text("Read-only — session is closed")
-                        .font(SkogaFont.small(11.5))
-                        .foregroundStyle(p.inkMute)
+                }
+                if agent.status.canAttach {
+                    AttachButton(busy: attaching) {
+                        Task { await attach() }
+                    }
                 }
             } else {
                 PushButton(busy: pushing) {
@@ -227,6 +238,58 @@ private struct ConvActionsFooter: View {
         } catch {
             modal.showToast("Push failed: \(error.localizedDescription)")
         }
+    }
+
+    /// Revive a terminal session via `coordinator.attach`. The double-fire
+    /// guard matches `pushBranch` — the daemon's worktree fork + adapter
+    /// relaunch takes a moment, and a rapid second click would queue a
+    /// second `session.attach` against an id that's already mid-revive.
+    private func attach() async {
+        guard !attaching else { return }
+        attaching = true
+        defer { attaching = false }
+        await coordinator.attach(agentId: agent.id)
+    }
+}
+
+/// Footer CTA for reviving a terminal session — same shape as `PushButton`
+/// so the two read as a coordinated pair when the user is reading the
+/// closing-session footer. Swaps the icon for a spinner while the
+/// `session.attach` RPC is in flight (the daemon's worktree fork is the
+/// slow step, not the RPC).
+private struct AttachButton: View {
+    @Environment(\.palette) private var p
+    let busy: Bool
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if busy {
+                    ProgressView()
+                        .controlSize(.small)
+                        .progressViewStyle(.circular)
+                } else {
+                    Image(skoga: .attach).skogaIconSize(13)
+                }
+                Text(busy ? "Reattaching…" : "Attach")
+                    .font(SkogaFont.smallMedium(11.5))
+            }
+            .foregroundStyle(busy ? p.ink2 : .white)
+            .padding(.horizontal, 12)
+            .frame(height: 26)
+            .background(
+                RoundedRectangle(cornerRadius: Tokens.Radius.chip)
+                    .fill(busy ? p.paper3 : (hovering ? p.forest.opacity(0.9) : p.forest))
+                    .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
+            )
+            .opacity(busy ? 0.7 : 1)
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
+        .onHover { hovering = $0 }
     }
 }
 

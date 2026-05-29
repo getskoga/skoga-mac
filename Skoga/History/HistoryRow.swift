@@ -4,77 +4,113 @@ import SwiftUI
 /// `(name, task, repo, status, when, runtime, spend)` shape spelled
 /// out in skoga-mac issue #34. Click invokes the row's `onOpen`
 /// callback, which the parent uses to navigate into the read-only
-/// conversation surface.
+/// conversation surface. The hover-revealed "Attach" pill and the
+/// right-click "Attach to session" item both call `onAttach` to
+/// revive the session in place — same id, fresh worktree, agent
+/// relaunched against the same transcript.
 struct HistoryRow: View {
     @Environment(\.palette) private var p
     let agent: Agent
     let onOpen: () -> Void
+    let onAttach: () -> Void
 
     @State private var hovering = false
 
     var body: some View {
-        Button(action: onOpen) {
-            HStack(spacing: HistoryRowLayout.colSpacing) {
-                avatar
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(agent.name)
-                        .font(SkogaFont.bodyMedium(12.5))
-                        .foregroundStyle(p.ink)
-                        .lineLimit(1)
-                    Text(agent.role)
-                        .font(SkogaFont.monoTiny(9.5))
-                        .tracking(0.4)
-                        .foregroundStyle(p.inkFaint)
-                }
-                .frame(width: HistoryRowLayout.nameCol, alignment: .leading)
+        // ZStack so the hover-only Attach pill captures its own clicks
+        // without bubbling through the row-open Button. Nesting it
+        // inside the outer Button (the obvious approach) makes the
+        // pill's tap fire `onOpen` instead of `onAttach` on macOS,
+        // because SwiftUI's Button container swallows interior touch
+        // events regardless of `.buttonStyle(.plain)`.
+        ZStack(alignment: .trailing) {
+            Button(action: onOpen) {
+                HStack(spacing: HistoryRowLayout.colSpacing) {
+                    avatar
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(agent.name)
+                            .font(SkogaFont.bodyMedium(12.5))
+                            .foregroundStyle(p.ink)
+                            .lineLimit(1)
+                        Text(agent.role)
+                            .font(SkogaFont.monoTiny(9.5))
+                            .tracking(0.4)
+                            .foregroundStyle(p.inkFaint)
+                    }
+                    .frame(width: HistoryRowLayout.nameCol, alignment: .leading)
 
-                Text(agent.task)
-                    .font(SkogaFont.body(12.5))
-                    .foregroundStyle(p.ink2)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(agent.repo)
-                        .font(SkogaFont.monoSmall(10.5))
+                    Text(agent.task)
+                        .font(SkogaFont.body(12.5))
                         .foregroundStyle(p.ink2)
                         .lineLimit(1)
-                        .truncationMode(.middle)
-                    Text(agent.branchSlug)
-                        .font(SkogaFont.monoTiny(9.5))
-                        .foregroundStyle(p.inkFaint)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(agent.repo)
+                            .font(SkogaFont.monoSmall(10.5))
+                            .foregroundStyle(p.ink2)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Text(agent.branchSlug)
+                            .font(SkogaFont.monoTiny(9.5))
+                            .foregroundStyle(p.inkFaint)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    .frame(width: HistoryRowLayout.repoCol, alignment: .leading)
+
+                    StatusPill(status: agent.status)
+                        .frame(width: HistoryRowLayout.statusCol, alignment: .leading)
+
+                    Text(WhenFormatter.relative(from: agent.createdAt))
+                        .font(SkogaFont.monoSmall(10.5))
+                        .foregroundStyle(p.inkMute)
+                        .frame(width: HistoryRowLayout.whenCol, alignment: .leading)
+
+                    Text(agent.runtime)
+                        .font(SkogaFont.monoSmall(10.5))
+                        .foregroundStyle(p.inkMute)
+                        .frame(width: HistoryRowLayout.runtimeCol, alignment: .leading)
+
+                    Text(String(format: "$%.2f", agent.cost))
+                        .font(SkogaFont.monoSmall(10.5))
+                        .foregroundStyle(p.ink2)
+                        .frame(width: HistoryRowLayout.spendCol, alignment: .trailing)
                 }
-                .frame(width: HistoryRowLayout.repoCol, alignment: .leading)
-
-                StatusPill(status: agent.status)
-                    .frame(width: HistoryRowLayout.statusCol, alignment: .leading)
-
-                Text(WhenFormatter.relative(from: agent.createdAt))
-                    .font(SkogaFont.monoSmall(10.5))
-                    .foregroundStyle(p.inkMute)
-                    .frame(width: HistoryRowLayout.whenCol, alignment: .leading)
-
-                Text(agent.runtime)
-                    .font(SkogaFont.monoSmall(10.5))
-                    .foregroundStyle(p.inkMute)
-                    .frame(width: HistoryRowLayout.runtimeCol, alignment: .leading)
-
-                Text(String(format: "$%.2f", agent.cost))
-                    .font(SkogaFont.monoSmall(10.5))
-                    .foregroundStyle(p.ink2)
-                    .frame(width: HistoryRowLayout.spendCol, alignment: .trailing)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
+                .background(hovering ? p.paper2 : .clear)
+                .overlay(alignment: .bottom) { Hairline() }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
-            .background(hovering ? p.paper2 : .clear)
-            .overlay(alignment: .bottom) { Hairline() }
+            .buttonStyle(.plain)
+
+            if hovering && agent.status.canAttach {
+                // Hover-only quick action — revealed at the right edge of
+                // the row so the user can revive without first opening the
+                // read-only conversation. Offset inside the row's padding
+                // so it floats over the spend column without permanently
+                // crowding it; the row is wide enough that occluding the
+                // last cell on hover is preferable to reserving a column.
+                // Gated on `canAttach` so Done/Killed rows (worktrees
+                // gone, daemon would reject) don't surface a button we
+                // know would fail.
+                AttachQuickAction(onAttach: onAttach)
+                    .padding(.trailing, 16)
+                    .transition(.opacity)
+            }
         }
-        .buttonStyle(.plain)
         .onHover { hovering = $0 }
+        .contextMenu {
+            if agent.status.canAttach {
+                Button {
+                    onAttach()
+                } label: {
+                    Label("Attach to session", systemImage: SkogaIcon.attach.symbol)
+                }
+            }
+        }
     }
 
     private var avatar: some View {
@@ -88,6 +124,39 @@ struct HistoryRow: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 7).stroke(p.rule, lineWidth: Tokens.Hairline.width)
             )
+    }
+}
+
+/// Hover-revealed "Attach" pill at the right edge of a History row.
+/// Pulled out into its own view so the row's `onAttach` callback can
+/// stop the parent button's tap before the row-open action fires —
+/// without a nested Button + `buttonStyle(.plain)`, the click would
+/// bubble up to the row's onOpen and dump the user into the
+/// read-only conversation instead of starting the revive.
+private struct AttachQuickAction: View {
+    @Environment(\.palette) private var p
+    let onAttach: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: onAttach) {
+            HStack(spacing: 4) {
+                Image(skoga: .attach).skogaIconSize(11)
+                Text("Attach")
+                    .font(SkogaFont.smallMedium(11))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 9)
+            .frame(height: 22)
+            .background(
+                RoundedRectangle(cornerRadius: Tokens.Radius.chip)
+                    .fill(hovering ? p.forest.opacity(0.9) : p.forest)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help("Re-arm this session and resume working with its agent.")
     }
 }
 

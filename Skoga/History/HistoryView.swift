@@ -99,9 +99,11 @@ struct HistoryView: View {
                     emptyRow
                 } else {
                     ForEach(rows) { agent in
-                        HistoryRow(agent: agent) {
-                            coordinator.openConversation(for: agent.id)
-                        }
+                        HistoryRow(
+                            agent: agent,
+                            onOpen: { coordinator.openConversation(for: agent.id) },
+                            onAttach: { Task { await coordinator.attach(agentId: agent.id) } }
+                        )
                     }
                 }
                 footer

@@ -192,6 +192,41 @@ final class LiveDaemonClient: DaemonClient {
         )
     }
 
+    func attachSession(id: String) async throws -> Agent {
+        // Shell out to `skoga attach <id>` rather than invoking the
+        // `session.attach` RPC directly. The daemon RPC only flips
+        // state + records pid; the agent relaunch (tmux pane spawn,
+        // sandbox wrap, credential env, adapter exec) all lives in
+        // the CLI command (`commands/attach.rs:151-235`). Driving
+        // that from Swift would duplicate ~80 lines of shell + sandbox
+        // logic, so we use the same shell-out pattern as `landPR` /
+        // `pushBranch`.
+        //
+        // The CLI ends with `tmux attach-session` via `exec(2)`, which
+        // fails in a GUI-spawned subprocess (no controlling TTY). All
+        // the launch work happens BEFORE that final exec, so we treat
+        // a stderr containing "failed to attach to tmux session" as
+        // success and refetch the session from `session.list` for the
+        // up-to-date record.
+        do {
+            _ = try await runSkoga(args: ["attach", id])
+        } catch let SkogaCLIError.commandFailed(_, stderr)
+            where stderr.contains("failed to attach to tmux session")
+        {
+            // Expected — the agent is up; the no-TTY exec at the tail
+            // is the only thing that errored.
+        }
+        // Refetch — the CLI doesn't emit a JSON envelope, so we read
+        // the now-running session out of the agent list.
+        let agents = try await listAgents()
+        guard let refreshed = agents.first(where: { $0.id == id }) else {
+            throw SkogaCLIError.unexpectedOutput(
+                "session \(id) not in session.list after attach"
+            )
+        }
+        return refreshed
+    }
+
     func pendingQuestion(for agentId: String) async throws -> RPCPendingQuestion? {
         // Older daemons (pre-#100) don't expose this method; swallow
         // METHOD_NOT_FOUND so the conversation view still renders.
@@ -850,12 +885,22 @@ private extension AgentStatus {
             // .exited so a card stuck mid-teardown (cleanup hung) is visibly
             // different from a cleanly-exited agent.
             self = .stopping
-        case .agentExited, .killed:
+        case .agentExited:
             // .exited means the Claude process is gone (Ctrl-C, crash, or
-            // post-teardown). The session/worktree may still be around, so
-            // it's not the same as terminal .done. Renders distinct from .idle
-            // because the user can't just "send another message" to wake it.
+            // post-teardown) but the daemon hasn't called this session
+            // terminal yet — the worktree's still on disk and `session.attach`
+            // will revive it. Distinct from `.idle` because the user can't
+            // just "send another message" to wake it; distinct from `.killed`
+            // because that one isn't re-attachable.
             self = .exited
+        case .killed:
+            // Daemon-terminal: worktree torn down, `session.attach` will
+            // reject. Kept distinct from `.exited` so the History row's
+            // Attach affordance can gate (the daemon's contract is the
+            // source of truth on which terminal-from-Mac states can be
+            // re-armed; collapsing the two would force every "exited"
+            // row to discover the failure via toast).
+            self = .killed
         case .prOpen:
             self = .prOpen
         case .prMerged, .shipping:

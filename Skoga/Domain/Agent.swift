@@ -1,7 +1,7 @@
 import Foundation
 
 enum AgentStatus: String, CaseIterable, Codable, Hashable {
-    case running, blocked, prOpen, prMerged, prClosed, done, idle, stopping, exited
+    case running, blocked, prOpen, prMerged, prClosed, done, idle, stopping, exited, killed
 
     var label: String {
         switch self {
@@ -14,6 +14,7 @@ enum AgentStatus: String, CaseIterable, Codable, Hashable {
         case .idle:     "Idle"
         case .stopping: "Stopping"
         case .exited:   "Exited"
+        case .killed:   "Killed"
         }
     }
 
@@ -32,8 +33,20 @@ enum AgentStatus: String, CaseIterable, Codable, Hashable {
     /// when this is true.
     var isTerminal: Bool {
         switch self {
-        case .done, .exited, .prMerged, .prClosed: true
+        case .done, .exited, .killed, .prMerged, .prClosed: true
         case .running, .blocked, .prOpen, .idle, .stopping: false
+        }
+    }
+
+    /// Whether the daemon's `session.attach` will accept this state.
+    /// `.killed` and `.done` have their worktrees torn down, so attach
+    /// rejects them; the History row gates the Attach affordance on
+    /// this so users don't get an inscrutable failure toast on rows
+    /// the daemon was never going to revive.
+    var canAttach: Bool {
+        switch self {
+        case .exited, .prMerged, .prClosed: true
+        case .done, .killed, .running, .blocked, .prOpen, .idle, .stopping: false
         }
     }
 
@@ -48,6 +61,7 @@ enum AgentStatus: String, CaseIterable, Codable, Hashable {
         case .done:     6
         case .idle:     7
         case .exited:   8
+        case .killed:   9
         }
     }
 }
