@@ -6,6 +6,7 @@ struct DispatchView: View {
     @Environment(AppCoordinator.self) private var coordinator
     @Environment(RosterState.self) private var roster
     @Environment(DaemonClientHolder.self) private var daemon
+    @Environment(NamedAgentsState.self) private var namedAgents
 
     @State private var template: Template = .feature
     @State private var title: String = ""
@@ -351,6 +352,9 @@ struct DispatchView: View {
         ) {
             assigneeCard(id: "auto", name: "Auto · best fit", st: "Roster + history", icon: .spark, isAuto: true)
             assigneeCard(id: "spawn", name: "New agent", st: "Fresh runtime", icon: .plus)
+            ForEach(orderedPermanentAgents) { a in
+                permanentAssigneeCard(a)
+            }
             ForEach(idleOrLight) { a in
                 assigneeCard(id: a.id, name: a.name, st: "\(a.role.split(separator: " / ").first.map(String.init) ?? a.role) · \(a.status.rawValue)", initials: a.initials)
             }
@@ -359,6 +363,78 @@ struct DispatchView: View {
 
     private var idleOrLight: [Agent] {
         roster.agents.filter { $0.status == .idle || $0.status == .done || $0.status == .exited }.prefix(6).map { $0 }
+    }
+
+    /// Permanent agents ordered for the assignee grid. Agents whose
+    /// `defaultRepo` matches the currently-selected dispatch repo sort
+    /// first (so the user sees Astrid surface as the obvious pick when
+    /// they've selected monolith-web); the remainder fall back to
+    /// `lastUsed` desc. The id prefix (`named-`) distinguishes them
+    /// from ephemeral agent ids at the dispatch handler, so a click
+    /// can route to the permanent flow vs. the existing ephemeral
+    /// reuse flow.
+    private var orderedPermanentAgents: [NamedAgent] {
+        let xs = namedAgents.agents
+        let selectedRepo = selectedRepoPath
+        return xs.sorted { lhs, rhs in
+            let lhsMatch = lhs.defaultRepo == selectedRepo
+            let rhsMatch = rhs.defaultRepo == selectedRepo
+            if lhsMatch != rhsMatch { return lhsMatch }
+            return (lhs.lastUsed ?? .distantPast) > (rhs.lastUsed ?? .distantPast)
+        }
+    }
+
+    /// One row in the permanent-agents section of the assignee grid.
+    /// Visually distinct from the idle-ephemeral cards via a thin
+    /// "pinned" accent + the saved role/model in the subline so the
+    /// user can tell their persisted Astrid apart from a stray
+    /// ephemeral session that happens to share the name.
+    @ViewBuilder
+    private func permanentAssigneeCard(_ a: NamedAgent) -> some View {
+        let on = assignee == a.id
+        Button {
+            assignee = a.id
+        } label: {
+            HStack(spacing: 9) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 7)
+                        .fill(p.forestSoft)
+                    Text(a.initials)
+                        .font(SkogaFont.serifName(13))
+                        .foregroundStyle(p.ink)
+                }
+                .frame(width: 28, height: 28)
+                .overlay(RoundedRectangle(cornerRadius: 7).stroke(p.forest, lineWidth: Tokens.Hairline.width))
+
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 4) {
+                        Text(a.name)
+                            .font(SkogaFont.serifName(13.5))
+                            .foregroundStyle(p.ink)
+                            .lineLimit(1)
+                        Image(skoga: .spark)
+                            .skogaIconSize(9)
+                            .foregroundStyle(p.forest)
+                    }
+                    Text("\(a.role) · permanent".uppercased())
+                        .font(SkogaFont.monoTiny(9.5))
+                        .tracking(0.4)
+                        .foregroundStyle(p.inkFaint)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 11).padding(.vertical, 9)
+            .background(
+                RoundedRectangle(cornerRadius: Tokens.Radius.input)
+                    .fill(on ? p.paper3 : p.paper2)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Tokens.Radius.input)
+                    .stroke(on ? p.forest : p.rule, lineWidth: on ? 1 : Tokens.Hairline.width)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -463,16 +539,45 @@ struct DispatchView: View {
             case (false, false): return "\(taskText)\n\n\(briefText)"
             }
         }()
+        // Permanent-agent route: substitute the agent's saved
+        // `defaultModel` for whatever the dispatch form's Model picker
+        // is showing (the user picked the agent, not the model — they'd
+        // be surprised if Astrid suddenly ran on Codex). Adapter is
+        // re-derived from the model id by matching against
+        // `modelChoices`; when the saved model is no longer in the
+        // list (renamed model, stale persistence), fall back to the
+        // picker's current adapter — that's whatever the user has
+        // already chosen for this dispatch, and is more likely to
+        // route correctly than a hardcoded "claude".
+        let (agentAdapter, agentModel): (String, String) = {
+            if let permanent = selectedPermanentAgent, let saved = permanent.defaultModel {
+                if let match = Self.modelChoices.first(where: { $0.model == saved }) {
+                    return (match.adapter, match.model)
+                }
+                return (selectedModel.adapter, saved)
+            }
+            return (selectedModel.adapter, selectedModel.model)
+        }()
+        let namedAgentId = selectedPermanentAgent?.id
         Task {
             await coordinator.dispatch(
                 task: taskText,
-                agent: selectedModel.adapter,
-                model: selectedModel.model,
+                agent: agentAdapter,
+                model: agentModel,
                 base: "main",
                 repoRoot: url,
-                initialPrompt: prompt
+                initialPrompt: prompt,
+                namedAgentId: namedAgentId
             )
         }
+    }
+
+    /// The currently-selected permanent agent, if `assignee` matches
+    /// one in the registry. Used both at dispatch time (to substitute
+    /// the saved model) and in the preview KV strip (to render the
+    /// permanent agent's name in `assigneeLabel`).
+    private var selectedPermanentAgent: NamedAgent? {
+        namedAgents.agents.first { $0.id == assignee }
     }
 
     private var canDispatch: Bool {
@@ -580,9 +685,21 @@ struct DispatchView: View {
             kvRow("repo", selectedRepoLabel, mono: true)
             kvRow("branch", branchName, mono: true)
             kvRow("assignee", assigneeLabel, mono: false)
-            kvRow("model", selectedModel.model, mono: true)
+            kvRow("model", effectiveModelLabel, mono: true)
         }
         .padding(.top, 8)
+    }
+
+    /// What the dispatch will actually run with. When the assignee is
+    /// a permanent agent with a saved `defaultModel`, that wins over
+    /// the picker — same substitution `dispatchTapped` applies — so
+    /// the preview row stops lying when the user picks Astrid after
+    /// the Model dropdown has drifted to something else.
+    private var effectiveModelLabel: String {
+        if let permanent = selectedPermanentAgent, let saved = permanent.defaultModel, !saved.isEmpty {
+            return saved
+        }
+        return selectedModel.model
     }
 
     private var selectedRepoLabel: String {
@@ -590,7 +707,21 @@ struct DispatchView: View {
     }
 
     private var branchName: String {
-        let base = (assignee == "auto" || assignee == "spawn") ? "agent" : assignee
+        let base: String = {
+            switch assignee {
+            case "auto", "spawn": return "agent"
+            default:
+                // Permanent agent: branch under the saved name slug so
+                // the worktree reads "astrid/cart-xstate" the same as
+                // it does for the ephemeral identity. Falls back to
+                // the raw assignee id (the existing behavior for idle-
+                // ephemeral assignees).
+                if let permanent = selectedPermanentAgent {
+                    return permanent.name.lowercased()
+                }
+                return assignee
+            }
+        }()
         let slug = (title.isEmpty ? "untitled" : title)
             .lowercased()
             .replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
@@ -600,9 +731,13 @@ struct DispatchView: View {
 
     private var assigneeLabel: String {
         switch assignee {
-        case "auto":  "Auto · best fit"
-        case "spawn": "New agent · spawn fresh"
-        default:      roster.agents.first(where: { $0.id == assignee })?.name ?? "—"
+        case "auto":  return "Auto · best fit"
+        case "spawn": return "New agent · spawn fresh"
+        default:
+            if let permanent = selectedPermanentAgent {
+                return "\(permanent.name) · permanent"
+            }
+            return roster.agents.first(where: { $0.id == assignee })?.name ?? "—"
         }
     }
 

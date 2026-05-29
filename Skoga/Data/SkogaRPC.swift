@@ -103,6 +103,14 @@ struct RPCSession: Decodable {
     /// from the standalone `session.diff_stat` RPC, which the PR modal
     /// uses to force a fresh recompute regardless of cache state.
     let diff_stat: RPCDiffStat?
+    /// `agents.list` id of the permanent agent this session was
+    /// dispatched against, when the caller pinned one in the Dispatch
+    /// grid (see `SessionCreateParams.named_agent_id`). `nil` for the
+    /// ephemeral path and for any older daemon that doesn't stamp
+    /// this on session records yet. The Sidebar reads it to route a
+    /// pin click straight to the right open session instead of
+    /// matching by display-name (which would alias across renames).
+    let named_agent_id: String?
 }
 
 /// Cumulative token + cost totals for a session, mirroring
@@ -207,6 +215,16 @@ struct SessionCreateParams: Encodable {
     /// `claude --model <agent_model>`; the generic `exec:` adapter
     /// ignores it. `nil` means "use the adapter's CLI default".
     let agent_model: String?
+    /// `agents.list` id of the permanent agent this session is
+    /// dispatched against, when the user picked one in the Dispatch
+    /// grid. The daemon uses this to (a) stamp the session record so
+    /// `agents.list` can roll up per-agent telemetry, (b) bump the
+    /// agent's `last_used` immediately, and (c) increment `total_runs`
+    /// on the session's eventual `.prMerged` / `.done` transition.
+    /// `nil` is the existing ephemeral-dispatch path. Older daemons
+    /// that don't recognize the field silently drop it (serde
+    /// `#[serde(default)]` on the matching Rust struct).
+    let named_agent_id: String?
 }
 
 struct SessionCreateResponse: Decodable {

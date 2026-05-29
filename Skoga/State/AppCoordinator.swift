@@ -21,6 +21,7 @@ final class AppCoordinator {
     let daemon: DaemonClientHolder
     let history: HistoryState
     let notifications: NotificationsService
+    let namedAgents: NamedAgentsState
 
     // ── Visibility gating ────────────────────────────────────
     // The polling loop suspends when the app is hidden (cmd+H) or the
@@ -77,6 +78,7 @@ final class AppCoordinator {
         self.modal = ModalState()
         self.daemon = DaemonClientHolder(client: client ?? MockDaemonClient(), isMock: isMock)
         self.history = HistoryState()
+        self.namedAgents = NamedAgentsState()
         // Singleton — the AppDelegate adaptor already registered it as
         // the UNUserNotificationCenter delegate in
         // `applicationWillFinishLaunching`, before this coordinator
@@ -112,6 +114,26 @@ final class AppCoordinator {
         // appear; the PR modal and Settings each await the same call on
         // their own surface anyway.
         Task { await daemon.refreshGitHubStatus() }
+        // Seed the History slice in the background so the
+        // permanent-agents successful-runs counter can fold in PR-
+        // merged sessions from before this app launch (skoga-mac#33).
+        // Without this, a returning user with a long history would
+        // need to manually visit the History view before the
+        // "Save as permanent agent?" prompt threshold reflects
+        // their past work. The History view's own `.task` reuses
+        // whatever this lands so navigation there is still snappy.
+        Task { @MainActor [weak self] in
+            await self?.loadHistory(reset: true)
+            // Recount once after the page lands so the counter
+            // catches up immediately rather than waiting for the
+            // next 5s tick.
+            if let self {
+                self.namedAgents.recountSuccessfulRuns(
+                    from: self.roster.agents,
+                    self.history.sessions
+                )
+            }
+        }
         startEventLoop()
         startPollingFallback()
 
@@ -170,6 +192,26 @@ final class AppCoordinator {
         if let series = try? await daemon.client.activitySeries() {
             roster.apply(activity: series)
         }
+        // Permanent agents registry + the per-name successful-runs
+        // counter ride along on every poll. `agents.list` returns []
+        // on older daemons (METHOD_NOT_FOUND swallowed in the live
+        // client), so the dispatch grid + sidebar pins just stay
+        // empty in that case rather than dropping a banner. The
+        // counter is recomputed from the freshly-applied roster +
+        // whatever terminal history is already loaded, so the
+        // "Save as permanent agent?" footer prompt reflects both
+        // current-session activity and prior PR-merged runs from
+        // before the app launched. The history slice is best-effort
+        // — `bootstrap` kicks off the initial load, but until that
+        // returns this just counts the live roster, which is the
+        // same behavior pre-history-fold.
+        if let next = try? await daemon.client.listNamedAgents() {
+            namedAgents.apply(agents: next)
+        }
+        namedAgents.recountSuccessfulRuns(from: roster.agents, history.sessions)
+        let liveIds = Set(roster.agents.map(\.id))
+            .union(history.sessions.map(\.id))
+        namedAgents.prune(keepingSessionIds: liveIds)
     }
 
     /// Fire `session.ship` on any session the daemon has flagged as
@@ -303,9 +345,81 @@ final class AppCoordinator {
         }
     }
 
-    func dispatch(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?) async {
+    /// Convert an ephemeral Norse-named identity into a permanent
+    /// agent the user can re-dispatch against. Driven by the
+    /// conversation footer prompt — at the call site we know the
+    /// open session, so we hand its name + role + model through as
+    /// NamedAgent defaults. `defaultRepo` is deliberately left `nil`:
+    /// `Agent.repo` is the display slug (e.g. `"skoga/monolith-web"`),
+    /// not the absolute `repo_root` path that `Settings → Agents` and
+    /// `Dispatch.orderedPermanentAgents` both compare against; passing
+    /// the slug would silently break the "matching repo first" sort.
+    /// The user can rehome the agent later from the Settings panel.
+    /// Surfaces success/failure as a toast and triggers an immediate
+    /// refresh so the dispatch grid + sidebar pins reflect the new
+    /// permanent agent without waiting for the next 5s tick.
+    func saveAsPermanentAgent(from agent: Agent) async {
         do {
-            let created = try await daemon.client.createSession(task: task, agent: agent, model: model, base: base, repoRoot: repoRoot, initialPrompt: initialPrompt)
+            let created = try await daemon.client.createNamedAgent(
+                name: agent.name,
+                role: agent.role,
+                defaultRepo: nil,
+                defaultModel: agent.model
+            )
+            modal.showToast("\(created.name) is now a permanent agent.")
+            await refresh()
+        } catch {
+            modal.showToast("Couldn't save \(agent.name): \(error.toastMessage)")
+        }
+    }
+
+    /// Rename / re-role / re-home a permanent agent (`agents.update`).
+    /// PATCH-shape — `nil` arguments are left alone daemon-side, so the
+    /// Settings → Agents form can submit just the field the user
+    /// edited. Trims whitespace and treats blank input as a no-op so
+    /// the daemon's empty-input validator doesn't get a useless RPC.
+    /// Surfaces success/failure as a toast and refreshes so the
+    /// dispatch grid + sidebar pins reflect the new label.
+    @discardableResult
+    func updatePermanentAgent(id: String, name: String?, role: String?, defaultRepo: String?, defaultModel: String?) async -> Bool {
+        let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedRole = role?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let nameArg = (trimmedName?.isEmpty ?? true) ? nil : trimmedName
+        let roleArg = (trimmedRole?.isEmpty ?? true) ? nil : trimmedRole
+        do {
+            let updated = try await daemon.client.updateNamedAgent(
+                id: id,
+                name: nameArg,
+                role: roleArg,
+                defaultRepo: defaultRepo,
+                defaultModel: defaultModel
+            )
+            modal.showToast("Updated \(updated.name).")
+            await refresh()
+            return true
+        } catch {
+            modal.showToast("Couldn't update agent: \(error.toastMessage)")
+            return false
+        }
+    }
+
+    /// Forget a permanent agent (`agents.delete`). Open sessions
+    /// dispatched against this agent keep running; only the pinned
+    /// identity in the registry goes away. Refreshes on success so
+    /// the dispatch grid + sidebar pins drop the row immediately.
+    func deletePermanentAgent(id: String, name: String) async {
+        do {
+            _ = try await daemon.client.deleteNamedAgent(id: id)
+            modal.showToast("Removed \(name) from permanent agents.")
+            await refresh()
+        } catch {
+            modal.showToast("Couldn't remove \(name): \(error.toastMessage)")
+        }
+    }
+
+    func dispatch(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?, namedAgentId: String? = nil) async {
+        do {
+            let created = try await daemon.client.createSession(task: task, agent: agent, model: model, base: base, repoRoot: repoRoot, initialPrompt: initialPrompt, namedAgentId: namedAgentId)
             let title = task.count > 48 ? task.prefix(48) + "…" : Substring(task)
             modal.showToast("Dispatched \"\(title)\" → \(created.repo) (\(created.name))")
             // Jump straight to the new session's conversation view instead of

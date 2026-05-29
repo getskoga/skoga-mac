@@ -72,8 +72,11 @@ protocol DaemonClient: AnyObject {
     /// populates immediately rather than landing on Claude's empty welcome
     /// screen. `model`, when non-nil, pins the adapter's CLI model flag
     /// (e.g. `claude --model claude-opus-4-7`) and is persisted on the
-    /// session record so re-launches keep using it.
-    func createSession(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?) async throws -> Agent
+    /// session record so re-launches keep using it. `namedAgentId`, when
+    /// set, hands the daemon a permanent-agent id (`agents.list`) to
+    /// stamp on the session record so per-agent telemetry, `last_used`,
+    /// and `total_runs` roll up to the right pinned identity.
+    func createSession(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?, namedAgentId: String?) async throws -> Agent
 
     /// Tear a session down (`session.kill`). Worktree removal happens
     /// asynchronously; subscribers see the `session.killed` event when done.
@@ -273,6 +276,35 @@ protocol DaemonClient: AnyObject {
     /// repo pills. Returns an empty array on older daemons that don't
     /// speak this RPC — the screen falls back to the folder picker.
     func recentRepos() async throws -> [RPCRecentRepo]
+
+    /// User-defined permanent agents (`agents.list`). Persisted in
+    /// `~/.skoga/state/named_agents.json` daemon-side; the Mac never
+    /// writes the file directly. Returns `[]` on older daemons that
+    /// don't speak the RPC — the dispatch grid and sidebar fall back
+    /// to ephemeral-only behavior.
+    func listNamedAgents() async throws -> [NamedAgent]
+
+    /// Create a new permanent agent (`agents.create`). Called when the
+    /// user accepts the conversation-footer "Save as permanent agent?"
+    /// prompt — the daemon mints `id`, stamps `total_runs = 0` and
+    /// `last_used = nil`, and persists.
+    @discardableResult
+    func createNamedAgent(name: String, role: String, defaultRepo: String?, defaultModel: String?) async throws -> NamedAgent
+
+    /// PATCH-shape update of a permanent agent (`agents.update`).
+    /// `nil` arguments are left alone daemon-side — useful for
+    /// bumping `default_repo` from the Dispatch screen without
+    /// touching name/role.
+    @discardableResult
+    func updateNamedAgent(id: String, name: String?, role: String?, defaultRepo: String?, defaultModel: String?) async throws -> NamedAgent
+
+    /// Remove a permanent agent (`agents.delete`). Idempotent — the
+    /// returned `Bool` indicates whether an entry existed and was
+    /// removed (`true`) versus nothing-to-do (`false`). Open sessions
+    /// dispatched against this agent keep running; only the pinned
+    /// identity goes away.
+    @discardableResult
+    func deleteNamedAgent(id: String) async throws -> Bool
 }
 
 /// CLI-derived PR title + body used to pre-fill the PR modal. Mirrors the

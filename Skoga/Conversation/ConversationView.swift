@@ -60,6 +60,7 @@ struct ConversationView: View {
                     .padding(.bottom, 12)
                 }
 
+                SavePermanentAgentBanner(agent: agent)
                 ConvActionsFooter(agent: agent)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -290,6 +291,105 @@ private struct AttachButton: View {
         .buttonStyle(.plain)
         .disabled(busy)
         .onHover { hovering = $0 }
+    }
+}
+
+// MARK: – Save-as-permanent prompt
+
+/// Non-blocking "you've worked with Astrid 3 times — save as permanent
+/// agent?" banner. Sits between the transcript surface and the actions
+/// footer so it's visible while the user reviews the just-finished work
+/// without stealing focus from the running TUI. Renders to nothing
+/// when [`NamedAgentsState.shouldPromptSaveAsPermanent`] returns false
+/// — that gate folds in the threshold check, the "already permanent"
+/// suppression, and the per-session dismissal memory.
+private struct SavePermanentAgentBanner: View {
+    @Environment(\.palette) private var p
+    @Environment(AppCoordinator.self) private var coordinator
+    @Environment(NamedAgentsState.self) private var namedAgents
+    let agent: Agent
+
+    @State private var saving = false
+
+    var body: some View {
+        if namedAgents.shouldPromptSaveAsPermanent(for: agent) {
+            // The successful-runs counter drives the headline — Astrid's
+            // saved threshold is 3 today, but the count keeps incrementing
+            // past it and we want the copy to reflect what the user has
+            // actually done ("4 times" reads honestly; "3+ times" reads
+            // like a placeholder).
+            let count = namedAgents.successfulRunsByName[agent.name] ?? NamedAgentsState.saveAsPermanentThreshold
+            HStack(spacing: 10) {
+                Image(skoga: .spark)
+                    .skogaIconSize(14)
+                    .foregroundStyle(p.forest)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("You've worked with \(agent.name) \(count) times.")
+                        .font(SkogaFont.bodyMedium(12.5))
+                        .foregroundStyle(p.ink)
+                    Text("Save as a permanent agent to pin \(agent.name) to your guild.")
+                        .font(SkogaFont.small(11.5))
+                        .foregroundStyle(p.inkMute)
+                }
+                Spacer(minLength: 0)
+                Button("Dismiss") {
+                    namedAgents.dismissPrompt(for: agent.id)
+                }
+                .buttonStyle(.plain)
+                .font(SkogaFont.smallMedium(11.5))
+                .foregroundStyle(p.inkMute)
+                .padding(.horizontal, 10)
+                .frame(height: 26)
+                .background(
+                    RoundedRectangle(cornerRadius: Tokens.Radius.chip)
+                        .fill(p.paper)
+                        .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
+                )
+
+                Button {
+                    Task { await save() }
+                } label: {
+                    HStack(spacing: 6) {
+                        if saving {
+                            ProgressView()
+                                .controlSize(.small)
+                                .progressViewStyle(.circular)
+                        } else {
+                            Image(skoga: .plus).skogaIconSize(12)
+                        }
+                        Text(saving ? "Saving…" : "Save \(agent.name)")
+                            .font(SkogaFont.bodyMedium(12))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .frame(height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: Tokens.Radius.chip)
+                            .fill(p.forest)
+                    )
+                    .opacity(saving ? 0.7 : 1)
+                }
+                .buttonStyle(.plain)
+                .disabled(saving)
+            }
+            .padding(.horizontal, Tokens.Pad.viewX)
+            .padding(.vertical, 10)
+            .background(p.forestSoft)
+            .overlay(alignment: .top) { Hairline() }
+        }
+    }
+
+    /// Guard the click so a double-tap can't fire two `agents.create`
+    /// calls. The coordinator's own refresh on success makes the banner
+    /// disappear (the new permanent agent enters `namedAgents.agents`
+    /// and `shouldPromptSaveAsPermanent` returns false on the next
+    /// observation cycle) — but if the second click races the
+    /// in-flight create, two daemon-side records could land.
+    private func save() async {
+        guard !saving else { return }
+        saving = true
+        defer { saving = false }
+        await coordinator.saveAsPermanentAgent(from: agent)
     }
 }
 

@@ -23,6 +23,15 @@ final class MockDaemonClient: DaemonClient {
     /// real daemon.
     private var credentialsState: [RPCCredentialProvider: RPCCredentialEntry] = MockDaemonClient.seedCredentials
 
+    /// In-memory permanent-agents registry. The seed gives the design
+    /// two pinned agents (Astrid + Björn) so the Dispatch grid's
+    /// "Permanent" slot and the sidebar guild pins both render on
+    /// first paint without running a real daemon. Mutable so the
+    /// "Save as permanent" footer prompt can be exercised end-to-end:
+    /// `createNamedAgent` appends, and the next `listNamedAgents` poll
+    /// reflects it.
+    private var namedAgentsState: [String: NamedAgent] = MockDaemonClient.seedNamedAgents
+
     nonisolated func listAgents() async throws -> [Agent] { agentsCache }
 
     nonisolated func listTerminalSessions(
@@ -93,7 +102,7 @@ final class MockDaemonClient: DaemonClient {
         agentsCache.reduce(0) { $0 + $1.cost }
     }
 
-    func createSession(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?) async throws -> Agent {
+    func createSession(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?, namedAgentId: String?) async throws -> Agent {
         // No-op in mock mode; the design has no notion of starting a real session.
         throw NSError(domain: "MockDaemonClient", code: 0,
                       userInfo: [NSLocalizedDescriptionKey: "Dispatch requires a live skogad. Unset SKOGA_USE_MOCK."])
@@ -282,6 +291,59 @@ final class MockDaemonClient: DaemonClient {
         MockDaemonClient.seedRecentRepos
     }
 
+    func listNamedAgents() async throws -> [NamedAgent] {
+        // Order by `lastUsed` desc so the sidebar/dispatch pins render
+        // most-recent-first by default, matching what the daemon's
+        // canonical ordering will look like.
+        namedAgentsState.values.sorted { lhs, rhs in
+            (lhs.lastUsed ?? .distantPast) > (rhs.lastUsed ?? .distantPast)
+        }
+    }
+
+    @discardableResult
+    func createNamedAgent(name: String, role: String, defaultRepo: String?, defaultModel: String?) async throws -> NamedAgent {
+        // The real daemon mints an opaque id from the persistence
+        // layer; the mock just uses a name-derived slug so the
+        // resulting NamedAgent is referenceable from the seed (and
+        // round-trips deterministically across designer reloads when
+        // the same name is saved twice).
+        let id = "named-\(name.lowercased().filter { $0.isLetter || $0.isNumber })"
+        let agent = NamedAgent(
+            id: id,
+            name: name,
+            role: role,
+            defaultRepo: defaultRepo,
+            defaultModel: defaultModel,
+            totalRuns: 0,
+            lastUsed: nil
+        )
+        namedAgentsState[id] = agent
+        return agent
+    }
+
+    @discardableResult
+    func updateNamedAgent(id: String, name: String?, role: String?, defaultRepo: String?, defaultModel: String?) async throws -> NamedAgent {
+        guard let existing = namedAgentsState[id] else {
+            throw JSONRPCError.rpc(.init(code: -32602, message: "unknown agent id"))
+        }
+        let updated = NamedAgent(
+            id: existing.id,
+            name: name ?? existing.name,
+            role: role ?? existing.role,
+            defaultRepo: defaultRepo ?? existing.defaultRepo,
+            defaultModel: defaultModel ?? existing.defaultModel,
+            totalRuns: existing.totalRuns,
+            lastUsed: existing.lastUsed
+        )
+        namedAgentsState[id] = updated
+        return updated
+    }
+
+    @discardableResult
+    func deleteNamedAgent(id: String) async throws -> Bool {
+        namedAgentsState.removeValue(forKey: id) != nil
+    }
+
     func credentialsTest(provider: RPCCredentialProvider) async throws -> RPCCredentialsTestResult {
         // Tiny delay so designers see the spinner state when clicking
         // Test — the real daemon's probe makes a network round-trip
@@ -320,7 +382,8 @@ private extension MockDaemonClient {
               task: "Add OAuth scope refresh to /auth router so PATs survive a Stripe rotate.",
               repo: "skoga/ledger-svc", branch: "bjorn/auth-scope-refresh",
               runtime: "1h 24m", tokens: 184_300, cost: 1.47,
-              commits: 6, files: 11, attn: false, attnMessage: nil, prUrl: nil),
+              commits: 6, files: 11, attn: false, attnMessage: nil, prUrl: nil,
+              namedAgentId: "named-bjorn"),
 
         Agent(id: "astrid", name: "Astrid", role: "frontend / web",
               model: "claude-sonnet-4-7", status: .blocked,
@@ -329,7 +392,8 @@ private extension MockDaemonClient {
               runtime: "42m", tokens: 96_200, cost: 0.81,
               commits: 3, files: 7, attn: true,
               attnMessage: "Quick question on resume semantics — see thread",
-              prUrl: nil),
+              prUrl: nil,
+              namedAgentId: "named-astrid"),
 
         Agent(id: "linnea", name: "Linnéa", role: "qa / e2e",
               model: "gpt-5-codex", status: .prOpen,
@@ -478,6 +542,35 @@ private extension MockDaemonClient {
             RPCRecentRepo(repo_root: "/Users/mikael/code/infra",         display_name: "infra",
                           last_used: now.addingTimeInterval(-3600 * 72),  runs_count: 2),
         ]
+    }()
+
+    /// Seed permanent-agents registry. Two pinned identities so the
+    /// Dispatch grid's "Permanent" slot, the sidebar guild pins, and
+    /// the per-agent telemetry all light up on first paint without
+    /// running a real daemon. `defaultRepo` matches one of the seed
+    /// recent-repos so the Dispatch ordering ("matching repo first")
+    /// is visible without re-clicking pills.
+    static let seedNamedAgents: [String: NamedAgent] = {
+        let now = Date()
+        let astrid = NamedAgent(
+            id: "named-astrid",
+            name: "Astrid",
+            role: "frontend / web",
+            defaultRepo: "/Users/mikael/code/monolith-web",
+            defaultModel: "claude-sonnet-4-7",
+            totalRuns: 14,
+            lastUsed: now.addingTimeInterval(-60 * 36)
+        )
+        let bjorn = NamedAgent(
+            id: "named-bjorn",
+            name: "Björn",
+            role: "backend / svc",
+            defaultRepo: "/Users/mikael/code/ledger-svc",
+            defaultModel: "claude-opus-4-7",
+            totalRuns: 9,
+            lastUsed: now.addingTimeInterval(-3600 * 2)
+        )
+        return [astrid.id: astrid, bjorn.id: bjorn]
     }()
 
     /// Seed credential state: Anthropic is "connected, used recently"

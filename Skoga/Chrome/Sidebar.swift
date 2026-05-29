@@ -5,6 +5,7 @@ struct Sidebar: View {
     @Environment(AppCoordinator.self) private var coordinator
     @Environment(RosterState.self) private var roster
     @Environment(ModalState.self) private var modal
+    @Environment(NamedAgentsState.self) private var namedAgents
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -31,13 +32,35 @@ struct Sidebar: View {
             }
 
             NavSection(title: "Guild · \(roster.agents.count)")
-            ForEach(roster.agents.prefix(8)) { agent in
+            // Permanent agents pin to the top of the guild list, ordered
+            // by `lastUsed` desc (same ordering as the daemon's
+            // `agents.list` response). Clicking a pin opens the agent's
+            // most recent live session if one is running, falls back to
+            // a "no live session" hint otherwise — the user can still
+            // dispatch a new run from the Dispatch screen.
+            ForEach(pinnedNamedAgents) { named in
+                permanentPinRow(named)
+            }
+            if !pinnedNamedAgents.isEmpty && !ephemeralGuildSlice.isEmpty {
+                Hairline()
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
+                    .opacity(0.6)
+            }
+            ForEach(ephemeralGuildSlice) { agent in
                 guildRow(agent)
             }
-            if roster.agents.count > 8 {
+            // "+N more" counts only ephemeral agents that didn't fit
+            // under the cap — not the pinned ones above (which are
+            // already shown as their own rows). Computing against
+            // `roster.agents.count` would tell the user "+8 more"
+            // when in fact 6 of those 8 are already on screen as
+            // pins, making the overflow strip read as a phantom set
+            // of hidden agents.
+            if hiddenEphemeralCount > 0 {
                 HStack(spacing: 10) {
                     Color.clear.frame(width: 14, height: 14)
-                    Text("+\(roster.agents.count - 8) more")
+                    Text("+\(hiddenEphemeralCount) more")
                         .font(SkogaFont.body(12.5))
                         .foregroundStyle(p.inkFaint)
                 }
@@ -67,6 +90,118 @@ struct Sidebar: View {
                 .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.tiny).stroke(p.rule, lineWidth: Tokens.Hairline.width))
                 .padding(.leading, 4)
         }
+    }
+
+    /// Permanent agents to render pinned at the top of the guild list.
+    /// Daemon already orders `agents.list` by `last_used` desc, but the
+    /// sidebar is fixed-height so we cap at 6 to leave breathing room
+    /// for the ephemeral slice underneath. The cap is intentionally
+    /// generous — a manager who has accumulated 10+ permanent agents
+    /// is the audience we want to serve here, but the cockpit-strip
+    /// "+N more" affordance handles the overflow case the same way it
+    /// does for the ephemeral list.
+    private var pinnedNamedAgents: [NamedAgent] {
+        Array(namedAgents.agents.prefix(6))
+    }
+
+    /// Ephemeral agents shown below the permanent pins, capped so the
+    /// total visible guild rows stay roughly at the pre-#33 count.
+    /// `max(2, 8 - pinned)` keeps a sensible floor for repos with lots
+    /// of ephemeral activity even when many permanent agents are pinned.
+    ///
+    /// Dedup against the pinned slice on two keys: explicit
+    /// `namedAgentId` (set by the daemon at `session.create` when the
+    /// caller routed through a permanent agent) and a fallback display-
+    /// name match (covers sessions persisted before the daemon stamped
+    /// the field, plus the coincidental case where an ephemeral
+    /// session's deterministic Norse name happens to collide with a
+    /// permanent agent's name).
+    private var ephemeralGuildSlice: [Agent] {
+        Array(nonPinnedRoster.prefix(ephemeralCap))
+    }
+
+    /// Roster sessions that don't belong to any pinned permanent agent.
+    /// Surfaced as its own computed property so the "+N more" strip can
+    /// count its overflow against the same set the visible slice came
+    /// from, instead of against the full roster (which would include
+    /// the pinned-and-already-shown sessions).
+    private var nonPinnedRoster: [Agent] {
+        let pinnedIds = Set(pinnedNamedAgents.map(\.id))
+        let pinnedNames = Set(pinnedNamedAgents.map { $0.name.lowercased() })
+        return roster.agents.filter { agent in
+            if let id = agent.namedAgentId, pinnedIds.contains(id) { return false }
+            return !pinnedNames.contains(agent.name.lowercased())
+        }
+    }
+
+    private var ephemeralCap: Int { max(2, 8 - pinnedNamedAgents.count) }
+
+    private var hiddenEphemeralCount: Int {
+        max(0, nonPinnedRoster.count - ephemeralCap)
+    }
+
+    /// One row for a pinned permanent agent. Renders the same shape as
+    /// `guildRow` with two tells: the avatar tile uses a forest accent
+    /// (matches the Dispatch grid's permanent card), and the trailing
+    /// label shows the saved role rather than a branch slug — there's
+    /// no single "branch" for a permanent agent (each new dispatch
+    /// gets a fresh worktree), so showing the role gives the eye
+    /// something stable to scan for.
+    private func permanentPinRow(_ named: NamedAgent) -> some View {
+        Button {
+            // Open the most recent live session for this permanent
+            // agent if one exists — that's the obvious affordance from
+            // a manager's perspective ("click Astrid → land in
+            // Astrid's open conversation"). When no live session
+            // exists, the click is a no-op rather than a navigation
+            // to Dispatch, which would lose any in-progress form state
+            // the user might have on screen.
+            if let liveId = liveSessionId(for: named) {
+                coordinator.openConversation(for: liveId)
+            }
+        } label: {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(p.forestSoft)
+                    Image(skoga: .spark)
+                        .skogaIconSize(8)
+                        .foregroundStyle(p.forest)
+                }
+                .frame(width: 14, height: 14)
+
+                Text(named.name)
+                    .font(SkogaFont.body(12.5))
+                    .foregroundStyle(p.ink2)
+                Spacer(minLength: 0)
+                Text(named.role.split(separator: " / ").first.map(String.init) ?? named.role)
+                    .font(SkogaFont.monoSmall(10.5))
+                    .foregroundStyle(p.inkMute)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: 130, alignment: .trailing)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// The session id of the most recent live (non-terminal) session
+    /// dispatched against `named`. Prefers the explicit `namedAgentId`
+    /// stamped by the daemon at `session.create`; falls back to a
+    /// display-name match for sessions persisted by older daemons that
+    /// don't carry the field yet, so the pin doesn't go dark during
+    /// the rollout. Once the daemon ships the field universally, the
+    /// name-fallback branch becomes dead code and can be dropped.
+    private func liveSessionId(for named: NamedAgent) -> String? {
+        let live = roster.agents.lazy.filter { !$0.status.isTerminal }
+        if let match = live.first(where: { $0.namedAgentId == named.id }) {
+            return match.id
+        }
+        return live.first { $0.name.caseInsensitiveCompare(named.name) == .orderedSame }?.id
     }
 
     private func guildRow(_ a: Agent) -> some View {
