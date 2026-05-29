@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skoga — Brand Pack</title>
+<style>
+@font-face{font-family:"Newsreader";src:url("fonts/Newsreader.ttf") format("truetype");font-weight:200 800;font-display:swap}
+:root{
+  --paper:#ece6d6; --ink:#1a1812; --forest:#1a5530;
+  --forest-d:#123c22; --forest-l:#2c6b41; --sprout:#3d8757;
+  --ochre:#c97f4a; --rust:#b5532f; --gold:#d8a23a;
+  --line:rgba(26,24,18,.14);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"IBM Plex Sans",-apple-system,system-ui,sans-serif;
+  line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:920px;margin:0 auto;padding:72px 28px 120px}
+h1,h2,h3{font-family:"Newsreader",Georgia,serif;font-weight:500;line-height:1.05;letter-spacing:-.01em;margin:0}
+h1{font-size:64px}
+h2{font-size:30px;margin:0 0 22px}
+h3{font-size:18px;font-weight:600;margin:0 0 4px}
+.lede{font-size:19px;max-width:60ch;color:#403c33;margin:18px 0 0}
+section{margin-top:72px;padding-top:40px;border-top:1px solid var(--line)}
+.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--forest);font-weight:600;margin:0 0 14px}
+.grid{display:grid;gap:18px}
+.cols-2{grid-template-columns:repeat(2,1fr)}
+.cols-3{grid-template-columns:repeat(3,1fr)}
+.cols-4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:640px){.cols-3,.cols-4{grid-template-columns:repeat(2,1fr)}h1{font-size:44px}}
+.card{background:#f4eee1;border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.card.dark{background:var(--ink)}
+.card img{width:100%;height:auto;display:block}
+.cap{font-size:12.5px;color:#6a6354;text-align:center}
+.card.dark .cap{color:#b7b1a3}
+.swatch{height:88px;border-radius:12px;border:1px solid var(--line)}
+.tok{display:flex;flex-direction:column;gap:6px}
+.tok .name{font-weight:600;font-size:13px}
+.tok .hex{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;color:#6a6354}
+.type-row{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;padding:14px 0;border-bottom:1px solid var(--line)}
+.type-row:last-child{border-bottom:0}
+.type-label{font-size:12px;color:#6a6354;width:120px;flex-shrink:0}
+ul.notes{margin:0;padding-left:20px}
+ul.notes li{margin:8px 0;max-width:70ch}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;background:#e3dccc;padding:2px 6px;border-radius:5px}
+.foot{margin-top:80px;padding-top:30px;border-top:1px solid var(--line);font-size:13px;color:#6a6354}
+.logo-hero{background:#f4eee1;border:1px solid var(--line);border-radius:20px;padding:54px;display:flex;align-items:center;justify-content:center}
+.logo-hero img{max-width:340px;width:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+<p class="eyebrow">Brand Pack</p>
+<h1>Skoga</h1>
+<p class="lede">The visual identity for Skoga and its mascot, <strong>Kongle</strong> — a little evergreen who keeps a calm eye on your team of agents. <em>(Kongle is Norwegian for “pinecone”; he is, technically, a conifer. We like the joke.)</em></p>
+</header>
+
+<section>
+<p class="eyebrow">Logo</p>
+<h2>The lockup</h2>
+<div class="logo-hero"><img src="01-logo/skoga-lockup-horizontal.svg" alt="Skoga horizontal lockup"></div>
+<div class="grid cols-3" style="margin-top:18px">
+<div class="card"><img src="01-logo/skoga-lockup-stacked.svg" alt="Stacked lockup" style="max-width:150px"><div class="cap">Stacked — square spaces</div></div>
+<div class="card dark"><img src="01-logo/skoga-lockup-reversed.svg" alt="Reversed lockup"><div class="cap">Reversed — dark surfaces</div></div>
+<div class="card"><img src="01-logo/skoga-wordmark.svg" alt="Wordmark" style="max-width:160px"><div class="cap">Wordmark only</div></div>
+</div>
+<ul class="notes" style="margin-top:22px">
+<li>The wordmark is set in <strong>Newsreader</strong> (weight 500) and is shipped as <strong>outlined vector paths</strong> — it does not depend on the font loading and will never reflow.</li>
+<li>Keep clear space around the lockup equal to the height of Kongle’s sprout. Don’t recolor, rotate, stretch, or add effects to the mark.</li>
+</ul>
+</section>
+
+<section>
+<p class="eyebrow">Mascot</p>
+<h2>Kongle</h2>
+<div class="grid cols-4">
+<div class="card"><img src="02-mascot/expressions/kongle-happy.svg" alt="Happy"><div class="cap">Happy — default</div></div>
+<div class="card"><img src="02-mascot/expressions/kongle-focused.svg" alt="Focused"><div class="cap">Focused — working</div></div>
+<div class="card"><img src="02-mascot/expressions/kongle-winking.svg" alt="Winking"><div class="cap">Winking — personality</div></div>
+<div class="card"><img src="02-mascot/expressions/kongle-waving.svg" alt="Waving"><div class="cap">Waving — greetings</div></div>
+<div class="card"><img src="02-mascot/expressions/kongle-sleeping.svg" alt="Sleeping"><div class="cap">Sleeping — idle/empty</div></div>
+<div class="card"><img src="02-mascot/expressions/kongle-celebrating.svg" alt="Celebrating"><div class="cap">Celebrating — success</div></div>
+<div class="card"><img src="02-mascot/expressions/kongle-writing.svg" alt="Writing"><div class="cap">Writing — drafting</div></div>
+</div>
+</section>
+
+<section>
+<p class="eyebrow">Motion</p>
+<h2>Animated states</h2>
+<div class="grid cols-3">
+<div class="card"><img src="04-animations/kongle-coffee-sip.svg" alt="Coffee sip" style="max-width:170px"><div class="cap">Coffee sip — idle but present</div></div>
+<div class="card"><img src="04-animations/kongle-working.svg" alt="Working" style="max-width:170px"><div class="cap">On the job — loading/processing</div></div>
+<div class="card"><img src="04-animations/kongle-waving.svg" alt="Waving" style="max-width:170px"><div class="cap">Waving — onboarding</div></div>
+<div class="card"><img src="04-animations/kongle-celebrating.svg" alt="Celebrating" style="max-width:170px"><div class="cap">Celebrating — success</div></div>
+<div class="card"><img src="04-animations/kongle-napping.svg" alt="Napping" style="max-width:170px"><div class="cap">Napping — nothing queued</div></div>
+<div class="card"><img src="04-animations/kongle-writing.svg" alt="Writing" style="max-width:170px"><div class="cap">Writing — drafting/thinking</div></div>
+</div>
+<ul class="notes" style="margin-top:22px">
+<li>All animation is pure declarative SVG (SMIL) — no JavaScript, no library, tiny payload. Drop them in inline or via <span class="mono">&lt;img src="…svg"&gt;</span>.</li>
+<li><strong>Accessibility:</strong> gate motion behind <span class="mono">prefers-reduced-motion</span> and fall back to the matching static expression for users who request reduced motion.</li>
+</ul>
+</section>
+
+<section>
+<p class="eyebrow">Icon</p>
+<h2>App icon &amp; favicon</h2>
+<div class="grid cols-4">
+<div class="card"><img src="03-icons/app-icon.svg" alt="App icon" style="max-width:120px"><div class="cap">Primary</div></div>
+<div class="card"><img src="03-icons/app-icon-reversed.svg" alt="Reversed app icon" style="max-width:120px"><div class="cap">Reversed</div></div>
+<div class="card"><img src="03-icons/favicon.svg" alt="Favicon" style="max-width:120px"><div class="cap">Simplified — small sizes</div></div>
+<div class="card" style="flex-direction:row;gap:14px;align-items:flex-end">
+<img src="03-icons/png/icon-32.png" alt="32px" style="width:32px"><img src="03-icons/png/icon-16.png" alt="16px" style="width:16px">
+<div class="cap" style="align-self:center">32 / 16px</div></div>
+</div>
+<ul class="notes" style="margin-top:22px">
+<li>Use the detailed icon down to ~40px. At 32px and below, switch to the faceless <strong>simplified</strong> mark — the eyes and smile turn to noise otherwise.</li>
+<li>PNG exports at 512 / 180 / 32 / 16 are in <span class="mono">03-icons/png/</span>.</li>
+</ul>
+</section>
+
+<section>
+<p class="eyebrow">Color</p>
+<h2>Palette</h2>
+<div class="grid cols-3">
+<div class="tok"><div class="swatch" style="background:#ece6d6"></div><div class="name">Linen / paper</div><div class="hex">#ece6d6</div></div>
+<div class="tok"><div class="swatch" style="background:#1a1812"></div><div class="name">Ink</div><div class="hex">#1a1812</div></div>
+<div class="tok"><div class="swatch" style="background:#1a5530"></div><div class="name">Forest (brand)</div><div class="hex">#1a5530</div></div>
+<div class="tok"><div class="swatch" style="background:#123c22"></div><div class="name">Forest deep</div><div class="hex">#123c22</div></div>
+<div class="tok"><div class="swatch" style="background:#2c6b41"></div><div class="name">Forest light</div><div class="hex">#2c6b41</div></div>
+<div class="tok"><div class="swatch" style="background:#3d8757"></div><div class="name">Sprout</div><div class="hex">#3d8757</div></div>
+<div class="tok"><div class="swatch" style="background:#c97f4a"></div><div class="name">Ochre (accent)</div><div class="hex">#c97f4a</div></div>
+<div class="tok"><div class="swatch" style="background:#b5532f"></div><div class="name">Rust (accent)</div><div class="hex">#b5532f</div></div>
+<div class="tok"><div class="swatch" style="background:#d8a23a"></div><div class="name">Gold (accent)</div><div class="hex">#d8a23a</div></div>
+</div>
+</section>
+
+<section>
+<p class="eyebrow">Type</p>
+<h2>Typography</h2>
+<div class="type-row"><div class="type-label">Headings</div><div style="font-family:Newsreader,serif;font-size:40px;font-weight:500">Newsreader</div></div>
+<div class="type-row"><div class="type-label">Body / UI</div><div style="font-size:26px">IBM Plex Sans</div></div>
+<div class="type-row"><div class="type-label">Code / data</div><div style="font-family:'JetBrains Mono',monospace;font-size:24px">JetBrains Mono</div></div>
+</section>
+
+<p class="foot">Skoga brand pack · Kongle the mascot · Generated assets in <span class="mono">01-logo</span>, <span class="mono">02-mascot</span>, <span class="mono">03-icons</span>, <span class="mono">04-animations</span>. Newsreader is licensed under the SIL Open Font License (bundled in <span class="mono">fonts/</span>).</p>
+
+</div>
+</body>
+</html>
