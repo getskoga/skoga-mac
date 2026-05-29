@@ -960,18 +960,18 @@ private extension AgentStatus {
         case .agentExited:
             // .exited means the Claude process is gone (Ctrl-C, crash, or
             // post-teardown) but the daemon hasn't called this session
-            // terminal yet — the worktree's still on disk and `session.attach`
-            // will revive it. Distinct from `.idle` because the user can't
-            // just "send another message" to wake it; distinct from `.killed`
-            // because that one isn't re-attachable.
+            // terminal yet — the worktree's still on disk. Distinct from
+            // `.idle` because the user can't just "send another message"
+            // to wake it; kept distinct from `.killed` for the user-facing
+            // pill (a cleanly-exited agent reads differently from one the
+            // daemon force-killed) even though both are re-attachable.
             self = .exited
         case .killed:
-            // Daemon-terminal: worktree torn down, `session.attach` will
-            // reject. Kept distinct from `.exited` so the History row's
-            // Attach affordance can gate (the daemon's contract is the
-            // source of truth on which terminal-from-Mac states can be
-            // re-armed; collapsing the two would force every "exited"
-            // row to discover the failure via toast).
+            // Daemon-terminal: original worktree torn down. Still
+            // re-attachable — `session.attach` provisions a fresh worktree
+            // from the recorded base branch + SHA. Kept distinct from
+            // `.exited` so the pill conveys that the daemon force-killed
+            // the agent rather than it exiting cleanly.
             self = .killed
         case .prOpen:
             self = .prOpen

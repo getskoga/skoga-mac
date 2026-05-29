@@ -39,14 +39,14 @@ enum AgentStatus: String, CaseIterable, Codable, Hashable {
     }
 
     /// Whether the daemon's `session.attach` will accept this state.
-    /// `.killed` and `.done` have their worktrees torn down, so attach
-    /// rejects them; the History row gates the Attach affordance on
-    /// this so users don't get an inscrutable failure toast on rows
-    /// the daemon was never going to revive.
+    /// All terminal states are re-armable — the daemon provisions a
+    /// fresh worktree from the session's base branch + SHA when the
+    /// original is gone, so `.done` and `.killed` revive the same way
+    /// as `.exited` / `.prMerged` / `.prClosed`.
     var canAttach: Bool {
         switch self {
-        case .exited, .prMerged, .prClosed: true
-        case .done, .killed, .running, .blocked, .prOpen, .idle, .stopping: false
+        case .exited, .prMerged, .prClosed, .done, .killed: true
+        case .running, .blocked, .prOpen, .idle, .stopping: false
         }
     }
 

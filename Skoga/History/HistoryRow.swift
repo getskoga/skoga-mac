@@ -93,9 +93,9 @@ struct HistoryRow: View {
                 // so it floats over the spend column without permanently
                 // crowding it; the row is wide enough that occluding the
                 // last cell on hover is preferable to reserving a column.
-                // Gated on `canAttach` so Done/Killed rows (worktrees
-                // gone, daemon would reject) don't surface a button we
-                // know would fail.
+                // Gated on `canAttach` so non-terminal rows (running,
+                // idle, blocked, etc.) don't surface a button the daemon
+                // would reject — only finished sessions are re-armable.
                 AttachQuickAction(onAttach: onAttach)
                     .padding(.trailing, 16)
                     .transition(.opacity)
