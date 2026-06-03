@@ -11,11 +11,15 @@ struct DispatchView: View {
     @State private var template: Template = .feature
     @State private var title: String = ""
     @State private var brief: String = ""
-    /// Files the user attached via the "Attachments" row. Small text files
-    /// get inlined into the initial prompt at dispatch time; everything else
-    /// is copied into the new session's worktree under `.skoga/attachments/`
-    /// after `session.create` returns, with relative paths spliced into the
-    /// prompt so the agent can `Read` them. Empty when no files attached.
+    /// Files the user attached via the "Attachments" row. On dispatch, the
+    /// list is partitioned: small text files get inlined into `initial_prompt`
+    /// (so context-window-friendly briefs stay in one turn), and everything
+    /// else is forwarded on `session.create`'s `attachments` field. The
+    /// daemon writes the forwarded files into `<worktree>/.skoga/attachments/`
+    /// before forking `_dispatch_launch` and augments the prompt with their
+    /// paths — the Mac deliberately doesn't write to the worktree itself or
+    /// reference attachment paths in its prompt copy. Empty when no files
+    /// attached.
     @State private var attachments: [URL] = []
     /// Recently-used host repos loaded from `session.recent_repos`. Empty
     /// on first paint (and on older daemons that don't speak the RPC); the
@@ -603,14 +607,6 @@ struct DispatchView: View {
             case (false, false): return "\(taskText)\n\n\(briefText)"
             }
         }()
-        // Partition attachments into (a) text/small enough to inline into the
-        // initial prompt — that's a local optimization for context-window-
-        // friendly briefs — and (b) anything else, which goes on the RPC's
-        // `attachments` field. The daemon writes those to the worktree and
-        // augments the prompt with their paths before the agent boots, so
-        // we deliberately DON'T splice paths in here.
-        let (inlineParts, toAttach) = Self.partitionAttachments(attachments)
-        let prompt = Self.composeFinalPrompt(base: basePrompt, inline: inlineParts)
         // Permanent-agent route: substitute the agent's saved
         // `defaultModel` for whatever the dispatch form's Model picker
         // is showing (the user picked the agent, not the model — they'd
@@ -631,7 +627,15 @@ struct DispatchView: View {
             return (selectedModel.adapter, selectedModel.model)
         }()
         let namedAgentId = selectedPermanentAgent?.id
+        let attached = attachments
         Task {
+            // Partition runs off-MainActor: it does sync stat + UTF-8 reads
+            // on the user's filesystem, which can stall on slow/SMB/NFS
+            // mounts. Mirrors the off-main treatment binary attachments
+            // already get via `loadAttachmentPayloads` — neither path
+            // should freeze the UI thread on a slow disk.
+            let (inlineParts, toAttach) = await Self.partitionAttachments(attached)
+            let prompt = Self.composeFinalPrompt(base: basePrompt, inline: inlineParts)
             await coordinator.dispatch(
                 task: taskText,
                 agent: agentAdapter,
@@ -665,21 +669,30 @@ struct DispatchView: View {
     /// and (b) URLs to forward to the daemon as `attachments`. Any failure
     /// in the inline check (size probe, read, decode) routes the file
     /// through the RPC path; nothing is silently dropped.
-    static func partitionAttachments(_ urls: [URL]) -> (inline: [(name: String, content: String)], attach: [URL]) {
-        var inline: [(String, String)] = []
-        var attach: [URL] = []
-        for url in urls {
-            let ext = url.pathExtension.lowercased()
-            let textish = textExtensions.contains(ext) || ext.isEmpty
-            let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? .max
-            if textish, size <= inlineByteLimit,
-               let content = try? String(contentsOf: url, encoding: .utf8) {
-                inline.append((url.lastPathComponent, content))
-            } else {
-                attach.append(url)
+    ///
+    /// Runs on a detached task so the per-file stat + UTF-8 read stays
+    /// off the MainActor. The 64 KB inline cap doesn't protect the UI
+    /// thread on slow storage (SMB / NFS / spinning drive) — the kernel
+    /// read still blocks until bytes arrive — so we mirror the off-main
+    /// treatment binary attachments get via `loadAttachmentPayloads`.
+    nonisolated static func partitionAttachments(_ urls: [URL]) async -> (inline: [(name: String, content: String)], attach: [URL]) {
+        guard !urls.isEmpty else { return ([], []) }
+        return await Task.detached(priority: .userInitiated) {
+            var inline: [(String, String)] = []
+            var attach: [URL] = []
+            for url in urls {
+                let ext = url.pathExtension.lowercased()
+                let textish = textExtensions.contains(ext) || ext.isEmpty
+                let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? .max
+                if textish, size <= inlineByteLimit,
+                   let content = try? String(contentsOf: url, encoding: .utf8) {
+                    inline.append((url.lastPathComponent, content))
+                } else {
+                    attach.append(url)
+                }
             }
-        }
-        return (inline, attach)
+            return (inline, attach)
+        }.value
     }
 
     /// Stitches the base brief together with inlined file contents. Returns

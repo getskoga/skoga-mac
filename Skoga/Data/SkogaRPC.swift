@@ -255,10 +255,14 @@ struct RPCAttachment: Encodable {
     /// Raw file bytes, base64-encoded. Matches the encoding the daemon
     /// already uses for `session.pty_write.bytes_b64`.
     let bytes_b64: String
-    /// Lowercase hex SHA-256 of the raw bytes. Optional, but cheap to
-    /// compute via CryptoKit and lets the daemon catch corruption /
-    /// transport-layer truncation that base64 alone won't surface.
-    let sha256: String?
+    /// Lowercase hex SHA-256 of the raw bytes. Computed via CryptoKit in
+    /// `LiveDaemonClient.loadAttachmentPayloads` so the daemon can catch
+    /// corruption / transport-layer truncation that base64 alone won't
+    /// surface. Always set on the Mac path — declared non-optional so
+    /// the contract is enforced at the type level. (The daemon's serde
+    /// contract still accepts absence, in case a future non-Mac caller
+    /// can't compute it.)
+    let sha256: String
 }
 
 struct SessionCreateResponse: Decodable {
