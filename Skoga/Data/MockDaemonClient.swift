@@ -291,6 +291,16 @@ final class MockDaemonClient: DaemonClient {
         MockDaemonClient.seedRecentRepos
     }
 
+    func listModels(adapter: String?) async throws -> [RPCModelChoice] {
+        // Includes a model the static fallback doesn't carry (Opus 4.8) so
+        // the design preview demonstrates the daemon-driven path actually
+        // working — i.e. picking the mock client should make the new model
+        // appear in the Dispatch dropdown without a code change.
+        let all = MockDaemonClient.seedModelChoices
+        guard let adapter else { return all }
+        return all.filter { $0.adapter == adapter }
+    }
+
     func listNamedAgents() async throws -> [NamedAgent] {
         // Order by `lastUsed` desc so the sidebar/dispatch pins render
         // most-recent-first by default, matching what the daemon's
@@ -543,6 +553,20 @@ private extension MockDaemonClient {
                           last_used: now.addingTimeInterval(-3600 * 72),  runs_count: 2),
         ]
     }()
+
+    /// Seed model list returned by the mock `models.list`. Includes
+    /// `claude-opus-4-8` — which the static fallback doesn't carry — so
+    /// designers can see the daemon-driven dropdown overwrite the
+    /// hardcoded list on first paint. `recommended: true` on the newest
+    /// Opus mirrors what the real daemon's Anthropic-backed list will
+    /// return.
+    static let seedModelChoices: [RPCModelChoice] = [
+        RPCModelChoice(adapter: "claude", model: "claude-opus-4-8",   label: "claude-opus-4-8",   recommended: true),
+        RPCModelChoice(adapter: "claude", model: "claude-opus-4-7",   label: "claude-opus-4-7",   recommended: false),
+        RPCModelChoice(adapter: "claude", model: "claude-sonnet-4-7", label: "claude-sonnet-4-7", recommended: false),
+        RPCModelChoice(adapter: "codex",  model: "gpt-5-codex",       label: "gpt-5-codex",       recommended: true),
+        RPCModelChoice(adapter: "codex",  model: "gpt-5-mini",        label: "gpt-5-mini",        recommended: false),
+    ]
 
     /// Seed permanent-agents registry. Two pinned identities so the
     /// Dispatch grid's "Permanent" slot, the sidebar guild pins, and

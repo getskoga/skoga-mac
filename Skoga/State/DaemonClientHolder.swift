@@ -54,6 +54,16 @@ final class DaemonClientHolder {
     /// row.
     private(set) var credentialTestResults: [RPCCredentialProvider: RPCCredentialsTestResult] = [:]
 
+    /// Adapter → model registry. Seeded with `fallbackModelChoices` so
+    /// the Dispatch dropdown and Settings → default-model picker always
+    /// have something to render — including in the @State initializers
+    /// of views that can't reach the environment. `refreshModels()`
+    /// overwrites this with the daemon's live list (`models.list`); on
+    /// older daemons or transport failures the seed stays, so new models
+    /// that the daemon knows about appear without a Mac release and old
+    /// daemons keep working exactly as they did pre-RPC.
+    private(set) var modelChoices: [RPCModelChoice] = DaemonClientHolder.fallbackModelChoices
+
     init(client: DaemonClient, isMock: Bool) {
         self.client = client
         self.isMock = isMock
@@ -144,6 +154,34 @@ final class DaemonClientHolder {
     func setCredentialTestResult(_ result: RPCCredentialsTestResult?, for provider: RPCCredentialProvider) {
         credentialTestResults[provider] = result
     }
+
+    /// Re-fetch `models.list` and overwrite `modelChoices`. Called from
+    /// `DispatchView`'s `.task` and from Settings → Models & keys on
+    /// open. Any failure — `-32601` from an older daemon, transport
+    /// drop, decode error — is swallowed; we keep the existing
+    /// `modelChoices` (which on cold launch is `fallbackModelChoices`).
+    /// The dropdown stays usable in every failure mode, and there's no
+    /// "models unsupported" UI affordance because the user can't act on
+    /// it the way they can on credentials or github.
+    func refreshModels() async {
+        guard let fetched = try? await client.listModels(adapter: nil), !fetched.isEmpty else {
+            return
+        }
+        if modelChoices != fetched { modelChoices = fetched }
+    }
+
+    /// Baked-in offline list, identical to what shipped with the Mac
+    /// before `models.list` existed. Two roles: seed for `modelChoices`
+    /// (so views render before the first refresh), and the value
+    /// `DispatchView`'s `@State` initializer reads at view-construction
+    /// time (where `@Environment` is unavailable). Static so it can be
+    /// referenced before any holder instance exists.
+    static let fallbackModelChoices: [RPCModelChoice] = [
+        RPCModelChoice(adapter: "claude", model: "claude-sonnet-4-7", label: "claude-sonnet-4-7", recommended: false),
+        RPCModelChoice(adapter: "claude", model: "claude-opus-4-7",   label: "claude-opus-4-7",   recommended: true),
+        RPCModelChoice(adapter: "codex",  model: "gpt-5-codex",       label: "gpt-5-codex",       recommended: true),
+        RPCModelChoice(adapter: "codex",  model: "gpt-5-mini",        label: "gpt-5-mini",        recommended: false),
+    ]
 }
 
 /// Toast-friendly description for an arbitrary thrown error. JSON-RPC

@@ -114,6 +114,12 @@ final class AppCoordinator {
         // appear; the PR modal and Settings each await the same call on
         // their own surface anyway.
         Task { await daemon.refreshGitHubStatus() }
+        // Fire-and-forget the models.list fetch too — Dispatch and
+        // Settings each retrigger on their own `.task`, but seeding the
+        // holder at bootstrap means the first Dispatch open already has
+        // the live list (no flash from the fallback to "now Opus 4.8 is
+        // here"). Cheap RPC; no UI blocking.
+        Task { await daemon.refreshModels() }
         // Seed the History slice in the background so the
         // permanent-agents successful-runs counter can fold in PR-
         // merged sessions from before this app launch (skoga-mac#33).

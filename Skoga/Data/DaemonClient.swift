@@ -277,6 +277,15 @@ protocol DaemonClient: AnyObject {
     /// speak this RPC — the screen falls back to the folder picker.
     func recentRepos() async throws -> [RPCRecentRepo]
 
+    /// Adapter → model registry from the daemon (`models.list`). Each
+    /// adapter contributes its own entries (Anthropic's `/v1/models` for
+    /// `claude`, a curated list for `codex`). Wire order is preserved.
+    /// Errors propagate — the holder distinguishes METHOD_NOT_FOUND from
+    /// transport failures so the UI can fall back to the baked-in
+    /// `DaemonClientHolder.fallbackModelChoices` list silently rather
+    /// than flashing an empty dropdown.
+    func listModels(adapter: String?) async throws -> [RPCModelChoice]
+
     /// User-defined permanent agents (`agents.list`). Persisted in
     /// `~/.skoga/state/named_agents.json` daemon-side; the Mac never
     /// writes the file directly. Returns `[]` on older daemons that

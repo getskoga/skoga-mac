@@ -32,44 +32,24 @@ struct DispatchView: View {
     /// if it doesn't resolve to a known model (renamed model, stale
     /// pref) we fall back to the first Claude entry, then to the very
     /// first choice — guaranteeing a non-nil initial value.
-    @State private var selectedModel: ModelChoice = {
+    ///
+    /// Seeded from `DaemonClientHolder.fallbackModelChoices` (the same
+    /// list that hydrates `daemon.modelChoices` on cold launch) because
+    /// `@State` initializers can't reach the environment. The `.task`
+    /// block below re-resolves against the daemon's live list once it
+    /// arrives, so a freshly-released model the daemon knows about can
+    /// take over without losing the user's pre-fetch selection.
+    @State private var selectedModel: RPCModelChoice = {
+        let fallback = DaemonClientHolder.fallbackModelChoices
         let preferred = DefaultModelPreference.resolve(adapter: "claude")
-        if let match = DispatchView.modelChoices.first(where: { $0.model == preferred }) {
+        if let match = fallback.first(where: { $0.model == preferred }) {
             return match
         }
-        if let claudeDefault = DispatchView.modelChoices.first(where: { $0.adapter == "claude" }) {
+        if let claudeDefault = fallback.first(where: { $0.adapter == "claude" }) {
             return claudeDefault
         }
-        return DispatchView.modelChoices[0]
+        return fallback[0]
     }()
-
-    /// One option in the Model dropdown. `label` is the user-facing
-    /// string, `adapter` is the skoga agent id (passed as `agent` to
-    /// session.create), and `model` is the adapter's CLI model flag
-    /// (passed as `agent_model`). Keeping the three apart means the
-    /// dropdown can read prettily without us having to parse it back
-    /// out at dispatch time — which is what the old `split("-").first`
-    /// trick was trying to do and getting wrong for non-claude entries.
-    struct ModelChoice: Hashable {
-        let label: String
-        let adapter: String
-        let model: String
-    }
-
-    /// Dropdown entries. `claude` adapter ships today; `codex` is
-    /// planned (issue #92 surfaces the dropdown but the codex adapter
-    /// itself hasn't landed in `skoga-agents` yet — selecting one
-    /// today persists the session but the daemon's `_dispatch_launch`
-    /// fails at `lookup("codex")` and no tmux pane comes up). The
-    /// `local · qwen3-coder-32b` entry is hidden until a real
-    /// local-provider adapter lands; the daemon's `agent_model`
-    /// validator rejects the `·` and spaces anyway.
-    static let modelChoices: [ModelChoice] = [
-        .init(label: "claude-sonnet-4-7", adapter: "claude", model: "claude-sonnet-4-7"),
-        .init(label: "claude-opus-4-7",   adapter: "claude", model: "claude-opus-4-7"),
-        .init(label: "gpt-5-codex",       adapter: "codex",  model: "gpt-5-codex"),
-        .init(label: "gpt-5-mini",        adapter: "codex",  model: "gpt-5-mini"),
-    ]
 
     enum Template: String, CaseIterable, Identifiable {
         case feature, fix, refactor, test, perf, docs
@@ -117,7 +97,27 @@ struct DispatchView: View {
                 .frame(width: Tokens.dispatchAsideWidth)
                 .background(p.paper2)
         }
-        .task { await loadRecentRepos() }
+        .task {
+            // Repo pills and the model list are independent — neither
+            // feeds the other — so fan them out with `async let` rather
+            // than awaiting in series. A slow `session.recent_repos`
+            // (cold daemon, big history) shouldn't gate the model
+            // dropdown's refresh, since the re-snap below only needs
+            // the models call to have settled.
+            async let repos: Void = loadRecentRepos()
+            async let models: Void = daemon.refreshModels()
+            _ = await (repos, models)
+            // After the live list arrives, re-resolve `selectedModel` so
+            // its label matches the daemon's canonical entry (e.g. user's
+            // AppStorage default is `claude-opus-4-7` but the daemon
+            // ships it under a slightly different label). If the user's
+            // stored model isn't in the live list at all (renamed, EOL'd)
+            // leave the fallback-seeded selection alone — switching it
+            // mid-paint would surprise the user.
+            if let match = daemon.modelChoices.first(where: { $0.model == selectedModel.model }) {
+                selectedModel = match
+            }
+        }
     }
 
     /// Pull recent repos from the daemon once on view appear. Failures
@@ -486,7 +486,7 @@ struct DispatchView: View {
 
     private var modelSelect: some View {
         Menu {
-            ForEach(Self.modelChoices, id: \.self) { choice in
+            ForEach(daemon.modelChoices) { choice in
                 Button(choice.label) { selectedModel = choice }
             }
         } label: {
@@ -543,15 +543,15 @@ struct DispatchView: View {
         // `defaultModel` for whatever the dispatch form's Model picker
         // is showing (the user picked the agent, not the model — they'd
         // be surprised if Astrid suddenly ran on Codex). Adapter is
-        // re-derived from the model id by matching against
-        // `modelChoices`; when the saved model is no longer in the
+        // re-derived from the model id by matching against the daemon's
+        // live `modelChoices`; when the saved model is no longer in the
         // list (renamed model, stale persistence), fall back to the
         // picker's current adapter — that's whatever the user has
         // already chosen for this dispatch, and is more likely to
         // route correctly than a hardcoded "claude".
         let (agentAdapter, agentModel): (String, String) = {
             if let permanent = selectedPermanentAgent, let saved = permanent.defaultModel {
-                if let match = Self.modelChoices.first(where: { $0.model == saved }) {
+                if let match = daemon.modelChoices.first(where: { $0.model == saved }) {
                     return (match.adapter, match.model)
                 }
                 return (selectedModel.adapter, saved)

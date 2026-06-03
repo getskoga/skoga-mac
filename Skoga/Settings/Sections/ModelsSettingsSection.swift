@@ -38,7 +38,10 @@ struct ModelsSettingsSection: View {
                 }
             }
         }
-        .task { await daemon.refreshCredentials() }
+        .task {
+            await daemon.refreshCredentials()
+            await daemon.refreshModels()
+        }
     }
 
     // MARK: – Section header
@@ -505,8 +508,15 @@ private struct ProviderCard: View {
 /// at mount time. The picker only enumerates models whose adapter
 /// matches `provider.adapter` — there's no reason to surface Codex
 /// models in the Anthropic card or vice versa.
+///
+/// The list comes from `daemon.modelChoices`, so a freshly released model
+/// the daemon learns about (e.g. via Anthropic's `/v1/models`) shows up
+/// here without an app update. On older daemons / transport failures the
+/// holder keeps `fallbackModelChoices` in place, which gives us the same
+/// pre-RPC behaviour.
 private struct DefaultModelPicker: View {
     @Environment(\.palette) private var p
+    @Environment(DaemonClientHolder.self) private var daemon
     let provider: RPCCredentialProvider
 
     @AppStorage private var stored: String
@@ -519,8 +529,8 @@ private struct DefaultModelPicker: View {
         )
     }
 
-    private var choices: [DispatchView.ModelChoice] {
-        DispatchView.modelChoices.filter { $0.adapter == provider.adapter }
+    private var choices: [RPCModelChoice] {
+        daemon.modelChoices.filter { $0.adapter == provider.adapter }
     }
 
     private var currentLabel: String {
@@ -532,7 +542,7 @@ private struct DefaultModelPicker: View {
             SettingsCardLabel("DEFAULT MODEL")
 
             Menu {
-                ForEach(choices, id: \.self) { choice in
+                ForEach(choices) { choice in
                     Button(choice.label) { stored = choice.model }
                 }
             } label: {
