@@ -2,9 +2,10 @@ import SwiftUI
 
 /// Root view inside the Settings window scene. Two columns: search +
 /// section list on the left, the selected section's panel on the right.
-/// Sections without a dedicated implementation render a
-/// `PlaceholderSection` rather than a dead-end "coming soon" — the
-/// shell is meant to ship before most of the panels do.
+/// The switch in `content` is exhaustive over `SettingsSectionID`, so
+/// adding a new sidebar entry forces wiring up a real panel — the old
+/// `PlaceholderSection` fallback was retired once Appearance and
+/// Worktrees landed (issue #32).
 ///
 /// Mounts its own toast overlay because the toast layer lives on
 /// `MainWindow`, which is invisible (and z-order-behind) when the user
@@ -16,6 +17,7 @@ struct SettingsShell: View {
 
     @State private var selected: SettingsSectionID = .general
     @State private var search: String = ""
+    @AppStorage(AppearancePrefs.density) private var densityRaw: String = AppearancePrefs.Density.standard.rawValue
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -71,8 +73,17 @@ struct SettingsShell: View {
             }
             Spacer(minLength: 0)
         }
-        .frame(width: Tokens.sidebarWidth, alignment: .leading)
+        .frame(width: sidebarWidth, alignment: .leading)
         .background(p.paper2)
+    }
+
+    /// Reads the Appearance density pref so the Settings sidebar matches
+    /// the main-window Sidebar's width. Falling back to the static
+    /// `Tokens.sidebarWidth` would mean a user picking "Compact" sees
+    /// the main window shrink but the Settings sidebar stay wide.
+    private var sidebarWidth: CGFloat {
+        AppearancePrefs.Density(rawValue: densityRaw)?.sidebarWidth
+            ?? AppearancePrefs.Density.standard.sidebarWidth
     }
 
     private var searchField: some View {
@@ -143,6 +154,8 @@ struct SettingsShell: View {
         switch selected {
         case .general:
             GeneralSettingsSection()
+        case .appearance:
+            AppearanceSettingsSection()
         case .github:
             GitHubSettingsSection()
         case .modelsKeys:
@@ -151,6 +164,8 @@ struct SettingsShell: View {
             NotificationsSettingsSection()
         case .budgets:
             BudgetsSettingsSection()
+        case .worktrees:
+            WorktreesSettingsSection()
         case .editor:
             EditorSettingsSection()
         case .keyboard:
@@ -161,8 +176,6 @@ struct SettingsShell: View {
             AboutSettingsSection()
         case .agents:
             AgentsSettingsSection()
-        default:
-            PlaceholderSection(section: selected)
         }
     }
 }
