@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// Talks to a real `skogad` over `~/.skoga/sock`. Maps the daemon's `Session`
 /// records onto the Mac `Agent` model — many UI fields (tokens, cost, commits)
@@ -128,7 +129,7 @@ final class LiveDaemonClient: DaemonClient {
         }
     }
 
-    func createSession(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?, namedAgentId: String?) async throws -> Agent {
+    func createSession(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?, namedAgentId: String?, attachments: [URL]) async throws -> Agent {
         // auto_launch tells skogad to spawn the detached `skoga
         // _dispatch_launch` subprocess that actually starts the agent in
         // tmux. The Mac dashboard has no other way to bring the agent up —
@@ -148,7 +149,13 @@ final class LiveDaemonClient: DaemonClient {
         // Older daemons drop the field silently (`#[serde(default)]`),
         // so the dispatch still goes through against an ephemeral
         // identity.
+        // attachments get read + base64-encoded off-MainActor so a
+        // multi-MB binary doesn't freeze the UI thread during the
+        // request build. The daemon writes them to disk before forking
+        // `_dispatch_launch` and appends a path-list to initial_prompt,
+        // so we don't reference attachment paths in the prompt here.
         let trimmed = initialPrompt?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let payloads = try await Self.loadAttachmentPayloads(attachments)
         let params = AnyEncodable(SessionCreateParams(
             task: task,
             agent: agent,
@@ -158,10 +165,34 @@ final class LiveDaemonClient: DaemonClient {
             auto_launch: true,
             initial_prompt: (trimmed?.isEmpty ?? true) ? nil : trimmed,
             agent_model: model,
-            named_agent_id: namedAgentId
+            named_agent_id: namedAgentId,
+            attachments: payloads
         ))
         let resp: SessionCreateResponse = try await rpc.call("session.create", params: params)
         return Agent.from(rpc: resp.session)
+    }
+
+    /// Read every attachment URL into memory, base64-encode the bytes, and
+    /// hash with SHA-256 for the daemon's integrity check. Runs on a
+    /// detached task so a multi-MB PDF doesn't block MainActor in
+    /// `createSession`. Throws on the first read failure (NSFileReadError)
+    /// — that bubbles up as a dispatch toast instead of silently dropping
+    /// the file. Returns `[]` when `urls` is empty so the wire payload is
+    /// trivially small for the common no-attachment dispatch.
+    nonisolated private static func loadAttachmentPayloads(_ urls: [URL]) async throws -> [RPCAttachment] {
+        guard !urls.isEmpty else { return [] }
+        return try await Task.detached(priority: .userInitiated) {
+            try urls.map { url in
+                let data = try Data(contentsOf: url)
+                let digest = SHA256.hash(data: data)
+                let hex = digest.map { String(format: "%02x", $0) }.joined()
+                return RPCAttachment(
+                    name: url.lastPathComponent,
+                    bytes_b64: data.base64EncodedString(),
+                    sha256: hex
+                )
+            }
+        }.value
     }
 
     func killSession(id: String) async throws {

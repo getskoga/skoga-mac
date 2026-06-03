@@ -423,10 +423,27 @@ final class AppCoordinator {
         }
     }
 
-    func dispatch(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?, namedAgentId: String? = nil) async {
+    func dispatch(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?, namedAgentId: String? = nil, attachments: [URL] = []) async {
         do {
-            let created = try await daemon.client.createSession(task: task, agent: agent, model: model, base: base, repoRoot: repoRoot, initialPrompt: initialPrompt, namedAgentId: namedAgentId)
-            let title = task.count > 48 ? task.prefix(48) + "…" : Substring(task)
+            // Attachments go directly on `session.create`. The daemon writes
+            // them to `<worktree>/.skoga/attachments/` before forking
+            // `_dispatch_launch` and appends a path-list section to
+            // `initialPrompt`, so the agent's first turn sees the files on
+            // disk and named in its brief. Failures (sanitization, size cap,
+            // sha mismatch) surface as RPC errors on the create call and
+            // hit the catch below — same shape as any other dispatch
+            // validation failure.
+            let created = try await daemon.client.createSession(
+                task: task,
+                agent: agent,
+                model: model,
+                base: base,
+                repoRoot: repoRoot,
+                initialPrompt: initialPrompt,
+                namedAgentId: namedAgentId,
+                attachments: attachments
+            )
+            let title = task.count > 48 ? String(task.prefix(48)) + "…" : task
             modal.showToast("Dispatched \"\(title)\" → \(created.repo) (\(created.name))")
             // Jump straight to the new session's conversation view instead of
             // bouncing back to the roster. Before this change, the user had
