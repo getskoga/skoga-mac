@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kongle Helper — Skoga concept mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --color-background-primary:#faf7ef;
+  --color-background-secondary:#f1ece0;
+  --color-border-tertiary:rgba(26,24,18,.12);
+  --color-border-secondary:rgba(26,24,18,.24);
+  --color-text-primary:#1a1812;
+  --color-text-secondary:#6a6354;
+  --color-text-tertiary:#9a927f;
+  --border-radius-lg:16px;--border-radius-md:10px;
+  --font-serif:'Newsreader',Georgia,serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --page:#e7e1d3;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --color-background-primary:#23211b;
+    --color-background-secondary:#1d1b15;
+    --color-border-tertiary:rgba(236,230,214,.12);
+    --color-border-secondary:rgba(236,230,214,.22);
+    --color-text-primary:#ece6d6;
+    --color-text-secondary:#b7b1a3;
+    --color-text-tertiary:#7d776a;
+    --page:#15140f;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--color-text-primary);
+  font-family:'IBM Plex Sans',-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.page{max-width:780px;margin:0 auto;padding:48px 22px 80px}
+h1{font-family:var(--font-serif);font-weight:500;font-size:40px;letter-spacing:-.01em;margin:0 0 6px}
+.sub{color:var(--color-text-secondary);font-size:16px;max-width:60ch;margin:0 0 6px}
+.hint{color:var(--color-text-tertiary);font-size:13px;margin:0 0 26px}
+.ic{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+.sk-app{position:relative;min-height:560px;background:var(--color-background-secondary);border:1px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden}
+.sk-bar{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--color-border-tertiary)}
+.sk-dot{width:10px;height:10px;border-radius:50%;background:var(--color-border-secondary)}
+.sk-wm{font-family:var(--font-serif);font-size:18px}
+.sk-skel{height:12px;border-radius:6px;background:var(--color-border-tertiary);margin:10px 0}
+.sk-kong{position:absolute;right:14px;bottom:8px;width:150px;cursor:pointer;animation:kbob 3.4s ease-in-out infinite}
+@keyframes kbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes wave{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(15deg)}}
+@keyframes blink{0%,90%,100%{transform:scaleY(1)}95%{transform:scaleY(.14)}}
+@keyframes steamRise{0%{opacity:0;transform:translateY(0)}25%{opacity:.85}70%{opacity:.85}100%{opacity:0;transform:translateY(-18px)}}
+@keyframes noteRise{0%{opacity:0;transform:translateY(6px)}20%{opacity:.9}100%{opacity:0;transform:translateY(-24px)}}
+@keyframes zzzRise{0%{opacity:0;transform:translate(0,0)}20%{opacity:1}70%{opacity:1}100%{opacity:0;transform:translate(18px,-46px)}}
+@keyframes confFall{0%{opacity:1;transform:translateY(-6px)}80%{opacity:1}100%{opacity:0;transform:translateY(150px)}}
+@keyframes chkIn{from{opacity:0}to{opacity:1}}
+@keyframes penJ{0%,100%{transform:translate(0,0) rotate(0)}25%{transform:translate(1.5px,.5px) rotate(2deg)}75%{transform:translate(-1.4px,.5px) rotate(-2deg)}}
+@keyframes kpop{0%{opacity:0;transform:translateY(8px) scale(.96)}100%{opacity:1;transform:translateY(0) scale(1)}}
+.arm-wave{transform-box:fill-box;transform-origin:0% 90%;animation:wave 1.05s ease-in-out infinite}
+.eye{transform-box:fill-box;transform-origin:center;animation:blink 4.8s ease-in-out infinite}
+.steam{transform-box:fill-box;animation:steamRise 2.6s ease-in-out infinite}
+.note{transform-box:fill-box;animation:noteRise 2.4s ease-out infinite}
+.zzz{transform-box:fill-box;animation:zzzRise 2.8s ease-out infinite}
+.conf{transform-box:fill-box;animation:confFall 2.4s linear infinite}
+.chk{opacity:0;animation:chkIn .3s ease forwards}
+.pen{transform-box:fill-box;transform-origin:40% 80%;animation:penJ .5s ease-in-out infinite}
+.sk-bub{position:absolute;right:20px;bottom:182px;width:322px;max-width:calc(100% - 40px);background:var(--color-background-primary);border:1px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);padding:16px;animation:kpop .18s ease-out}
+.sk-tail{position:absolute;right:66px;bottom:-8px;width:15px;height:15px;background:var(--color-background-primary);border-right:1px solid var(--color-border-secondary);border-bottom:1px solid var(--color-border-secondary);transform:rotate(45deg)}
+.sk-x{position:absolute;top:12px;right:12px;background:transparent;border:none;color:var(--color-text-tertiary);cursor:pointer;padding:2px;display:flex}
+.sk-name{font-family:var(--font-serif);font-size:15px}
+.k-opt{width:100%;display:flex;align-items:center;gap:12px;text-align:left;padding:11px 12px;margin-bottom:8px;background:var(--color-background-primary);border:1px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);cursor:pointer;color:inherit}
+.k-opt:hover{background:var(--color-background-secondary);border-color:var(--color-border-secondary)}
+.k-ic{width:34px;height:34px;flex:none;border-radius:50%;background:#e7efe7;color:#1a5530;display:flex;align-items:center;justify-content:center}
+.k-opt b{display:block;font-weight:500;font-size:14px}
+.k-opt small{font-size:12px;color:var(--color-text-secondary)}
+.k-arr{margin-left:auto;color:var(--color-text-tertiary)}
+.k-lbl{display:block;font-size:13px;color:var(--color-text-secondary);margin:12px 0 5px}
+.sk-bub textarea,.sk-bub input{width:100%;font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-secondary);color:inherit;resize:vertical}
+.k-submit{width:100%;margin-top:14px;background:#1a5530;color:#ece6d6;border:none;border-radius:var(--border-radius-md);padding:10px;font-size:14px;cursor:pointer}
+.k-submit:hover{background:#16482a}
+.k-back{display:inline-flex;align-items:center;gap:5px;background:transparent;border:none;color:var(--color-text-secondary);font-size:13px;cursor:pointer;padding:0;margin-bottom:6px}
+.k-chip{display:inline-block;margin:0 6px 6px 0;padding:7px 11px;font-size:13px;background:var(--color-background-secondary);border:1px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);cursor:pointer}
+.k-chip:hover{border-color:var(--color-border-secondary)}
+.k-ask{display:flex;gap:8px;margin-top:10px}
+.k-ask .k-submit{margin:0;width:auto;padding:8px 14px}
+.k-greet{font-size:14px;color:var(--color-text-secondary);margin:0 0 14px;line-height:1.5}
+.k-code{font-family:var(--font-mono);font-size:13px;background:var(--color-background-secondary);padding:2px 7px;border-radius:5px}
+.k-done{text-align:center;padding:2px}
+.foot{margin-top:30px;font-size:12.5px;color:var(--color-text-tertiary);line-height:1.6}
+@media (prefers-reduced-motion:reduce){*{animation:none !important}}
+</style>
+</head>
+<body>
+<div class="page">
+<h1>Kongle Helper</h1>
+<p class="sub">A concept mockup of Kongle as a friendly corner helper for Skoga — file a bug, request a feature, or ask for help. He emotes through the flow and potters about while you work.</p>
+<p class="hint">Click Kongle to open him. Close him (the ×) and leave him be to watch him idle — reading, headphones, coffee, scribbling, dozing.</p>
+
+<div class="sk-app">
+<div class="sk-bar"><span class="sk-dot"></span><span class="sk-dot"></span><span class="sk-dot"></span><span class="sk-wm">skoga</span></div>
+<div style="display:flex">
+<div style="width:140px;padding:16px;border-right:1px solid var(--color-border-tertiary);opacity:.5">
+<div class="sk-skel" style="width:70%"></div><div class="sk-skel" style="width:90%"></div><div class="sk-skel" style="width:60%"></div><div class="sk-skel" style="width:80%"></div>
+</div>
+<div style="flex:1;padding:16px;opacity:.4">
+<div class="sk-skel" style="width:40%;height:18px"></div><div class="sk-skel" style="width:100%"></div><div class="sk-skel" style="width:95%"></div><div class="sk-skel" style="width:85%"></div><div class="sk-skel" style="width:70%"></div>
+</div>
+</div>
+
+<div class="sk-bub" id="bub">
+<button class="sk-x" id="bclose" aria-label="Close"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+<div id="pbody"></div>
+<div class="sk-tail"></div>
+</div>
+
+<div class="sk-kong" id="kong" role="button" aria-label="Talk to Kongle"><div id="khold"></div></div>
+</div>
+
+<p class="foot">Concept mockup · Kongle the mascot for Skoga. Self-contained — all artwork is inline SVG, motion is CSS, and it respects <code>prefers-reduced-motion</code>. The "Get help" replies are placeholders; in production they'd be answered from Skoga's docs.</p>
+</div>
+
+<script>
+(function(){
+var T1="#2c6b41",T2="#1a5530",T3="#123c22",SP="#3d8757",TR="#6E5238",TD="#5C4429",F="#0f2a18",HI="#ece6d6",CH="#c97f4a",A="#123c22",GY="#3a3a3a";
+function ic(d){return '<svg class="ic" viewBox="0 0 24 24">'+d+'</svg>';}
+var I_BUG=ic('<path d="M9 9V6a3 3 0 0 1 6 0v3"/><rect x="7" y="9" width="10" height="10" rx="5"/><path d="M3 13h4M17 13h4M5 8l3 2M19 8l-3 2M5 18l3-2M19 18l-3-2"/>');
+var I_BULB=ic('<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10c.7.7 1 1.6 1 2.5h6c0-.9.3-1.8 1-2.5A6 6 0 0 0 12 3z"/>');
+var I_MSG=ic('<path d="M21 14a2 2 0 0 1-2 2H8l-4 3V6a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/>');
+var I_CH=ic('<path d="M9 6l6 6-6 6"/>');
+var I_BK=ic('<path d="M19 12H5M11 18l-6-6 6-6"/>');
+
+var BASE='<rect x="-16" y="198" width="32" height="38" rx="9" fill="'+TR+'"/><rect x="-16" y="198" width="12" height="38" rx="6" fill="'+TD+'"/>'
++'<path d="M0,98 L92,200 Q69,209 46,200 Q23,209 0,200 Q-23,209 -46,200 Q-69,209 -92,200 L0,98 Z" fill="'+T3+'"/>'
++'<path d="M0,58 L70,150 Q52.5,158 35,150 Q17.5,158 0,150 Q-17.5,158 -35,150 Q-52.5,158 -70,150 L0,58 Z" fill="'+T2+'"/>'
++'<path d="M0,20 L46,96 Q34.5,103 23,96 Q11.5,103 0,96 Q-11.5,103 -23,96 Q-34.5,103 -46,96 L0,20 Z" fill="'+T1+'"/>'
++'<path d="M0,26 L0,10" stroke="'+SP+'" stroke-width="4" stroke-linecap="round"/>'
++'<ellipse cx="-8" cy="8" rx="9" ry="6" fill="'+SP+'" transform="rotate(-35 -8 8)"/><ellipse cx="9" cy="8" rx="9" ry="6" fill="'+SP+'" transform="rotate(35 9 8)"/>';
+var EYES='<ellipse class="eye" cx="-17" cy="120" rx="8" ry="10" fill="'+F+'"/><ellipse class="eye" cx="17" cy="120" rx="8" ry="10" fill="'+F+'"/><circle cx="-14" cy="116" r="2.5" fill="'+HI+'"/><circle cx="20" cy="116" r="2.5" fill="'+HI+'"/>';
+var CHK='<ellipse cx="-31" cy="135" rx="9" ry="5" fill="'+CH+'" opacity="0.75"/><ellipse cx="31" cy="135" rx="9" ry="5" fill="'+CH+'" opacity="0.75"/>';
+var SMILE='<path d="M-11,140 Q0,149 11,140" fill="none" stroke="'+F+'" stroke-width="3" stroke-linecap="round"/>';
+var FH=CHK+EYES+SMILE;
+var FFOC='<path d="M-27,107 L-9,113" fill="none" stroke="'+F+'" stroke-width="2.5" stroke-linecap="round"/><path d="M27,107 L9,113" fill="none" stroke="'+F+'" stroke-width="2.5" stroke-linecap="round"/><ellipse class="eye" cx="-16" cy="123" rx="7" ry="8" fill="'+F+'"/><ellipse class="eye" cx="16" cy="123" rx="7" ry="8" fill="'+F+'"/><circle cx="-13" cy="120" r="2" fill="'+HI+'"/><circle cx="19" cy="120" r="2" fill="'+HI+'"/><ellipse cx="-31" cy="138" rx="8" ry="4" fill="'+CH+'" opacity="0.7"/><ellipse cx="31" cy="138" rx="8" ry="4" fill="'+CH+'" opacity="0.7"/><path d="M-7,141 Q0,144 7,141" fill="none" stroke="'+F+'" stroke-width="3" stroke-linecap="round"/>';
+var FREAD='<ellipse class="eye" cx="-15" cy="125" rx="7.5" ry="9" fill="'+F+'"/><ellipse class="eye" cx="15" cy="125" rx="7.5" ry="9" fill="'+F+'"/><circle cx="-12" cy="122" r="2.2" fill="'+HI+'"/><circle cx="18" cy="122" r="2.2" fill="'+HI+'"/>'+CHK+'<path d="M-9,143 Q0,148 9,143" fill="none" stroke="'+F+'" stroke-width="2.6" stroke-linecap="round"/>';
+var FSLEEP='<path d="M-25,120 Q-17,126 -9,120" fill="none" stroke="'+F+'" stroke-width="2.5" stroke-linecap="round"/><path d="M9,120 Q17,126 25,120" fill="none" stroke="'+F+'" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="-30" cy="135" rx="9" ry="5" fill="'+CH+'" opacity="0.6"/><ellipse cx="30" cy="135" rx="9" ry="5" fill="'+CH+'" opacity="0.6"/><path d="M-6,140 Q0,144 6,140" fill="none" stroke="'+F+'" stroke-width="2.5" stroke-linecap="round"/>';
+var FCEL='<path d="M-25,122 Q-17,114 -9,122" fill="none" stroke="'+F+'" stroke-width="2.5" stroke-linecap="round"/><path d="M9,122 Q17,114 25,122" fill="none" stroke="'+F+'" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="-31" cy="135" rx="9" ry="5" fill="'+CH+'" opacity="0.85"/><ellipse cx="31" cy="135" rx="9" ry="5" fill="'+CH+'" opacity="0.85"/><path d="M-14,136 Q0,153 14,136" fill="none" stroke="'+F+'" stroke-width="3" stroke-linecap="round"/>';
+var NUBL='<path d="M-64,174 Q-88,174 -98,188 Q-84,193 -70,185 Q-63,180 -64,174 Z" fill="'+A+'"/>';
+var NUBR='<path d="M64,174 Q88,174 98,188 Q84,193 70,185 Q63,180 64,174 Z" fill="'+A+'"/>';
+var NLL='<path d="M-60,180 Q-84,180 -94,193 Q-80,198 -66,191 Q-59,186 -60,180 Z" fill="'+A+'"/>';
+var NRL='<path d="M60,180 Q84,180 94,193 Q80,198 66,191 Q59,186 60,180 Z" fill="'+A+'"/>';
+var WAVEARM='<path d="M-58,176 Q-82,176 -92,190 Q-78,195 -64,187 Q-57,182 -58,176 Z" fill="'+A+'"/><path class="arm-wave" d="M56,128 Q88,106 100,80 Q112,88 104,102 Q88,124 64,138 Z" fill="'+A+'"/>';
+var ARMSUP='<path d="M-56,128 Q-88,106 -100,80 Q-112,88 -104,102 Q-88,124 -64,138 Z" fill="'+A+'"/><path d="M56,128 Q88,106 100,80 Q112,88 104,102 Q88,124 64,138 Z" fill="'+A+'"/>';
+var HEADPH='<path d="M-50,110 Q0,46 50,110" fill="none" stroke="'+GY+'" stroke-width="6" stroke-linecap="round"/><ellipse cx="-50" cy="116" rx="10" ry="13" fill="'+GY+'"/><ellipse cx="50" cy="116" rx="10" ry="13" fill="'+GY+'"/><ellipse cx="-50" cy="116" rx="5" ry="7" fill="#5a5a5a"/><ellipse cx="50" cy="116" rx="5" ry="7" fill="#5a5a5a"/>';
+function note(x,y,d){return '<g class="note" style="animation-delay:'+d+'s"><g transform="translate('+x+','+y+')"><ellipse cx="0" cy="5" rx="4" ry="3" fill="'+T2+'" transform="rotate(-18)"/><rect x="3" y="-8" width="2" height="13" rx="1" fill="'+T2+'"/></g></g>';}
+var NOTES=note(70,96,0)+note(92,80,0.8)+note(110,100,1.6);
+var STEAM='<path class="steam" d="M50,164 q-5,-7 0,-13 q5,-7 0,-13" fill="none" stroke="#b3a78d" stroke-width="2.5" stroke-linecap="round"/><path class="steam" style="animation-delay:1.1s" d="M61,162 q5,-7 0,-13 q-5,-7 0,-13" fill="none" stroke="#b3a78d" stroke-width="2.5" stroke-linecap="round"/>';
+var MUG='<rect x="40" y="170" width="30" height="34" rx="6" fill="#c0673f"/><path d="M70,178 Q86,184 70,197" fill="none" stroke="#c0673f" stroke-width="5" stroke-linecap="round"/><ellipse cx="55" cy="170" rx="15" ry="5" fill="#d57c4f"/><ellipse cx="55" cy="171" rx="11" ry="3" fill="#4a2614"/><path d="M34,184 Q23,184 19,193 Q27,199 39,192 Z" fill="'+A+'"/>';
+var BOOK='<path d="M-58,182 Q-44,178 -40,188 Q-46,196 -58,192 Q-62,187 -58,182 Z" fill="'+A+'"/><path d="M58,182 Q44,178 40,188 Q46,196 58,192 Q62,187 58,182 Z" fill="'+A+'"/><path d="M-46,160 L0,152 L46,160 L46,200 L0,194 L-46,200 Z" fill="'+T3+'"/><path d="M-3,156 L-43,163 L-43,196 L-3,191 Z" fill="#F4EEDF"/><path d="M3,156 L43,163 L43,196 L3,191 Z" fill="#F4EEDF"/><rect x="-3" y="156" width="6" height="35" fill="#cfc6ad"/><line x1="-37" y1="170" x2="-10" y2="167" stroke="#cfc6ad" stroke-width="1.4"/><line x1="-37" y1="178" x2="-10" y2="175" stroke="#cfc6ad" stroke-width="1.4"/><line x1="-37" y1="186" x2="-12" y2="183" stroke="#cfc6ad" stroke-width="1.4"/><line x1="10" y1="167" x2="37" y2="170" stroke="#cfc6ad" stroke-width="1.4"/><line x1="10" y1="175" x2="37" y2="178" stroke="#cfc6ad" stroke-width="1.4"/><line x1="12" y1="183" x2="37" y2="186" stroke="#cfc6ad" stroke-width="1.4"/>';
+function zz(s,d){return '<path class="zzz" style="animation-delay:'+d+'s" d="M44,92 l'+s+',0 l-'+s+','+s+' l'+s+',0" stroke="'+T1+'" stroke-width="2.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';}
+var ZZZ=zz(9,0)+zz(7,0.9)+zz(5,1.8);
+var PAPER='<g transform="rotate(-4 3 180)"><rect x="-26" y="152" width="58" height="58" rx="3" fill="#F4EEDF" stroke="#dcd2bb" stroke-width="1.5"/><line x1="-18" y1="167" x2="18" y2="167" stroke="#dcd2bb" stroke-width="1.5"/><line x1="-18" y1="179" x2="18" y2="179" stroke="#dcd2bb" stroke-width="1.5"/><line x1="-18" y1="191" x2="18" y2="191" stroke="#dcd2bb" stroke-width="1.5"/><path d="M-18,165 q4,-3.5 8,0 t8,0 t8,0 t8,0" fill="none" stroke="#2f3a32" stroke-width="1.6" stroke-linecap="round"/><path d="M-18,177 q4,-3.5 8,0 t8,0 t8,0 t6,0" fill="none" stroke="#2f3a32" stroke-width="1.6" stroke-linecap="round"/></g>';
+var PENCIL='<g class="pen"><line x1="26" y1="166" x2="52" y2="138" stroke="#d8a23a" stroke-width="7" stroke-linecap="round"/><circle cx="52" cy="138" r="4" fill="#cf8a7a"/><path d="M26,166 L21,170 L30,175 Z" fill="#c9a06a"/><circle cx="22.5" cy="171" r="1.6" fill="#2c2c2c"/><path d="M30,160 Q40,150 48,156 Q44,166 34,164 Q28,164 30,160 Z" fill="'+T2+'"/></g>';
+var CLIP='<g transform="rotate(-6 3 180)"><rect x="-22" y="150" width="52" height="58" rx="6" fill="#B98A5E"/><rect x="-17" y="156" width="42" height="46" rx="3" fill="#F4EEDF"/><rect x="-7" y="146" width="22" height="9" rx="3" fill="#A7ADAD"/><rect x="4" y="167" width="18" height="3" rx="1.5" fill="#CDBFA6"/><rect x="4" y="181" width="18" height="3" rx="1.5" fill="#CDBFA6"/><rect x="4" y="195" width="18" height="3" rx="1.5" fill="#CDBFA6"/><path class="chk" style="animation-delay:.1s" d="M-9,169 l3,3 l6,-7" fill="none" stroke="'+T2+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path class="chk" style="animation-delay:.5s" d="M-9,183 l3,3 l6,-7" fill="none" stroke="'+T2+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path class="chk" style="animation-delay:.9s" d="M-9,197 l3,3 l6,-7" fill="none" stroke="'+T2+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></g>';
+function conf(x,y,c,d,circ){var s=circ?'<circle cx="'+x+'" cy="'+y+'" r="3" fill="'+c+'"/>':'<rect x="'+x+'" y="'+y+'" width="6" height="6" rx="1" fill="'+c+'"/>';return '<g class="conf" style="animation-delay:'+d+'s">'+s+'</g>';}
+var CONF=conf(-40,0,CH,0)+conf(-12,-6,T1,0.5,1)+conf(18,-4,"#b5532f",1)+conf(48,-2,T2,0.3,1)+conf(0,-8,"#d8a23a",1.4)+conf(70,2,CH,0.9,1);
+
+var poses={
+ happy:BASE+NUBL+NUBR+FH,
+ waving:BASE+WAVEARM+FH,
+ headphones:BASE+NUBL+NUBR+FH+HEADPH+NOTES,
+ reading:BASE+BOOK+FREAD,
+ coffee:BASE+NUBL+MUG+STEAM+FH,
+ napping:BASE+NLL+NRL+FSLEEP+ZZZ,
+ writing:BASE+'<path d="M-58,176 Q-40,184 -26,182 Q-30,190 -44,189 Q-54,184 -58,176 Z" fill="'+A+'"/>'+PAPER+FFOC+'<path d="M60,150 Q48,150 40,158 Q50,164 62,160 Z" fill="'+A+'"/>'+PENCIL,
+ working:BASE+NUBR+CLIP+'<path d="M-54,166 Q-36,176 -22,174 Q-26,184 -42,182 Q-52,176 -54,166 Z" fill="'+A+'"/>'+FFOC,
+ celebrating:BASE+ARMSUP+FCEL+CONF
+};
+var SVGO='<svg viewBox="-116 -6 232 250" width="100%" height="100%">';
+function setPose(n){document.getElementById("khold").innerHTML=SVGO+poses[n]+"</svg>";}
+
+var idleActs=["happy","reading","headphones","coffee","writing","napping"];
+var idleTimer=null,idx=0,open=true;
+function nextIdle(){idx=(idx+1)%idleActs.length;setPose(idleActs[idx]);}
+function startIdle(){stopIdle();idx=0;idleTimer=setInterval(nextIdle,6500);}
+function stopIdle(){if(idleTimer){clearInterval(idleTimer);idleTimer=null;}}
+document.addEventListener("visibilitychange",function(){if(document.hidden)stopIdle();else if(!open)startIdle();});
+
+var bub=document.getElementById("bub"),kong=document.getElementById("kong"),body=document.getElementById("pbody");
+var menu='<p class="k-greet"><span class="sk-name">Hi, I\'m Kongle.</span><br>Spot a bug, want a feature, or stuck on something? Pass it my way.</p>'
++'<button class="k-opt" data-go="bug"><span class="k-ic">'+I_BUG+'</span><span><b>Report a bug</b><small>Something\'s broken</small></span><span class="k-arr">'+I_CH+'</span></button>'
++'<button class="k-opt" data-go="feature"><span class="k-ic">'+I_BULB+'</span><span><b>Request a feature</b><small>Share an idea</small></span><span class="k-arr">'+I_CH+'</span></button>'
++'<button class="k-opt" data-go="help"><span class="k-ic">'+I_MSG+'</span><span><b>Get help</b><small>Ask me anything</small></span><span class="k-arr">'+I_CH+'</span></button>';
+var back='<button class="k-back" data-go="menu">'+I_BK+' Back</button>';
+var views={
+ menu:menu,
+ bug:back+'<h3 style="margin:4px 0 2px;font-weight:500;font-size:16px">Report a bug</h3><label class="k-lbl">What went wrong?</label><textarea rows="3" placeholder="The agent list didn\'t refresh after a run finished…"></textarea><label class="k-lbl">What were you doing? (optional)</label><input placeholder="Running three agents in parallel"/><button class="k-submit" data-submit="a bug report">Send report</button>',
+ feature:back+'<h3 style="margin:4px 0 2px;font-weight:500;font-size:16px">Request a feature</h3><label class="k-lbl">What would you like Skoga to do?</label><textarea rows="4" placeholder="Let me group agents into a saved squad…"></textarea><button class="k-submit" data-submit="a feature request">Send request</button>',
+ help:back+'<h3 style="margin:4px 0 2px;font-weight:500;font-size:16px">Get help</h3><p class="k-greet" style="margin:8px 0 10px">Pick a question, or ask your own:</p><span class="k-chip" data-ask="How do I add a new agent?">How do I add an agent?</span><span class="k-chip" data-ask="What do the agent statuses mean?">What do the statuses mean?</span><span class="k-chip" data-ask="What keyboard shortcuts are there?">Keyboard shortcuts</span><div class="k-ask"><input id="hq" placeholder="Ask Kongle…"/><button class="k-submit" data-askbtn>Ask</button></div>'
+};
+function done(label,id){return '<div class="k-done"><h3 style="font-weight:500;font-size:16px;margin:2px 0 6px">Thanks — got it!</h3><p class="k-greet" style="margin:0 0 14px">Your '+label+' is logged as <span class="k-code">'+id+'</span>. I\'ll make sure the team sees it.</p><button class="k-submit" data-go="menu">Anything else?</button></div>';}
+function answer(q){return back+'<p class="k-greet" style="margin-top:6px">You asked:<br><b style="color:var(--color-text-primary)">'+q.replace(/</g,'&lt;')+'</b></p><p class="k-greet">In the live product I\'d answer this from Skoga\'s docs. This is a static mockup, so pretend I just gave you a crisp, correct answer with a doc link.</p><button class="k-submit" data-go="menu">Back to menu</button>';}
+function show(name){body.innerHTML=views[name];}
+
+function openHelper(){open=true;stopIdle();bub.style.display="block";show("menu");setPose("waving");setTimeout(function(){if(open)setPose("happy");},1400);}
+function closeHelper(){open=false;bub.style.display="none";setPose("happy");startIdle();}
+kong.onclick=function(){if(open)closeHelper();else openHelper();};
+document.getElementById("bclose").onclick=function(e){e.stopPropagation();closeHelper();};
+
+body.addEventListener("click",function(e){
+ var go=e.target.closest("[data-go]");if(go){show(go.getAttribute("data-go"));setPose("happy");return;}
+ var sub=e.target.closest("[data-submit]");if(sub){var lbl=sub.getAttribute("data-submit");setPose("working");body.innerHTML='<div class="k-done"><p class="k-greet" style="margin:18px 0">Logging that for you…</p></div>';setTimeout(function(){var id="SKO-"+(1000+Math.floor(Math.random()*9000));body.innerHTML=done(lbl,id);setPose("celebrating");},1300);return;}
+ var chip=e.target.closest("[data-ask]");if(chip){setPose("working");body.innerHTML=answer(chip.getAttribute("data-ask"));setTimeout(function(){setPose("happy");},900);return;}
+ var ab=e.target.closest("[data-askbtn]");if(ab){var v=document.getElementById("hq").value.trim();if(v){setPose("working");body.innerHTML=answer(v);setTimeout(function(){setPose("happy");},900);}return;}
+});
+
+show("menu");setPose("waving");setTimeout(function(){if(open)setPose("happy");},1500);
+})();
+</script>
+</body>
+</html>
