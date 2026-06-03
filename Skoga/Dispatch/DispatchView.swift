@@ -742,6 +742,7 @@ struct DispatchView: View {
             }
             .buttonStyle(.plain)
             .disabled(!canDispatch)
+            .keyboardShortcut(.return, modifiers: .command)
 
             Button {
             } label: {
