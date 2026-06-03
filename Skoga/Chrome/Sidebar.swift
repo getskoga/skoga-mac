@@ -6,6 +6,7 @@ struct Sidebar: View {
     @Environment(RosterState.self) private var roster
     @Environment(ModalState.self) private var modal
     @Environment(NamedAgentsState.self) private var namedAgents
+    @AppStorage(AppearancePrefs.density) private var densityRaw: String = AppearancePrefs.Density.standard.rawValue
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -71,9 +72,28 @@ struct Sidebar: View {
             Spacer()
             footer
         }
-        .frame(width: Tokens.sidebarWidth, alignment: .leading)
+        .frame(width: resolvedSidebarWidth, alignment: .leading)
         .background(p.paper2)
         .overlay(alignment: .trailing) { Hairline(axis: .vertical) }
+    }
+
+    /// Reads the Appearance density pref (Settings → Appearance) so the
+    /// user's "compact" choice actually narrows the main chrome. Falls
+    /// back to the standard width when the persisted value is missing or
+    /// malformed.
+    private var resolvedSidebarWidth: CGFloat {
+        resolvedDensity.sidebarWidth
+    }
+
+    /// Trailing role/branch label cap. Shrinks in lockstep with the
+    /// sidebar width so compact mode doesn't crush the agent name to a
+    /// few characters by leaving the right-hand label claim unchanged.
+    private var trailingLabelMaxWidth: CGFloat {
+        resolvedDensity.sidebarTrailingLabelMaxWidth
+    }
+
+    private var resolvedDensity: AppearancePrefs.Density {
+        AppearancePrefs.Density(rawValue: densityRaw) ?? .standard
     }
 
     private var wordmark: some View {
@@ -179,7 +199,7 @@ struct Sidebar: View {
                     .foregroundStyle(p.inkMute)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .frame(maxWidth: 130, alignment: .trailing)
+                    .frame(maxWidth: trailingLabelMaxWidth, alignment: .trailing)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 7)
@@ -219,7 +239,7 @@ struct Sidebar: View {
                     .foregroundStyle(p.inkMute)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .frame(maxWidth: 130, alignment: .trailing)
+                    .frame(maxWidth: trailingLabelMaxWidth, alignment: .trailing)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 7)

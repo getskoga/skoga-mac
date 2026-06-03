@@ -52,6 +52,7 @@
 		792B97FCC47A040D5091B97C /* StepSandbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0092134D6C658A8CF9F68040 /* StepSandbox.swift */; };
 		7F7DEE61027F4C8E7978EE88 /* LiveDaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70C3CDA242BE7EF87A23DDD1 /* LiveDaemonClient.swift */; };
 		800E515C8068882CC591F294 /* OnboardingComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EE80EFADB57ECB78A16AC5D /* OnboardingComponents.swift */; };
+		81FEFDA06983E5D147F16B40 /* AppearanceSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E6D34716B739B5E80CA86A /* AppearanceSettingsSection.swift */; };
 		823115FEF637EEBBC6A8D163 /* PulseDot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C6D36A05B968E62F7CB7BF /* PulseDot.swift */; };
 		86B547E02F159D1FADD8E5D9 /* TelemetryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F47F1D8A4A2158D854110144 /* TelemetryView.swift */; };
 		8C054293BB4CF2C9E24828CD /* SkogaGlyph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81F8C2B09E59496FB397779E /* SkogaGlyph.swift */; };
@@ -74,6 +75,7 @@
 		BFF1C77E6332943D4D93EEA1 /* FilterRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FAC023DD953B7C1C85F0027 /* FilterRail.swift */; };
 		C0B8611AF2746532CA6B30F5 /* Color+Oklch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 235DA73ACD9025DC61F6CAA5 /* Color+Oklch.swift */; };
 		C0DCD0495C0135A8877E74D7 /* ActivityBars.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E13C9D4BF28ACDB5B9C1CC /* ActivityBars.swift */; };
+		CBD5263191B839BCE2D908AC /* WorktreesSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5884C78096AA28D9DA6B3DBE /* WorktreesSettingsSection.swift */; };
 		CC3E912C7C322D76B934024D /* PRModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636564F61F4F65B4CC82B789 /* PRModal.swift */; };
 		CCFCAD5B8E9DED56CC8A7D65 /* SkogaIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */; };
 		CD71FEE88CD02D5069B6228B /* KeyboardSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE6D6D0F3026B276380D070 /* KeyboardSettingsSection.swift */; };
@@ -105,6 +107,7 @@
 		324080D75957A3776C6AE643 /* PlaceholderSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderSection.swift; sourceTree = "<group>"; };
 		3457E04866B98C322F63CCB3 /* JSONRPCConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONRPCConnection.swift; sourceTree = "<group>"; };
 		35A1BD46D7F2E1FB826A2856 /* ParsedTranscriptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParsedTranscriptView.swift; sourceTree = "<group>"; };
+		36E6D34716B739B5E80CA86A /* AppearanceSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsSection.swift; sourceTree = "<group>"; };
 		38E26794A30DE016A10EB598 /* BudgetsSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetsSettingsSection.swift; sourceTree = "<group>"; };
 		39C67ACAD79D4BB7F7C96958 /* GitHubCompareLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubCompareLauncher.swift; sourceTree = "<group>"; };
 		3A59C2662EF4E120004794B5 /* NamedAgentsState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NamedAgentsState.swift; sourceTree = "<group>"; };
@@ -122,6 +125,7 @@
 		5310DF4FE0BF1441CA5B5858 /* TitleBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleBar.swift; sourceTree = "<group>"; };
 		564D44FC512438A77E2F2C09 /* StepReady.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepReady.swift; sourceTree = "<group>"; };
 		57085F2BA9C6FA7F771E84EC /* ConversationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationState.swift; sourceTree = "<group>"; };
+		5884C78096AA28D9DA6B3DBE /* WorktreesSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorktreesSettingsSection.swift; sourceTree = "<group>"; };
 		5B6E36E5C280653D25A1DDF9 /* NotificationsSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSettingsSection.swift; sourceTree = "<group>"; };
 		5C3CE6341D7407CD1FFBA94B /* OnboardingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingState.swift; sourceTree = "<group>"; };
 		5FE6D6D0F3026B276380D070 /* KeyboardSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardSettingsSection.swift; sourceTree = "<group>"; };
@@ -308,6 +312,7 @@
 			children = (
 				0F9EC72CF3909D6961F2C367 /* AboutSettingsSection.swift */,
 				2C7889A8C5025A1F8A757CE0 /* AgentsSettingsSection.swift */,
+				36E6D34716B739B5E80CA86A /* AppearanceSettingsSection.swift */,
 				38E26794A30DE016A10EB598 /* BudgetsSettingsSection.swift */,
 				49EE4BE4620A6158671227A8 /* EditorSettingsSection.swift */,
 				E5D9EE8D124E94662164B060 /* GeneralSettingsSection.swift */,
@@ -317,6 +322,7 @@
 				5B6E36E5C280653D25A1DDF9 /* NotificationsSettingsSection.swift */,
 				324080D75957A3776C6AE643 /* PlaceholderSection.swift */,
 				5142F3AE0BB6F2CDF39F0490 /* PrivacySettingsSection.swift */,
+				5884C78096AA28D9DA6B3DBE /* WorktreesSettingsSection.swift */,
 			);
 			path = Sections;
 			sourceTree = "<group>";
@@ -525,6 +531,7 @@
 				B55D7D8AEE5B4B9326E024D6 /* AnimatedSVG.swift in Sources */,
 				1CF54B406250832E21C31E97 /* AppCoordinator.swift in Sources */,
 				0904869BDE0C1F4B33955791 /* AppView.swift in Sources */,
+				81FEFDA06983E5D147F16B40 /* AppearanceSettingsSection.swift in Sources */,
 				F360C48B877A3A7CA94F4939 /* BudgetsSettingsSection.swift in Sources */,
 				04A6186AE10DC3AA7A0EA2B1 /* BugReportModal.swift in Sources */,
 				B038B3D3555C717A97F1D66A /* CockpitStrip.swift in Sources */,
@@ -593,6 +600,7 @@
 				0440F79167C3EF08AEAB6DE2 /* Tokens.swift in Sources */,
 				F953B4F6DFAD8786461DD1F8 /* Typography.swift in Sources */,
 				B1FE387B2D3F62BE92234B26 /* WindowAccessor.swift in Sources */,
+				CBD5263191B839BCE2D908AC /* WorktreesSettingsSection.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

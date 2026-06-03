@@ -5,6 +5,7 @@ struct RosterView: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(AppCoordinator.self) private var coordinator
     @Environment(RosterState.self) private var roster
+    @AppStorage(AppearancePrefs.showIllustrations) private var showIllustrations: Bool = AppearancePrefs.showIllustrationsDefault
 
     var body: some View {
         VStack(spacing: 0) {
@@ -40,8 +41,10 @@ struct RosterView: View {
     private var emptyState: some View {
         VStack(spacing: 14) {
             Spacer(minLength: 0)
-            AnimatedSVG(assetName: scheme == .dark ? "KongleSleeping" : "KongleCoffee")
-                .frame(width: 220, height: 220)
+            if showIllustrations {
+                AnimatedSVG(assetName: scheme == .dark ? "KongleSleeping" : "KongleCoffee")
+                    .frame(width: 220, height: 220)
+            }
             VStack(spacing: 4) {
                 Text("No agents in your roster.")
                     .font(SkogaFont.bodyMedium(13))
