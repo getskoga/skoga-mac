@@ -233,7 +233,7 @@ struct WorktreesSettingsSection: View {
     private var activeWorktrees: [Agent] {
         roster.agents
             .filter { !$0.status.isTerminal && $0.hostWorktree != nil }
-            .sorted { ($0.hostWorktree ?? "") < ($1.hostWorktree ?? "") }
+            .sorted { $0.hostWorktree! < $1.hostWorktree! }
     }
 
     private var emptyActiveRow: some View {
