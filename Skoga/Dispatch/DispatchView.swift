@@ -98,8 +98,15 @@ struct DispatchView: View {
                 .background(p.paper2)
         }
         .task {
-            await loadRecentRepos()
-            await daemon.refreshModels()
+            // Repo pills and the model list are independent — neither
+            // feeds the other — so fan them out with `async let` rather
+            // than awaiting in series. A slow `session.recent_repos`
+            // (cold daemon, big history) shouldn't gate the model
+            // dropdown's refresh, since the re-snap below only needs
+            // the models call to have settled.
+            async let repos: Void = loadRecentRepos()
+            async let models: Void = daemon.refreshModels()
+            _ = await (repos, models)
             // After the live list arrives, re-resolve `selectedModel` so
             // its label matches the daemon's canonical entry (e.g. user's
             // AppStorage default is `claude-opus-4-7` but the daemon
