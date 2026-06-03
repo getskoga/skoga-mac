@@ -477,6 +477,19 @@ final class LiveDaemonClient: DaemonClient {
         }
     }
 
+    func listModels(adapter: String?) async throws -> [RPCModelChoice] {
+        // Errors propagate (including METHOD_NOT_FOUND on older daemons) so
+        // `DaemonClientHolder.refreshModels` can distinguish "old daemon →
+        // keep the baked-in fallback silently" from "transport failure →
+        // also keep the fallback". Mirroring the credentials.list /
+        // github.status pattern rather than recentRepos' swallow-at-client
+        // shape, because here an empty list and an unsupported daemon mean
+        // different things to the dropdown.
+        let params = AnyEncodable(ModelsListParams(adapter: adapter))
+        let resp: ModelsListResponse = try await rpc.call("models.list", params: params)
+        return resp.models
+    }
+
     func listNamedAgents() async throws -> [NamedAgent] {
         // Older daemons (pre-getskoga/skoga#33) don't speak `agents.list`;
         // swallow METHOD_NOT_FOUND so the dispatch grid and sidebar fall

@@ -608,6 +608,38 @@ struct SessionRecentReposResponse: Decodable {
     let repos: [RPCRecentRepo]
 }
 
+// MARK: – models.list
+
+/// One entry in the `models.list` response. Each adapter contributes its
+/// own entries daemon-side (Anthropic's `/v1/models` backs the claude
+/// adapter; the codex adapter's list is curated). `recommended` is true
+/// for at most one entry per adapter — the Mac uses it to seed the
+/// Dispatch dropdown's initial selection when the user has no saved
+/// preference.
+///
+/// The wire order is the daemon's responsibility and must be stable; the
+/// Mac renders it verbatim. `id` is a synthetic `adapter/model` so
+/// SwiftUI's `ForEach` / `Menu` selection stays stable across refetches.
+struct RPCModelChoice: Decodable, Hashable, Identifiable {
+    let adapter: String
+    let model: String
+    let label: String
+    let recommended: Bool
+
+    var id: String { "\(adapter)/\(model)" }
+}
+
+struct ModelsListParams: Encodable {
+    /// Filter to a single adapter (e.g. `"claude"`). `nil` returns
+    /// every adapter the daemon knows about — what the Dispatch screen
+    /// asks for, since the dropdown spans providers.
+    let adapter: String?
+}
+
+struct ModelsListResponse: Decodable {
+    let models: [RPCModelChoice]
+}
+
 // MARK: – session.timeline
 
 struct SessionTimelineParams: Encodable {
