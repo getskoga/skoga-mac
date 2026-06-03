@@ -11,6 +11,16 @@ struct DispatchView: View {
     @State private var template: Template = .feature
     @State private var title: String = ""
     @State private var brief: String = ""
+    /// Files the user attached via the "Attachments" row. On dispatch, the
+    /// list is partitioned: small text files get inlined into `initial_prompt`
+    /// (so context-window-friendly briefs stay in one turn), and everything
+    /// else is forwarded on `session.create`'s `attachments` field. The
+    /// daemon writes the forwarded files into `<worktree>/.skoga/attachments/`
+    /// before forking `_dispatch_launch` and augments the prompt with their
+    /// paths — the Mac deliberately doesn't write to the worktree itself or
+    /// reference attachment paths in its prompt copy. Empty when no files
+    /// attached.
+    @State private var attachments: [URL] = []
     /// Recently-used host repos loaded from `session.recent_repos`. Empty
     /// on first paint (and on older daemons that don't speak the RPC); the
     /// "Choose folder…" pill at the end of the row is always present so
@@ -158,6 +168,7 @@ struct DispatchView: View {
                     field(label: "Shape of work") { templateGrid }
                     field(label: "Headline") { headlineInput }
                     field(label: "Brief · spec · acceptance") { bodyInput }
+                    field(label: "Attachments · optional") { attachmentPills }
                     field(label: "Repository") { repoPills }
                     field(label: "Assign to") { assigneeGrid }
                     field(label: "Model") { modelSelect }
@@ -278,6 +289,63 @@ struct DispatchView: View {
                     .stroke(p.rule, lineWidth: Tokens.Hairline.width)
             )
             .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.input))
+    }
+
+    private var attachmentPills: some View {
+        FlowLayout(spacing: 6) {
+            ForEach(attachments, id: \.self) { url in
+                attachmentChip(url)
+            }
+            // Always-present opener. Mirrors the "Choose folder…" pill at
+            // the end of the Repository row so the action is in the same
+            // spot regardless of how many files are already attached.
+            Button(action: addAttachmentTapped) {
+                HStack(spacing: 4) {
+                    Image(skoga: .plus).skogaIconSize(10)
+                    Text(attachments.isEmpty ? "Attach file…" : "Add another")
+                        .font(SkogaFont.mono(11))
+                }
+                .foregroundStyle(p.ink2)
+                .padding(.horizontal, 10).padding(.vertical, 4)
+                .background(Capsule().fill(p.paper2))
+                .overlay(Capsule().stroke(p.rule, lineWidth: Tokens.Hairline.width))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private func attachmentChip(_ url: URL) -> some View {
+        HStack(spacing: 6) {
+            Image(skoga: .doc).skogaIconSize(10)
+            Text(url.lastPathComponent)
+                .font(SkogaFont.mono(11))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Button {
+                attachments.removeAll { $0 == url }
+            } label: {
+                Image(skoga: .close).skogaIconSize(8)
+            }
+            .buttonStyle(.plain)
+        }
+        .foregroundStyle(p.ink2)
+        .padding(.horizontal, 10).padding(.vertical, 4)
+        .background(Capsule().fill(p.paper2))
+        .overlay(Capsule().stroke(p.rule, lineWidth: Tokens.Hairline.width))
+    }
+
+    private func addAttachmentTapped() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        panel.prompt = "Attach"
+        panel.message = "Pick file(s) to send to the agent on dispatch."
+        guard panel.runModal() == .OK else { return }
+        for url in panel.urls where !attachments.contains(url) {
+            attachments.append(url)
+        }
     }
 
     private var repoPills: some View {
@@ -531,7 +599,7 @@ struct DispatchView: View {
         // Claude sees both. If the brief is empty we fall back to just the
         // title; if both are empty we pass nil and the agent boots blank.
         let briefText = brief.trimmingCharacters(in: .whitespacesAndNewlines)
-        let prompt: String? = {
+        let basePrompt: String? = {
             switch (taskText.isEmpty, briefText.isEmpty) {
             case (true,  true):  return nil
             case (false, true):  return taskText
@@ -559,7 +627,15 @@ struct DispatchView: View {
             return (selectedModel.adapter, selectedModel.model)
         }()
         let namedAgentId = selectedPermanentAgent?.id
+        let attached = attachments
         Task {
+            // Partition runs off-MainActor: it does sync stat + UTF-8 reads
+            // on the user's filesystem, which can stall on slow/SMB/NFS
+            // mounts. Mirrors the off-main treatment binary attachments
+            // already get via `loadAttachmentPayloads` — neither path
+            // should freeze the UI thread on a slow disk.
+            let (inlineParts, toAttach) = await Self.partitionAttachments(attached)
+            let prompt = Self.composeFinalPrompt(base: basePrompt, inline: inlineParts)
             await coordinator.dispatch(
                 task: taskText,
                 agent: agentAdapter,
@@ -567,9 +643,73 @@ struct DispatchView: View {
                 base: "main",
                 repoRoot: url,
                 initialPrompt: prompt,
-                namedAgentId: namedAgentId
+                namedAgentId: namedAgentId,
+                attachments: toAttach
             )
         }
+    }
+
+    /// Inlining threshold. Above this we copy to the worktree instead — keeps
+    /// the agent's first turn from drowning in a multi-MB log paste.
+    static let inlineByteLimit = 64 * 1024
+
+    /// Extensions we treat as plain text. `""` (no extension) is included so
+    /// files like `LICENSE` or `Dockerfile` still inline. Anything else falls
+    /// through to the copy-to-worktree path even if it's technically text.
+    static let textExtensions: Set<String> = [
+        "txt", "md", "markdown", "rst", "log",
+        "swift", "rs", "go", "py", "js", "mjs", "cjs", "ts", "tsx", "jsx",
+        "json", "yaml", "yml", "toml", "xml", "html", "htm", "css", "scss", "sass",
+        "c", "h", "cc", "cpp", "hpp", "java", "kt", "rb", "php", "sh", "zsh", "bash", "fish",
+        "sql", "csv", "tsv", "ini", "conf", "cfg", "env", "patch", "diff",
+    ]
+
+    /// Splits the user's attached URLs into (a) inline (filename, contents)
+    /// pairs — text extension, under `inlineByteLimit`, UTF-8 decodable —
+    /// and (b) URLs to forward to the daemon as `attachments`. Any failure
+    /// in the inline check (size probe, read, decode) routes the file
+    /// through the RPC path; nothing is silently dropped.
+    ///
+    /// Runs on a detached task so the per-file stat + UTF-8 read stays
+    /// off the MainActor. The 64 KB inline cap doesn't protect the UI
+    /// thread on slow storage (SMB / NFS / spinning drive) — the kernel
+    /// read still blocks until bytes arrive — so we mirror the off-main
+    /// treatment binary attachments get via `loadAttachmentPayloads`.
+    nonisolated static func partitionAttachments(_ urls: [URL]) async -> (inline: [(name: String, content: String)], attach: [URL]) {
+        guard !urls.isEmpty else { return ([], []) }
+        return await Task.detached(priority: .userInitiated) {
+            var inline: [(String, String)] = []
+            var attach: [URL] = []
+            for url in urls {
+                let ext = url.pathExtension.lowercased()
+                let textish = textExtensions.contains(ext) || ext.isEmpty
+                let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? .max
+                if textish, size <= inlineByteLimit,
+                   let content = try? String(contentsOf: url, encoding: .utf8) {
+                    inline.append((url.lastPathComponent, content))
+                } else {
+                    attach.append(url)
+                }
+            }
+            return (inline, attach)
+        }.value
+    }
+
+    /// Stitches the base brief together with inlined file contents. Returns
+    /// `nil` only when both inputs are empty (matches the prior "boot blank"
+    /// contract). Note: when the user attached non-inlined files too, those
+    /// don't appear here — the daemon's prompt-augmentation step appends
+    /// the `.skoga/attachments/…` path list to whatever we return.
+    static func composeFinalPrompt(
+        base: String?,
+        inline: [(name: String, content: String)]
+    ) -> String? {
+        var parts: [String] = []
+        if let base, !base.isEmpty { parts.append(base) }
+        for (name, content) in inline {
+            parts.append("--- Attached file: \(name) ---\n\(content)")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: "\n\n")
     }
 
     /// The currently-selected permanent agent, if `assignee` matches

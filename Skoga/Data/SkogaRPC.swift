@@ -225,6 +225,44 @@ struct SessionCreateParams: Encodable {
     /// that don't recognize the field silently drop it (serde
     /// `#[serde(default)]` on the matching Rust struct).
     let named_agent_id: String?
+    /// Files the user attached in the Dispatch form. The daemon writes
+    /// each into `<worktree>/.skoga/attachments/<sanitized-name>` BEFORE
+    /// forking `_dispatch_launch`, so the agent's first tool call against
+    /// these paths always finds them on disk. The daemon also appends a
+    /// short "Attached files (in .skoga/attachments/): …" section to
+    /// `initial_prompt` so the agent sees the list in its first turn —
+    /// the Mac deliberately does NOT splice paths into the prompt itself,
+    /// because filename collisions and sanitization happen daemon-side
+    /// and duplicating those rules client-side would drift.
+    ///
+    /// Empty array on every dispatch the user didn't attach anything to.
+    /// Omitted from the wire when empty so older daemons (pre-feature)
+    /// don't reject the call — but the Mac requires a daemon that knows
+    /// the field once any attachment is sent.
+    let attachments: [RPCAttachment]
+}
+
+/// One file the user attached in the Dispatch form. The daemon validates
+/// every field server-side (rejects path-traversal in `name`, NUL / control
+/// chars, sha mismatches, per-file + per-dispatch size caps) so the Mac
+/// only has to read + base64 the bytes and forward them.
+struct RPCAttachment: Encodable {
+    /// Display name — the file's `lastPathComponent`. Daemon sanitizes;
+    /// rejects with -32602 on `/`, `..`, `.`, NUL, or ASCII control chars
+    /// (<0x20, 0x7F). Collisions resolve to `name (2).ext`, `name (3).ext`,
+    /// etc., daemon-side.
+    let name: String
+    /// Raw file bytes, base64-encoded. Matches the encoding the daemon
+    /// already uses for `session.pty_write.bytes_b64`.
+    let bytes_b64: String
+    /// Lowercase hex SHA-256 of the raw bytes. Computed via CryptoKit in
+    /// `LiveDaemonClient.loadAttachmentPayloads` so the daemon can catch
+    /// corruption / transport-layer truncation that base64 alone won't
+    /// surface. Always set on the Mac path — declared non-optional so
+    /// the contract is enforced at the type level. (The daemon's serde
+    /// contract still accepts absence, in case a future non-Mac caller
+    /// can't compute it.)
+    let sha256: String
 }
 
 struct SessionCreateResponse: Decodable {

@@ -76,7 +76,16 @@ protocol DaemonClient: AnyObject {
     /// set, hands the daemon a permanent-agent id (`agents.list`) to
     /// stamp on the session record so per-agent telemetry, `last_used`,
     /// and `total_runs` roll up to the right pinned identity.
-    func createSession(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?, namedAgentId: String?) async throws -> Agent
+    ///
+    /// `attachments`, when non-empty, are file URLs the user picked in the
+    /// Dispatch form. The implementation reads + base64-encodes them
+    /// (off-MainActor for big binaries) and hands them to the daemon,
+    /// which writes them into `<worktree>/.skoga/attachments/` BEFORE
+    /// forking `_dispatch_launch` — that ordering is the entire point of
+    /// the field. The daemon owns sanitization, collision-resolution, and
+    /// the prompt-augmentation describing the files to the agent; the
+    /// Mac doesn't reference these paths in `initialPrompt` itself.
+    func createSession(task: String, agent: String, model: String?, base: String, repoRoot: URL, initialPrompt: String?, namedAgentId: String?, attachments: [URL]) async throws -> Agent
 
     /// Tear a session down (`session.kill`). Worktree removal happens
     /// asynchronously; subscribers see the `session.killed` event when done.
