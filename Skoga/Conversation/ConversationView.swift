@@ -227,7 +227,7 @@ private struct ConvActionsFooter: View {
 
     /// Shell `skoga push <id>` via the daemon client and surface the
     /// outcome as a toast. Mirrors the PR-submit pattern: toast that work
-    /// is in flight up front, run the push in a detached `@MainActor`
+    /// is in flight up front, run the push in an unstructured `@MainActor`
     /// task, and report success or failure via a follow-up toast. The
     /// user shouldn't have to sit through the round-trip — a fresh push
     /// to a slow remote can take many seconds.
