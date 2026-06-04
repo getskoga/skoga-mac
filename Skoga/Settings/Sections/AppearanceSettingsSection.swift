@@ -215,7 +215,7 @@ private struct ReduceMotionRow: View {
         }
         return on
             ? "Animated mascot SVGs render as a single frame. Use this if SMIL playback feels jittery on your display."
-            : "Mascot SVGs play their SMIL animations. The empty Roster's Kongle holds a coffee that drifts; the napping Kongle breathes."
+            : "Mascot SVGs play their SMIL animations. The corner Kongle breathes, waves, blinks, and scribbles; the empty Roster's Kongle holds a coffee that drifts or naps."
     }
 }
 
