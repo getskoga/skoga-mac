@@ -181,8 +181,23 @@ final class DaemonClientHolder {
     /// to a list that's missing entries the daemon does know about
     /// (e.g. Haiku 4.5), which is what users see when the daemon is
     /// offline or `models.list` decode fails.
+    ///
+    /// `recommended` is held at `false` everywhere because the daemon
+    /// doesn't emit the key today, so live-decoded entries land at
+    /// `false`. Keeping the fallback aligned avoids a "recommended"
+    /// badge flipping true→false the moment the first refresh lands,
+    /// and avoids `modelChoices != fetched` tripping spuriously on the
+    /// first round-trip.
+    ///
+    /// Codex entries are intentionally omitted: the daemon doesn't
+    /// expose a codex adapter today (the `adapter` filter on
+    /// `models.list` is ignored and only claude entries come back), so
+    /// keeping `gpt-5-*` here would let an offline user pick a model
+    /// that would fail at dispatch. When the daemon starts returning
+    /// codex entries the live list will populate them; revisit this
+    /// fallback then.
     static let fallbackModelChoices: [RPCModelChoice] = [
-        RPCModelChoice(adapter: "claude", model: "claude-opus-4-7",   label: "Claude Opus 4.7",   recommended: true),
+        RPCModelChoice(adapter: "claude", model: "claude-opus-4-7",   label: "Claude Opus 4.7",   recommended: false),
         RPCModelChoice(adapter: "claude", model: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", recommended: false),
         RPCModelChoice(adapter: "claude", model: "claude-haiku-4-5",  label: "Claude Haiku 4.5",  recommended: false),
     ]
