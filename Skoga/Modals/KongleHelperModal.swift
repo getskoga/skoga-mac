@@ -56,19 +56,23 @@ struct KongleHelperModal: View {
 
     private var menu: some View {
         VStack(spacing: 8) {
-            optionRow(icon: .bug,    title: "Report a bug",      subtitle: "Something's broken")
+            optionRow(icon: .bug,    title: "Report a bug",      subtitle: "Something's broken") {
+                modal.kongleHelperOpen = false
+                modal.bugReportOpen = true
+            }
             optionRow(icon: .spark,  title: "Request a feature", subtitle: "Share an idea")
             optionRow(icon: .doc,    title: "Get help",          subtitle: "Ask me anything")
         }
         .padding(.horizontal, 16).padding(.bottom, 14)
     }
 
-    private func optionRow(icon: SkogaIcon, title: String, subtitle: String) -> some View {
-        // No action wired yet — placeholders for the eventual hand-off to
-        // BugReportModal / FeatureRequest / Help flows. Disabled (with a
-        // dimmed look) so the rows read as "coming soon" rather than as
-        // interactive buttons that silently swallow the tap.
-        Button { } label: {
+    private func optionRow(
+        icon: SkogaIcon,
+        title: String,
+        subtitle: String,
+        action: (() -> Void)? = nil
+    ) -> some View {
+        Button { action?() } label: {
             HStack(spacing: 12) {
                 ZStack {
                     Circle().fill(p.forestSoft)
@@ -87,16 +91,18 @@ struct KongleHelperModal: View {
 
                 Spacer(minLength: 0)
 
-                Text("Soon")
-                    .font(SkogaFont.monoLabel(9.5))
-                    .tracking(0.8)
-                    .foregroundStyle(p.inkFaint)
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: Tokens.Radius.chip)
-                            .fill(p.paper)
-                            .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
-                    )
+                if action == nil {
+                    Text("Soon")
+                        .font(SkogaFont.monoLabel(9.5))
+                        .tracking(0.8)
+                        .foregroundStyle(p.inkFaint)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: Tokens.Radius.chip)
+                                .fill(p.paper)
+                                .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
+                        )
+                }
             }
             .padding(.horizontal, 11).padding(.vertical, 9)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -105,9 +111,9 @@ struct KongleHelperModal: View {
                     .fill(p.paper2)
                     .hairlineBorder(p.rule, radius: Tokens.Radius.card)
             )
-            .opacity(0.7)
+            .opacity(action == nil ? 0.7 : 1.0)
         }
         .buttonStyle(.plain)
-        .disabled(true)
+        .disabled(action == nil)
     }
 }
