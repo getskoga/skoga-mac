@@ -9,10 +9,10 @@
 <ellipse cx="9" cy="8" rx="9" ry="6" fill="#3d8757" transform="rotate(35 9 8)"/>
 <path d="M-58,176 Q-82,176 -92,190 Q-78,195 -64,187 Q-57,182 -58,176 Z" fill="#123c22"/>
 <g><animateTransform attributeName="transform" type="rotate" values="0 60 132;14 60 132;-10 60 132;14 60 132;-10 60 132;0 60 132" keyTimes="0;0.18;0.36;0.54;0.72;1" dur="2.4s" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1" repeatCount="indefinite"/><path d="M56,128 Q88,106 100,80 Q112,88 104,102 Q88,124 64,138 Z" fill="#123c22"/></g>
-<ellipse cx="-17" cy="120" rx="8" ry="10" fill="#0f2a18"><animate attributeName="ry" values="10;10;1.5;10;10" keyTimes="0;0.88;0.94;1;1" dur="6s" repeatCount="indefinite"/></ellipse>
-<ellipse cx="17" cy="120" rx="8" ry="10" fill="#0f2a18"><animate attributeName="ry" values="10;10;1.5;10;10" keyTimes="0;0.88;0.94;1;1" dur="6s" repeatCount="indefinite"/></ellipse>
-<circle cx="-14" cy="116" r="2.5" fill="#ece6d6"><animate attributeName="opacity" values="1;1;0;1;1" keyTimes="0;0.88;0.94;1;1" dur="6s" repeatCount="indefinite"/></circle>
-<circle cx="20" cy="116" r="2.5" fill="#ece6d6"><animate attributeName="opacity" values="1;1;0;1;1" keyTimes="0;0.88;0.94;1;1" dur="6s" repeatCount="indefinite"/></circle>
+<ellipse cx="-17" cy="120" rx="8" ry="10" fill="#0f2a18"><animate attributeName="ry" values="10;10;1.5;10;10" keyTimes="0;0.88;0.94;0.98;1" dur="6s" repeatCount="indefinite"/></ellipse>
+<ellipse cx="17" cy="120" rx="8" ry="10" fill="#0f2a18"><animate attributeName="ry" values="10;10;1.5;10;10" keyTimes="0;0.88;0.94;0.98;1" dur="6s" repeatCount="indefinite"/></ellipse>
+<circle cx="-14" cy="116" r="2.5" fill="#ece6d6"><animate attributeName="opacity" values="1;1;0;1;1" keyTimes="0;0.88;0.94;0.98;1" dur="6s" repeatCount="indefinite"/></circle>
+<circle cx="20" cy="116" r="2.5" fill="#ece6d6"><animate attributeName="opacity" values="1;1;0;1;1" keyTimes="0;0.88;0.94;0.98;1" dur="6s" repeatCount="indefinite"/></circle>
 <ellipse cx="-31" cy="135" rx="9" ry="5" fill="#c97f4a" opacity="0.75"/>
 <ellipse cx="31" cy="135" rx="9" ry="5" fill="#c97f4a" opacity="0.75"/>
 <path d="M-11,140 Q0,149 11,140" fill="none" stroke="#0f2a18" stroke-width="3" stroke-linecap="round"/>
