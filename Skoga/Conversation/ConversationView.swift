@@ -198,7 +198,7 @@ private struct ConvActionsFooter: View {
                 }
             } else {
                 PushButton(busy: pushing) {
-                    Task { await pushBranch() }
+                    pushBranch()
                 }
                 if let url = agent.prUrl {
                     GhostPillButton(label: "View PR on GitHub", icon: .github) {
@@ -226,18 +226,33 @@ private struct ConvActionsFooter: View {
     }
 
     /// Shell `skoga push <id>` via the daemon client and surface the
-    /// outcome as a toast. We guard against double-fire while a push is
-    /// in flight so a rapid second click can't spawn a parallel CLI
-    /// subprocess against the same worktree.
-    private func pushBranch() async {
+    /// outcome as a toast. Mirrors the PR-submit pattern: toast that work
+    /// is in flight up front, run the push in an unstructured `@MainActor`
+    /// task, and report success or failure via a follow-up toast. The
+    /// user shouldn't have to sit through the round-trip — a fresh push
+    /// to a slow remote can take many seconds.
+    ///
+    /// `pushing` still gates re-entry so a rapid second click can't spawn
+    /// a parallel CLI subprocess against the same worktree.
+    private func pushBranch() {
         guard !pushing else { return }
         pushing = true
-        defer { pushing = false }
-        do {
-            try await daemon.client.pushBranch(for: agent.id)
-            modal.showToast("Pushed \(agent.branch) to remote.")
-        } catch {
-            modal.showToast("Push failed: \(error.localizedDescription)")
+
+        let agentBranch = agent.branch
+        let agentId = agent.id
+        let client = daemon.client
+        let modal = modal
+
+        modal.showToast("Pushing \(agentBranch) to remote…")
+
+        Task { @MainActor in
+            defer { pushing = false }
+            do {
+                try await client.pushBranch(for: agentId)
+                modal.showToast("Pushed \(agentBranch) to remote.")
+            } catch {
+                modal.showToast("Push failed: \(error.localizedDescription)", duration: 8)
+            }
         }
     }
 
