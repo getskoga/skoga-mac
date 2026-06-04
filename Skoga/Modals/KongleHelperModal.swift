@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// The bubble that pops out of corner-Kongle. Structure-only for now —
-/// the three options (bug / feature / help) are placeholders that will
-/// hand off to `BugReportModal` and the daemon's help RPCs in a later
-/// slice. Mirrors the layout in `kongle-helper-mockup.html` so the
-/// concept can be validated end-to-end before any wiring lands.
+/// The bubble that pops out of corner-Kongle. "Report a bug" is wired
+/// to `BugReportModal`; "Request a feature" and "Get help" remain
+/// placeholders that will hand off to the daemon's help RPCs in a later
+/// slice. Mirrors the layout in `kongle-helper-mockup.html`.
 struct KongleHelperModal: View {
     @Environment(\.palette) private var p
     @Environment(ModalState.self) private var modal
@@ -56,19 +55,28 @@ struct KongleHelperModal: View {
 
     private var menu: some View {
         VStack(spacing: 8) {
-            optionRow(icon: .bug,    title: "Report a bug",      subtitle: "Something's broken")
-            optionRow(icon: .spark,  title: "Request a feature", subtitle: "Share an idea")
-            optionRow(icon: .doc,    title: "Get help",          subtitle: "Ask me anything")
+            KongleOptionRow(icon: .bug, title: "Report a bug", subtitle: "Something's broken") {
+                modal.kongleHelperOpen = false
+                modal.bugReportOpen = true
+            }
+            KongleOptionRow(icon: .spark, title: "Request a feature", subtitle: "Share an idea")
+            KongleOptionRow(icon: .doc, title: "Get help", subtitle: "Ask me anything")
         }
         .padding(.horizontal, 16).padding(.bottom, 14)
     }
+}
 
-    private func optionRow(icon: SkogaIcon, title: String, subtitle: String) -> some View {
-        // No action wired yet — placeholders for the eventual hand-off to
-        // BugReportModal / FeatureRequest / Help flows. Disabled (with a
-        // dimmed look) so the rows read as "coming soon" rather than as
-        // interactive buttons that silently swallow the tap.
-        Button { } label: {
+private struct KongleOptionRow: View {
+    @Environment(\.palette) private var p
+    let icon: SkogaIcon
+    let title: String
+    let subtitle: String
+    var action: (() -> Void)? = nil
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button { action?() } label: {
             HStack(spacing: 12) {
                 ZStack {
                     Circle().fill(p.forestSoft)
@@ -87,27 +95,30 @@ struct KongleHelperModal: View {
 
                 Spacer(minLength: 0)
 
-                Text("Soon")
-                    .font(SkogaFont.monoLabel(9.5))
-                    .tracking(0.8)
-                    .foregroundStyle(p.inkFaint)
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: Tokens.Radius.chip)
-                            .fill(p.paper)
-                            .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
-                    )
+                if action == nil {
+                    Text("Soon")
+                        .font(SkogaFont.monoLabel(9.5))
+                        .tracking(0.8)
+                        .foregroundStyle(p.inkFaint)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: Tokens.Radius.chip)
+                                .fill(p.paper)
+                                .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
+                        )
+                }
             }
             .padding(.horizontal, 11).padding(.vertical, 9)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: Tokens.Radius.card)
-                    .fill(p.paper2)
+                    .fill(action != nil && hovering ? p.paper3 : p.paper2)
                     .hairlineBorder(p.rule, radius: Tokens.Radius.card)
             )
-            .opacity(0.7)
+            .opacity(action == nil ? 0.7 : 1.0)
         }
         .buttonStyle(.plain)
-        .disabled(true)
+        .disabled(action == nil)
+        .onHover { hovering = $0 }
     }
 }
