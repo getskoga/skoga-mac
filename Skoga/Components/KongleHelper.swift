@@ -48,9 +48,13 @@ struct KongleHelper: View {
                 .accessibilityLabel("Talk to Kongle")
             }
             .task(id: expressionIndex) {
-                try? await Task.sleep(nanoseconds: UInt64(Self.cycleInterval * 1_000_000_000))
-                guard !Task.isCancelled else { return }
-                expressionIndex = (expressionIndex + 1) % Self.expressions.count
+                do {
+                    try await Task.sleep(nanoseconds: UInt64(Self.cycleInterval * 1_000_000_000))
+                    expressionIndex = (expressionIndex + 1) % Self.expressions.count
+                } catch {
+                    // Cancellation only — .task tears the Task down on
+                    // view dismissal or id change; nothing to recover.
+                }
             }
     }
 }

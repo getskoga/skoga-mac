@@ -65,7 +65,9 @@ struct KongleHelperModal: View {
 
     private func optionRow(icon: SkogaIcon, title: String, subtitle: String) -> some View {
         // No action wired yet — placeholders for the eventual hand-off to
-        // BugReportModal / FeatureRequest / Help flows.
+        // BugReportModal / FeatureRequest / Help flows. Disabled (with a
+        // dimmed look) so the rows read as "coming soon" rather than as
+        // interactive buttons that silently swallow the tap.
         Button { } label: {
             HStack(spacing: 12) {
                 ZStack {
@@ -85,8 +87,16 @@ struct KongleHelperModal: View {
 
                 Spacer(minLength: 0)
 
-                Image(skoga: .chevron).skogaIconSize(10)
+                Text("Soon")
+                    .font(SkogaFont.monoLabel(9.5))
+                    .tracking(0.8)
                     .foregroundStyle(p.inkFaint)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: Tokens.Radius.chip)
+                            .fill(p.paper)
+                            .hairlineBorder(p.rule, radius: Tokens.Radius.chip)
+                    )
             }
             .padding(.horizontal, 11).padding(.vertical, 9)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -95,7 +105,9 @@ struct KongleHelperModal: View {
                     .fill(p.paper2)
                     .hairlineBorder(p.rule, radius: Tokens.Radius.card)
             )
+            .opacity(0.7)
         }
         .buttonStyle(.plain)
+        .disabled(true)
     }
 }
