@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// The bubble that pops out of corner-Kongle. Structure-only for now —
-/// the three options (bug / feature / help) are placeholders that will
-/// hand off to `BugReportModal` and the daemon's help RPCs in a later
-/// slice. Mirrors the layout in `kongle-helper-mockup.html` so the
-/// concept can be validated end-to-end before any wiring lands.
+/// The bubble that pops out of corner-Kongle. "Report a bug" is wired
+/// to `BugReportModal`; "Request a feature" and "Get help" remain
+/// placeholders that will hand off to the daemon's help RPCs in a later
+/// slice. Mirrors the layout in `kongle-helper-mockup.html`.
 struct KongleHelperModal: View {
     @Environment(\.palette) private var p
     @Environment(ModalState.self) private var modal
@@ -56,22 +55,27 @@ struct KongleHelperModal: View {
 
     private var menu: some View {
         VStack(spacing: 8) {
-            optionRow(icon: .bug,    title: "Report a bug",      subtitle: "Something's broken") {
+            KongleOptionRow(icon: .bug, title: "Report a bug", subtitle: "Something's broken") {
                 modal.kongleHelperOpen = false
                 modal.bugReportOpen = true
             }
-            optionRow(icon: .spark,  title: "Request a feature", subtitle: "Share an idea")
-            optionRow(icon: .doc,    title: "Get help",          subtitle: "Ask me anything")
+            KongleOptionRow(icon: .spark, title: "Request a feature", subtitle: "Share an idea")
+            KongleOptionRow(icon: .doc, title: "Get help", subtitle: "Ask me anything")
         }
         .padding(.horizontal, 16).padding(.bottom, 14)
     }
+}
 
-    private func optionRow(
-        icon: SkogaIcon,
-        title: String,
-        subtitle: String,
-        action: (() -> Void)? = nil
-    ) -> some View {
+private struct KongleOptionRow: View {
+    @Environment(\.palette) private var p
+    let icon: SkogaIcon
+    let title: String
+    let subtitle: String
+    var action: (() -> Void)? = nil
+
+    @State private var hovering = false
+
+    var body: some View {
         Button { action?() } label: {
             HStack(spacing: 12) {
                 ZStack {
@@ -108,12 +112,13 @@ struct KongleHelperModal: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: Tokens.Radius.card)
-                    .fill(p.paper2)
+                    .fill(action != nil && hovering ? p.paper3 : p.paper2)
                     .hairlineBorder(p.rule, radius: Tokens.Radius.card)
             )
             .opacity(action == nil ? 0.7 : 1.0)
         }
         .buttonStyle(.plain)
         .disabled(action == nil)
+        .onHover { hovering = $0 }
     }
 }
