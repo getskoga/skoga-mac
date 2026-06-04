@@ -82,6 +82,8 @@
 		D555D4F8DBEB7732ADEA3233 /* ParsedTranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A1BD46D7F2E1FB826A2856 /* ParsedTranscriptView.swift */; };
 		E2D6D2E0E7C708D3E63B83D7 /* NotificationsSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B6E36E5C280653D25A1DDF9 /* NotificationsSettingsSection.swift */; };
 		EC922EC8C5DD24A38493F0ED /* ModalState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DEDFD8AE5B69FA5C48EE1FD /* ModalState.swift */; };
+		ED9B5DB4889F37634CB4C985 /* KongleHelperModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66C5244BFB191ED9277E0E14 /* KongleHelperModal.swift */; };
+		EF4B1EE3057FFEC9460D5F44 /* KongleHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DC0AF1F85D80328C489A7E4 /* KongleHelper.swift */; };
 		F13F397DFCA70E5F76D6F9E3 /* NotificationsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 239F40425CEE55524E667E2C /* NotificationsService.swift */; };
 		F360C48B877A3A7CA94F4939 /* BudgetsSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38E26794A30DE016A10EB598 /* BudgetsSettingsSection.swift */; };
 		F40CF5E71F1B6724136A191B /* RemoteTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A495BC418BAD2F865FEA74FC /* RemoteTerminalView.swift */; };
@@ -132,6 +134,7 @@
 		62CC800A856A8D28FA8CB11E /* Skoga.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Skoga.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		636564F61F4F65B4CC82B789 /* PRModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRModal.swift; sourceTree = "<group>"; };
 		64501AE53C21FFEF28FE6304 /* StepWorkspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepWorkspace.swift; sourceTree = "<group>"; };
+		66C5244BFB191ED9277E0E14 /* KongleHelperModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KongleHelperModal.swift; sourceTree = "<group>"; };
 		6904AE5A2C71A82546BD51C1 /* StepModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepModel.swift; sourceTree = "<group>"; };
 		6997044FC6F3201B3B5DFA7D /* EmbeddedTUIChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddedTUIChrome.swift; sourceTree = "<group>"; };
 		70C3CDA242BE7EF87A23DDD1 /* LiveDaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDaemonClient.swift; sourceTree = "<group>"; };
@@ -142,6 +145,7 @@
 		81F8C2B09E59496FB397779E /* SkogaGlyph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaGlyph.swift; sourceTree = "<group>"; };
 		8531B097CEC08B13BAF87F29 /* GitHubSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubSettingsSection.swift; sourceTree = "<group>"; };
 		8B326243F9BABD1BAF92FE67 /* DaemonStatusBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonStatusBanner.swift; sourceTree = "<group>"; };
+		8DC0AF1F85D80328C489A7E4 /* KongleHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KongleHelper.swift; sourceTree = "<group>"; };
 		8EAA1E89343E9FE80E819AE0 /* StatusPill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusPill.swift; sourceTree = "<group>"; };
 		90E13C9D4BF28ACDB5B9C1CC /* ActivityBars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityBars.swift; sourceTree = "<group>"; };
 		94DE9B05F7B39ED2F2A214B4 /* SkogaRPC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaRPC.swift; sourceTree = "<group>"; };
@@ -233,6 +237,7 @@
 			children = (
 				3D127034A44088EC6FED081A /* BugReportModal.swift */,
 				7B1B80DC49DE0A5D893A17CB /* CommandPalette.swift */,
+				66C5244BFB191ED9277E0E14 /* KongleHelperModal.swift */,
 				636564F61F4F65B4CC82B789 /* PRModal.swift */,
 				F8D5A2A540B7469A07861F7F /* StopConfirmModal.swift */,
 			);
@@ -333,6 +338,7 @@
 				90E13C9D4BF28ACDB5B9C1CC /* ActivityBars.swift */,
 				0747FBBD7974131069B6135E /* AnimatedSVG.swift */,
 				8B326243F9BABD1BAF92FE67 /* DaemonStatusBanner.swift */,
+				8DC0AF1F85D80328C489A7E4 /* KongleHelper.swift */,
 				18C6D36A05B968E62F7CB7BF /* PulseDot.swift */,
 				81F8C2B09E59496FB397779E /* SkogaGlyph.swift */,
 				9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */,
@@ -556,6 +562,8 @@
 				B74AD933DF060D3FFB390C60 /* HistoryView.swift in Sources */,
 				4639FEBCD92E5073935BB33D /* JSONRPCConnection.swift in Sources */,
 				CD71FEE88CD02D5069B6228B /* KeyboardSettingsSection.swift in Sources */,
+				EF4B1EE3057FFEC9460D5F44 /* KongleHelper.swift in Sources */,
+				ED9B5DB4889F37634CB4C985 /* KongleHelperModal.swift in Sources */,
 				7F7DEE61027F4C8E7978EE88 /* LiveDaemonClient.swift in Sources */,
 				8D5B6940D68D2D386C81D000 /* MainWindow.swift in Sources */,
 				9525F4D036722C7A08ACF65D /* MockDaemonClient.swift in Sources */,

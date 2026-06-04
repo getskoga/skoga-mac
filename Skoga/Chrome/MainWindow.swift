@@ -54,6 +54,19 @@ struct MainWindow: View {
                 BugReportModal()
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
+
+            VStack(alignment: .trailing, spacing: 10) {
+                Spacer(minLength: 0)
+                if modal.kongleHelperOpen {
+                    KongleHelperModal()
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
+                KongleHelper()
+            }
+            .padding(.trailing, 16)
+            .padding(.bottom, 8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            .animation(.easeOut(duration: 0.18), value: modal.kongleHelperOpen)
         }
         .onExitCommand { modal.commandPaletteOpen = false }
         .background(WindowAccessor(onWindow: { coordinator.registerMainWindow($0) }))
