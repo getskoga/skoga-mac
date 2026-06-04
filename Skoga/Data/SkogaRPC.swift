@@ -650,13 +650,16 @@ struct SessionRecentReposResponse: Decodable {
 
 /// One entry in the `models.list` response. Each adapter contributes its
 /// own entries daemon-side (Anthropic's `/v1/models` backs the claude
-/// adapter; the codex adapter's list is curated). `recommended` is true
-/// for at most one entry per adapter — the Mac uses it to seed the
-/// Dispatch dropdown's initial selection when the user has no saved
-/// preference.
+/// adapter; the codex adapter's list is curated).
+///
+/// The wire keys don't match the Swift field names — the daemon emits
+/// `agent` / `id` / `display_name`, which we map to `adapter` / `model`
+/// / `label` so callsites read naturally and don't collide with Swift's
+/// own `id`. `recommended` is absent on the wire today; we decode it as
+/// `false` so a future daemon that starts emitting it Just Works.
 ///
 /// The wire order is the daemon's responsibility and must be stable; the
-/// Mac renders it verbatim. `id` is a synthetic `adapter/model` so
+/// Mac renders it verbatim. The synthesized `id` is `adapter/model` so
 /// SwiftUI's `ForEach` / `Menu` selection stays stable across refetches.
 struct RPCModelChoice: Decodable, Hashable, Identifiable {
     let adapter: String
@@ -665,6 +668,28 @@ struct RPCModelChoice: Decodable, Hashable, Identifiable {
     let recommended: Bool
 
     var id: String { "\(adapter)/\(model)" }
+
+    init(adapter: String, model: String, label: String, recommended: Bool) {
+        self.adapter = adapter
+        self.model = model
+        self.label = label
+        self.recommended = recommended
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case adapter = "agent"
+        case model = "id"
+        case label = "display_name"
+        case recommended
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.adapter = try c.decode(String.self, forKey: .adapter)
+        self.model = try c.decode(String.self, forKey: .model)
+        self.label = try c.decode(String.self, forKey: .label)
+        self.recommended = try c.decodeIfPresent(Bool.self, forKey: .recommended) ?? false
+    }
 }
 
 struct ModelsListParams: Encodable {
