@@ -36,6 +36,17 @@ struct RemoteTerminalView: NSViewRepresentable {
         // lazily-materialized lines, so the unused slots cost one
         // pointer each (~8 bytes), not a full line of cells.
         view.getTerminal().changeScrollback(50_000)
+        // Disable xterm mouse reporting so click-and-drag selects text
+        // for copy instead of being forwarded to the agent. Modern TUIs
+        // (Claude Code in particular) turn mouse reporting ON, which
+        // means SwiftTerm hands every press/drag/release to the pty —
+        // selection never starts and Cmd+C has nothing to copy. The
+        // embedded pane is primarily an output surface for the user to
+        // read and quote from; trading the agent's clickable-UI events
+        // for native Mac copy/paste matches what users actually do here.
+        // Cmd+click on hyperlinks is handled separately by SwiftTerm's
+        // link path, so URL-open still works.
+        view.allowMouseReporting = false
         // Keep the caret drawing as if focused even when first-responder is
         // temporarily elsewhere. SwiftUI's focus engine occasionally yanks
         // first-responder during arrow-key handling; without this flag the
