@@ -1,5 +1,5 @@
 import Foundation
 
 enum AppView: String, Hashable {
-    case roster, conversation, dispatch, review, telemetry, history
+    case roster, conversation, dispatch, review, telemetry, history, policy
 }

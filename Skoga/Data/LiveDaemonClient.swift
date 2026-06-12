@@ -585,6 +585,36 @@ final class LiveDaemonClient: DaemonClient {
         }
     }
 
+    nonisolated func policyDenials(sessionId: String?) async throws -> [RPCDenial] {
+        // Older daemons (pre-getskoga/skoga#162) don't ship the
+        // containment denial log; swallow METHOD_NOT_FOUND so the Policy
+        // panel renders its "nothing denied" empty state rather than the
+        // connection banner flipping to .notRunning on every poll. Any
+        // other RPC error (transport, decode) propagates — the panel's
+        // own loadDenials surfaces it as an error row, and the ride-along
+        // poll in refresh() uses `try?` so it can't clobber the roster.
+        let params = AnyEncodable(PolicyDenialsParams(session_id: sessionId))
+        do {
+            let resp: PolicyDenialsResponse = try await rpc.call("policy.denials", params: params)
+            return resp.denials
+        } catch let JSONRPCError.rpc(rpcError) where rpcError.code == -32601 {
+            return []
+        }
+    }
+
+    func promoteDenial(id: String, scope: PolicyPromoteScope) async throws {
+        // No METHOD_NOT_FOUND swallow here, mirroring `sendInput`: a
+        // promote is a user-driven mutation, so an older daemon that
+        // can't honor it should surface a real toast (via the
+        // coordinator's catch) rather than appearing to succeed while
+        // the denial silently persists. The daemon also rejects
+        // deny-floor entries with an RPC error, which propagates the
+        // same way — the UI already hides the promote control on floor
+        // rows, so that path only fires on a stale optimistic click.
+        let params = AnyEncodable(PolicyPromoteParams(id: id, scope: scope.rawValue))
+        let _: PolicyPromoteResponse = try await rpc.call("policy.promote", params: params)
+    }
+
     /// Spawn `skoga <args>`, await termination, capture stdout. Stderr is
     /// folded into the error message on failure so the user sees the same
     /// preflight-failure / conflict text the terminal would surface.

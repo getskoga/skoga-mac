@@ -983,3 +983,125 @@ struct RPCCredentialsTestResult: Decodable, Equatable {
     let message: String
     let latency_ms: UInt64?
 }
+
+// MARK: – policy.denials / policy.promote (containment review panel)
+
+/// Params for `policy.denials` (see getskoga/skoga#162). `session_id`
+/// scopes the denial log to one session; `nil` returns the per-session
+/// denials across every session the daemon is still tracking — what the
+/// Policy panel asks for, since it spans the whole guild.
+struct PolicyDenialsParams: Encodable {
+    let session_id: String?
+}
+
+struct PolicyDenialsResponse: Decodable {
+    let denials: [RPCDenial]
+}
+
+/// One entry in the daemon's containment denial log (getskoga/skoga#162).
+/// Each records a single sandboxed access the policy layer refused — an
+/// outbound host the proxy blocked, or a filesystem path the sandbox
+/// profile denied. The Policy panel lists these so the user can widen
+/// the allowlist with one click instead of hand-editing `config.toml`.
+///
+/// `Decodable` ignores unknown JSON keys, so the daemon can grow the
+/// record (e.g. a `rule` source path) without breaking this decode.
+struct RPCDenial: Decodable, Identifiable, Equatable {
+    /// Stable id minted by the daemon per distinct (session, kind,
+    /// target) tuple. Targets `policy.promote` and keeps SwiftUI's
+    /// `ForEach` identity stable across the 5s refetch so a promote
+    /// animation doesn't tear down sibling rows.
+    let id: String
+    /// Session that triggered the denial. `nil` for a denial recorded
+    /// outside any session context (e.g. a daemon-level probe).
+    let session_id: String?
+    let kind: RPCDenialKind
+    /// The raw thing that was denied: a hostname (`registry.npmjs.org`)
+    /// for `.network`, an absolute path (`/etc/passwd`) for
+    /// `.filesystem`. Always present so a row can render *something*
+    /// even when no toolchain label is available.
+    let target: String
+    /// Human-readable toolchain annotation from the daemon
+    /// (getskoga/skoga#164), e.g. "the npm registry". `nil` when the
+    /// daemon couldn't map the target to a known toolchain — the row
+    /// falls back to rendering `target` verbatim.
+    let label: String?
+    /// When the access was last refused. Repeated hits on the same
+    /// (session, kind, target) collapse to one entry carrying the most
+    /// recent occurrence. Decoded via the connection's RFC3339 strategy,
+    /// same as `RPCSession.created_at`.
+    let denied_at: Date
+    /// Number of times this access was refused. `nil` on older daemons
+    /// that don't aggregate; rendered as a "×N" chip when > 1.
+    let occurrences: Int?
+    /// Deny-floor entries are non-negotiable — the daemon refuses to
+    /// promote them no matter the scope (credential-exfil hosts,
+    /// `~/.ssh`, etc.). The panel renders these as permanently blocked
+    /// and omits the promote affordance entirely.
+    let floor: Bool
+}
+
+/// Classifies what kind of sandboxed access was denied. String-backed
+/// with an `.unknown` fallback so a future daemon that adds a kind
+/// (e.g. `process`) decodes cleanly into a renderable row rather than
+/// dropping the whole response.
+enum RPCDenialKind: Decodable, Equatable {
+    case network
+    case filesystem
+    case unknown(String)
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        switch raw {
+        case "network":    self = .network
+        case "filesystem": self = .filesystem
+        default:           self = .unknown(raw)
+        }
+    }
+
+    /// Short uppercase tag rendered in the row's kind chip.
+    var chipLabel: String {
+        switch self {
+        case .network:           "NETWORK"
+        case .filesystem:        "FILE"
+        case .unknown(let raw):  raw.uppercased()
+        }
+    }
+}
+
+/// Where a promoted allow-rule applies. `project` scope is deferred
+/// (see getskoga/skoga-mac#109), so the picker offers three:
+///   `.once`    — allow this one access, don't persist
+///   `.session` — allow for the lifetime of the triggering session
+///   `.global`  — persist to the user's allowlist for every project
+enum PolicyPromoteScope: String, CaseIterable, Encodable, Hashable {
+    case once
+    case session
+    case global
+
+    /// Menu-item label in the scope picker.
+    var menuLabel: String {
+        switch self {
+        case .once:    "Just this once"
+        case .session: "For this session"
+        case .global:  "Always (global)"
+        }
+    }
+}
+
+struct PolicyPromoteParams: Encodable {
+    let id: String
+    /// `PolicyPromoteScope.rawValue` — the daemon reads the session from
+    /// the denial record, so the scope plus the denial id is enough to
+    /// widen the right allowlist.
+    let scope: String
+}
+
+/// Result of `policy.promote`. The daemon rejects deny-floor entries
+/// with an RPC error rather than returning `ok: false`, so in practice
+/// a successful response always carries `ok: true`; the field is kept
+/// on the wire so a future idempotent "already allowed" path can
+/// distinguish a no-op from a fresh add.
+struct PolicyPromoteResponse: Decodable {
+    let ok: Bool
+}

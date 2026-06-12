@@ -41,6 +41,7 @@
 		55BEF74D5D6FEBD73D9E14A5 /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6164A630675637301F36D4 /* ReviewView.swift */; };
 		5ADEB87BA0B54787FB5E2F22 /* StopConfirmModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8D5A2A540B7469A07861F7F /* StopConfirmModal.swift */; };
 		5B3788E5E8F01CADF79E4BB1 /* SettingsShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4DB4F4127774C3FD7EED9C0 /* SettingsShell.swift */; };
+		5F476077253B38F156B57AAE /* PolicyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E6E69986CB352D21D8F7268 /* PolicyState.swift */; };
 		640853C0172CD400015511A2 /* TitleBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5310DF4FE0BF1441CA5B5858 /* TitleBar.swift */; };
 		661CD394C01C7CDCEA758DEE /* CommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1B80DC49DE0A5D893A17CB /* CommandPalette.swift */; };
 		696B8958E1B7D92FC04551DC /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F594D7BABF3680BF59BBE69 /* Theme.swift */; };
@@ -79,6 +80,7 @@
 		CC3E912C7C322D76B934024D /* PRModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636564F61F4F65B4CC82B789 /* PRModal.swift */; };
 		CCFCAD5B8E9DED56CC8A7D65 /* SkogaIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */; };
 		CD71FEE88CD02D5069B6228B /* KeyboardSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE6D6D0F3026B276380D070 /* KeyboardSettingsSection.swift */; };
+		D36DFCBCE83F7E48B7CAE43A /* PolicyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DD08C615FE12CF8526ABA8C /* PolicyView.swift */; };
 		D555D4F8DBEB7732ADEA3233 /* ParsedTranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A1BD46D7F2E1FB826A2856 /* ParsedTranscriptView.swift */; };
 		E2D6D2E0E7C708D3E63B83D7 /* NotificationsSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B6E36E5C280653D25A1DDF9 /* NotificationsSettingsSection.swift */; };
 		EC922EC8C5DD24A38493F0ED /* ModalState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DEDFD8AE5B69FA5C48EE1FD /* ModalState.swift */; };
@@ -100,6 +102,7 @@
 		14B24E11B3D8AB61211FC507 /* HistoryToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryToolbar.swift; sourceTree = "<group>"; };
 		18C6D36A05B968E62F7CB7BF /* PulseDot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseDot.swift; sourceTree = "<group>"; };
 		1D8C88BD06BFD2E8CFAB0FF2 /* RosterState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RosterState.swift; sourceTree = "<group>"; };
+		1E6E69986CB352D21D8F7268 /* PolicyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolicyState.swift; sourceTree = "<group>"; };
 		235DA73ACD9025DC61F6CAA5 /* Color+Oklch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Oklch.swift"; sourceTree = "<group>"; };
 		239F40425CEE55524E667E2C /* NotificationsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsService.swift; sourceTree = "<group>"; };
 		296A4F6E32617A28B9E035E9 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
@@ -141,6 +144,7 @@
 		732368285D5460AB08855A49 /* DispatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DispatchView.swift; sourceTree = "<group>"; };
 		78635D3F6A65F96AE1FE4DC7 /* SettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSection.swift; sourceTree = "<group>"; };
 		7B1B80DC49DE0A5D893A17CB /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
+		7DD08C615FE12CF8526ABA8C /* PolicyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolicyView.swift; sourceTree = "<group>"; };
 		7E6D30C0F5B11763748C1C22 /* SkogaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaApp.swift; sourceTree = "<group>"; };
 		81F8C2B09E59496FB397779E /* SkogaGlyph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaGlyph.swift; sourceTree = "<group>"; };
 		8531B097CEC08B13BAF87F29 /* GitHubSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubSettingsSection.swift; sourceTree = "<group>"; };
@@ -242,6 +246,14 @@
 				F8D5A2A540B7469A07861F7F /* StopConfirmModal.swift */,
 			);
 			path = Modals;
+			sourceTree = "<group>";
+		};
+		41E50F3A92F669712CC034C4 /* Policy */ = {
+			isa = PBXGroup;
+			children = (
+				7DD08C615FE12CF8526ABA8C /* PolicyView.swift */,
+			);
+			path = Policy;
 			sourceTree = "<group>";
 		};
 		5333DD6B60F86ECBA235A63E /* Conversation */ = {
@@ -364,6 +376,7 @@
 				40A0C6AEAF94719F1F67D011 /* Modals */,
 				6A1C62D5D555EEF5A8AB844B /* Notifications */,
 				0D004E6571D6A74D445C71E9 /* Onboarding */,
+				41E50F3A92F669712CC034C4 /* Policy */,
 				11ABE4C162A4CDFD3D4BF3EA /* Review */,
 				ED9290C388E7599C45626052 /* Roster */,
 				D8E53EC3189A1E06F73D80E6 /* Settings */,
@@ -403,6 +416,7 @@
 				524ADC0788B5404685826FD8 /* HistoryState.swift */,
 				2DEDFD8AE5B69FA5C48EE1FD /* ModalState.swift */,
 				3A59C2662EF4E120004794B5 /* NamedAgentsState.swift */,
+				1E6E69986CB352D21D8F7268 /* PolicyState.swift */,
 				1D8C88BD06BFD2E8CFAB0FF2 /* RosterState.swift */,
 			);
 			path = State;
@@ -580,6 +594,8 @@
 				CC3E912C7C322D76B934024D /* PRModal.swift in Sources */,
 				D555D4F8DBEB7732ADEA3233 /* ParsedTranscriptView.swift in Sources */,
 				51E4C485C121F96D95978DE3 /* PlaceholderSection.swift in Sources */,
+				5F476077253B38F156B57AAE /* PolicyState.swift in Sources */,
+				D36DFCBCE83F7E48B7CAE43A /* PolicyView.swift in Sources */,
 				97FFDE3A8A23836588B8B008 /* PrivacySettingsSection.swift in Sources */,
 				823115FEF637EEBBC6A8D163 /* PulseDot.swift in Sources */,
 				F40CF5E71F1B6724136A191B /* RemoteTerminalView.swift in Sources */,

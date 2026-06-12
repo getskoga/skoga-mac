@@ -6,6 +6,7 @@ struct Sidebar: View {
     @Environment(RosterState.self) private var roster
     @Environment(ModalState.self) private var modal
     @Environment(NamedAgentsState.self) private var namedAgents
+    @Environment(PolicyState.self) private var policy
     @AppStorage(AppearancePrefs.density) private var densityRaw: String = AppearancePrefs.Density.standard.rawValue
 
     var body: some View {
@@ -30,6 +31,12 @@ struct Sidebar: View {
             }
             NavItem(icon: .clock,     label: "History",   count: nil, active: modal.view == .history) {
                 coordinator.navigate(to: .history)
+            }
+            // Badge counts only promotable (non-floor) denials — see
+            // `PolicyState.pendingCount`. Hidden at zero so a clean
+            // allowlist doesn't carry a "0" chip.
+            NavItem(icon: .shield,    label: "Policy",    count: policyBadge, active: modal.view == .policy) {
+                coordinator.navigate(to: .policy)
             }
 
             NavSection(title: "Guild · \(roster.agents.count)")
@@ -94,6 +101,13 @@ struct Sidebar: View {
 
     private var resolvedDensity: AppearancePrefs.Density {
         AppearancePrefs.Density(rawValue: densityRaw) ?? .standard
+    }
+
+    /// Sidebar count chip for the Policy tab — the number of promotable
+    /// denials awaiting review, or `nil` (no chip) when there's nothing
+    /// to act on.
+    private var policyBadge: String? {
+        policy.pendingCount > 0 ? "\(policy.pendingCount)" : nil
     }
 
     private var wordmark: some View {
