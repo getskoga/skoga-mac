@@ -30,6 +30,14 @@ final class PolicyState {
     /// off — the row reads it to switch its trailing control.
     private(set) var promoting: Set<String> = []
 
+    /// Ids removed locally by a promote whose removal must survive a
+    /// ride-along `refresh()` poll that was already in flight (fetched
+    /// before the daemon processed the promote) when the promote landed.
+    /// Such a poll's response still carries the just-promoted row;
+    /// `apply` filters these out so the row doesn't briefly reappear with
+    /// an enabled "Allow" button. Self-clearing — see `apply`.
+    private var suppressed: Set<String> = []
+
     /// Apply a freshly-fetched denial list. Diff-guarded so an identical
     /// poll result (the common case once the guild settles) doesn't
     /// re-publish the array and force every row to recompute. `loadState`
@@ -37,7 +45,16 @@ final class PolicyState {
     /// steady 5s poll doesn't fire a redundant `@Observable` invalidation
     /// on the panel chrome.
     func apply(denials next: [RPCDenial]) {
-        if denials != next { denials = next }
+        // Prune suppression to ids the daemon still reports, then drop
+        // those ids from the incoming list. Once a promote lands
+        // server-side the id stops appearing, falls out of `suppressed`
+        // on this same pass, and suppression auto-clears — so a later
+        // re-denial of the same target (e.g. an expired `.once` allow)
+        // shows normally.
+        let incomingIds = Set(next.lazy.map(\.id))
+        suppressed.formIntersection(incomingIds)
+        let filtered = suppressed.isEmpty ? next : next.filter { !suppressed.contains($0.id) }
+        if denials != filtered { denials = filtered }
         if loadState != .loaded { loadState = .loaded }
     }
 
@@ -50,11 +67,12 @@ final class PolicyState {
     }
 
     /// Drop a single row by id — used by the coordinator's promote action
-    /// so a just-allowed denial disappears the moment its RPC returns,
-    /// rather than lingering until the next ride-along poll. The poll
-    /// won't re-add it (the daemon dropped it from the log on promote),
-    /// so this is a clean optimistic removal.
+    /// so a just-allowed denial disappears the moment its RPC returns.
+    /// Records the id in `suppressed` so a ride-along poll that was
+    /// already in flight (and still carries the row) can't re-add it
+    /// before the daemon drops it from the log.
     func remove(id: String) {
+        suppressed.insert(id)
         denials.removeAll { $0.id == id }
     }
 

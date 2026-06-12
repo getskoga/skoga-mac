@@ -612,7 +612,15 @@ final class LiveDaemonClient: DaemonClient {
         // same way — the UI already hides the promote control on floor
         // rows, so that path only fires on a stale optimistic click.
         let params = AnyEncodable(PolicyPromoteParams(id: id, scope: scope.rawValue))
-        let _: PolicyPromoteResponse = try await rpc.call("policy.promote", params: params)
+        let resp: PolicyPromoteResponse = try await rpc.call("policy.promote", params: params)
+        // `ok: false` means the daemon accepted the call but didn't apply
+        // the rule. Throw so the coordinator toasts and keeps the row —
+        // returning normally would optimistically drop a denial whose
+        // access is still blocked. The daemon today only ever returns
+        // `ok: true` on success (rejections come back as RPC errors), so
+        // this guards the reserved idempotent path the response's doc
+        // comment describes rather than a path that fires today.
+        guard resp.ok else { throw PolicyError.notPromoted }
     }
 
     /// Spawn `skoga <args>`, await termination, capture stdout. Stderr is

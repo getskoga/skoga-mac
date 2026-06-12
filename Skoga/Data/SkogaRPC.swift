@@ -1105,3 +1105,16 @@ struct PolicyPromoteParams: Encodable {
 struct PolicyPromoteResponse: Decodable {
     let ok: Bool
 }
+
+/// Raised when `policy.promote` returns `ok: false` — the daemon
+/// accepted the call but didn't actually apply the rule (e.g. a future
+/// idempotent "already allowed / nothing to do" path). Thrown rather
+/// than swallowed so the coordinator surfaces a toast and the panel
+/// doesn't optimistically remove a row whose access is still blocked.
+enum PolicyError: LocalizedError {
+    case notPromoted
+
+    var errorDescription: String? {
+        "The daemon didn't apply the allow rule — the access is still blocked."
+    }
+}
