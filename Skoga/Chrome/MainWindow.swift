@@ -106,6 +106,8 @@ struct MainWindow: View {
                 TelemetryView()
             case .history:
                 HistoryView()
+            case .policy:
+                PolicyView()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

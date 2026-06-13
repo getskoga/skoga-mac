@@ -22,6 +22,7 @@ final class AppCoordinator {
     let history: HistoryState
     let notifications: NotificationsService
     let namedAgents: NamedAgentsState
+    let policy: PolicyState
 
     // ── Visibility gating ────────────────────────────────────
     // The polling loop suspends when the app is hidden (cmd+H) or the
@@ -79,6 +80,7 @@ final class AppCoordinator {
         self.daemon = DaemonClientHolder(client: client ?? MockDaemonClient(), isMock: isMock)
         self.history = HistoryState()
         self.namedAgents = NamedAgentsState()
+        self.policy = PolicyState()
         // Singleton — the AppDelegate adaptor already registered it as
         // the UNUserNotificationCenter delegate in
         // `applicationWillFinishLaunching`, before this coordinator
@@ -197,6 +199,17 @@ final class AppCoordinator {
         }
         if let series = try? await daemon.client.activitySeries() {
             roster.apply(activity: series)
+        }
+        // Containment denials ride along so the Policy sidebar badge and
+        // (when open) the panel stay live without the panel polling on
+        // its own. `try?` keeps the prior list on a transport hiccup;
+        // METHOD_NOT_FOUND on older daemons returns `[]` (swallowed in the
+        // live client), which `apply` treats as "nothing denied". The
+        // panel's own `loadDenials` owns the loading/error affordance —
+        // this path never sets `.error`, so a flaky tick can't blow the
+        // panel into its error state mid-read.
+        if let denials = try? await daemon.client.policyDenials(sessionId: nil) {
+            policy.apply(denials: denials)
         }
         // Permanent agents registry + the per-name successful-runs
         // counter ride along on every poll. `agents.list` returns []
@@ -807,6 +820,54 @@ final class AppCoordinator {
         }
     }
 
+    /// Fetch the containment denial log for the Policy panel's first
+    /// open. The 5s `refresh()` already rides `policy.denials` along, so
+    /// by the time the panel appears the list is usually already
+    /// populated — in that case we skip the `.loading` flip so the panel
+    /// doesn't flash a spinner over rows it could already show. We only
+    /// surface an error here (not on the ride-along poll) because this is
+    /// the user explicitly opening the surface; a transport failure on a
+    /// background tick shouldn't paint the panel red.
+    func loadDenials() async {
+        if policy.loadState != .loaded { policy.setLoading() }
+        do {
+            let denials = try await daemon.client.policyDenials(sessionId: nil)
+            policy.apply(denials: denials)
+        } catch {
+            policy.setError(error.toastMessage)
+        }
+    }
+
+    /// Promote a denial into the allowlist at `scope`, then drop it from
+    /// the panel. Optimistically removes the row on success so the list
+    /// reflects the allow immediately (the next ride-along poll won't
+    /// re-add it — the daemon clears the entry on promote). The promoting
+    /// set gates the row's scope picker so a double-click can't fire two
+    /// promotions. Failures (deny-floor rejection on a stale click,
+    /// older daemon, transport) surface as a toast and leave the row in
+    /// place so the user can retry.
+    func promoteDenial(id: String, scope: PolicyPromoteScope) async {
+        let denial = policy.denials.first(where: { $0.id == id })
+        let label = denial?.label ?? denial?.target ?? "rule"
+        policy.setPromoting(true, id: id)
+        defer { policy.setPromoting(false, id: id) }
+        do {
+            try await daemon.client.promoteDenial(id: id, scope: scope)
+            policy.remove(id: id)
+            modal.showToast(Self.promoteToast(label: label, scope: scope))
+        } catch {
+            modal.showToast("Couldn't allow \(label): \(error.toastMessage)")
+        }
+    }
+
+    private static func promoteToast(label: String, scope: PolicyPromoteScope) -> String {
+        switch scope {
+        case .once:    "Allowed \(label) once."
+        case .session: "Allowed \(label) for this session."
+        case .global:  "Allowed \(label) everywhere."
+        }
+    }
+
     func loadConversation(_ id: String) async {
         // Mock client never throws; the live path throws on transport / RPC
         // failures. Empty-conversation is *not* an error (the daemon returns
@@ -850,6 +911,10 @@ final class AppCoordinator {
         case .review:       "Review · \(roster.counts.prOpen) open"
         case .telemetry:    "Telemetry"
         case .history:      "History"
+        case .policy:
+            policy.pendingCount > 0
+                ? "Policy · \(policy.pendingCount) to review"
+                : "Policy"
         }
     }
 }

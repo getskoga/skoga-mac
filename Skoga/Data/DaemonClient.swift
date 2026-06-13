@@ -323,6 +323,24 @@ protocol DaemonClient: AnyObject {
     /// identity goes away.
     @discardableResult
     func deleteNamedAgent(id: String) async throws -> Bool
+
+    /// Per-session containment denials from the daemon's denial log
+    /// (`policy.denials`, see getskoga/skoga#162). `sessionId == nil`
+    /// returns denials across every tracked session — what the Policy
+    /// panel asks for. Returns `[]` against older daemons that don't
+    /// speak the RPC so the panel renders its empty state instead of a
+    /// transport error. `nonisolated` for the same polling-frequency
+    /// reason as `listAgents` — ridden along on the 5s refresh tick so
+    /// the panel + sidebar badge stay live.
+    nonisolated func policyDenials(sessionId: String?) async throws -> [RPCDenial]
+
+    /// Promote a denial into the allowlist at `scope` (`policy.promote`).
+    /// The daemon persists the rule (for `.session` / `.global`) and the
+    /// next matching access succeeds. Throws when the daemon rejects the
+    /// promotion — deny-floor entries (non-promotable) or
+    /// `METHOD_NOT_FOUND` against an older daemon — so the coordinator
+    /// can surface a toast rather than silently dropping the click.
+    func promoteDenial(id: String, scope: PolicyPromoteScope) async throws
 }
 
 /// CLI-derived PR title + body used to pre-fill the PR modal. Mirrors the

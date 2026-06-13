@@ -32,6 +32,13 @@ final class MockDaemonClient: DaemonClient {
     /// reflects it.
     private var namedAgentsState: [String: NamedAgent] = MockDaemonClient.seedNamedAgents
 
+    /// In-memory containment denial log. Seeded with a mix of network +
+    /// filesystem denials — some carrying toolchain labels, one a
+    /// deny-floor entry — so designers see every Policy-panel variant on
+    /// first paint without running a real daemon. Mutable so `promoteDenial`
+    /// can drop a promoted row and the next `policyDenials` poll reflects it.
+    private var denialsState: [RPCDenial] = MockDaemonClient.seedDenials
+
     nonisolated func listAgents() async throws -> [Agent] { agentsCache }
 
     nonisolated func listTerminalSessions(
@@ -354,6 +361,44 @@ final class MockDaemonClient: DaemonClient {
         namedAgentsState.removeValue(forKey: id) != nil
     }
 
+    nonisolated func policyDenials(sessionId: String?) async throws -> [RPCDenial] {
+        // `nonisolated` to satisfy the protocol requirement (the live
+        // client runs its decode off-MainActor), but `denialsState` is
+        // mutable MainActor state — promote rewrites it — so hop back to
+        // read a consistent snapshot rather than touching it from the
+        // nonisolated context.
+        await snapshotDenials(sessionId: sessionId)
+    }
+
+    /// MainActor-isolated read of the seeded denial log. Newest-first,
+    /// matching the daemon's ordering, filtered to a session when asked
+    /// (the Policy panel passes nil to span the guild).
+    private func snapshotDenials(sessionId: String?) -> [RPCDenial] {
+        denialsState
+            .filter { sessionId == nil || $0.session_id == sessionId }
+            .sorted { $0.denied_at > $1.denied_at }
+    }
+
+    func promoteDenial(id: String, scope: PolicyPromoteScope) async throws {
+        // Mirror the daemon: deny-floor entries can't be promoted at any
+        // scope. Throw the same -32602 shape the real RPC would so the
+        // coordinator's catch toasts — though in practice the panel hides
+        // the promote control on floor rows, so this only fires on a
+        // stale click.
+        guard let denial = denialsState.first(where: { $0.id == id }) else {
+            throw JSONRPCError.rpc(.init(code: -32602, message: "unknown denial id"))
+        }
+        if denial.floor {
+            throw JSONRPCError.rpc(.init(code: -32602, message: "deny-floor entries can't be promoted"))
+        }
+        // Tiny delay so the row's promoting state has time to render
+        // before it disappears. `.once` removes the entry too — the mock
+        // has no way to re-trigger the access, so dropping it keeps the
+        // panel readable; a live daemon would re-log it on the next hit.
+        try await Task.sleep(nanoseconds: 250_000_000)
+        denialsState.removeAll { $0.id == id }
+    }
+
     func credentialsTest(provider: RPCCredentialProvider) async throws -> RPCCredentialsTestResult {
         // Tiny delay so designers see the spinner state when clicking
         // Test — the real daemon's probe makes a network round-trip
@@ -551,6 +596,45 @@ private extension MockDaemonClient {
                           last_used: now.addingTimeInterval(-3600 * 26),  runs_count: 3),
             RPCRecentRepo(repo_root: "/Users/mikael/code/infra",         display_name: "infra",
                           last_used: now.addingTimeInterval(-3600 * 72),  runs_count: 2),
+        ]
+    }()
+
+    /// Seed containment denials so the Policy panel has representative
+    /// rows in mock mode. Covers each variant the view special-cases:
+    /// a labelled network allow (the npm registry — the labelled-allow
+    /// UX from getskoga/skoga#164), a repeated network hit (`occurrences`
+    /// > 1 → "×N" chip), a labelless filesystem denial (renders the raw
+    /// path), and a deny-floor entry (`~/.ssh`, permanently blocked).
+    /// `session_id`s match seed agent ids so `NordicNames` resolves a
+    /// pretty name on each row.
+    static let seedDenials: [RPCDenial] = {
+        let now = Date()
+        return [
+            RPCDenial(
+                id: "den-1", session_id: "bjorn", kind: .network,
+                target: "registry.npmjs.org",
+                label: "the npm registry",
+                denied_at: now.addingTimeInterval(-42), occurrences: 3, floor: false),
+            RPCDenial(
+                id: "den-2", session_id: "elin", kind: .network,
+                target: "api.github.com",
+                label: "the GitHub API",
+                denied_at: now.addingTimeInterval(-60 * 4), occurrences: 1, floor: false),
+            RPCDenial(
+                id: "den-3", session_id: "magnus", kind: .filesystem,
+                target: "/opt/homebrew/var/postgres",
+                label: nil,
+                denied_at: now.addingTimeInterval(-60 * 11), occurrences: 2, floor: false),
+            RPCDenial(
+                id: "den-4", session_id: "olaf", kind: .network,
+                target: "telemetry.vendor-sdk.io",
+                label: nil,
+                denied_at: now.addingTimeInterval(-60 * 26), occurrences: 7, floor: false),
+            RPCDenial(
+                id: "den-5", session_id: "bjorn", kind: .filesystem,
+                target: "~/.ssh/id_ed25519",
+                label: "your SSH private key",
+                denied_at: now.addingTimeInterval(-60 * 33), occurrences: 1, floor: true),
         ]
     }()
 
