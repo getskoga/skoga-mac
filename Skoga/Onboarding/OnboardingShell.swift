@@ -202,7 +202,9 @@ struct OnboardingShell: View {
             case .welcome:  StepWelcome(onNext: next)
             case .model:    StepModel(onNext: next, onBack: back)
             case .github:   StepGitHub(onNext: next, onBack: back)
-            case .sandbox:  StepSandbox(onNext: next, onBack: back)
+            // v1: Sandbox step omitted (security stack ships in v2).
+            // `StepSandbox` remains in-tree — re-add the `.sandbox` case to
+            // `OnboardingStep` and dispatch it here to restore it.
             case .forest:   StepWorkspace(onNext: next, onBack: back)
             case .ready:    StepReady(onFinish: finish, onDispatchFirst: dispatchFirst)
             }

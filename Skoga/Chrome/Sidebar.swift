@@ -32,12 +32,13 @@ struct Sidebar: View {
             NavItem(icon: .clock,     label: "History",   count: nil, active: modal.view == .history) {
                 coordinator.navigate(to: .history)
             }
-            // Badge counts only promotable (non-floor) denials — see
-            // `PolicyState.pendingCount`. Hidden at zero so a clean
-            // allowlist doesn't carry a "0" chip.
-            NavItem(icon: .shield,    label: "Policy",    count: policyBadge, active: modal.view == .policy) {
-                coordinator.navigate(to: .policy)
-            }
+            // v1: the Policy (containment denial review) nav item is hidden —
+            // the security / sandbox stack ships in v2. `PolicyView`,
+            // `PolicyState`, and `policyBadge` remain in-tree; restore the
+            // NavItem below to bring the surface back.
+            // NavItem(icon: .shield,    label: "Policy",    count: policyBadge, active: modal.view == .policy) {
+            //     coordinator.navigate(to: .policy)
+            // }
 
             NavSection(title: "Guild · \(roster.agents.count)")
             // Permanent agents pin to the top of the guild list, ordered

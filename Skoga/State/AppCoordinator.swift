@@ -200,6 +200,11 @@ final class AppCoordinator {
         if let series = try? await daemon.client.activitySeries() {
             roster.apply(activity: series)
         }
+        // v1: the containment denial ride-along is disabled — the Policy
+        // surface is hidden until the security / sandbox stack ships in v2.
+        // `policyDenials` / `PolicyState` / `PolicyView` all remain in-tree;
+        // restore this block to re-light the Policy sidebar badge and panel.
+        //
         // Containment denials ride along so the Policy sidebar badge and
         // (when open) the panel stay live without the panel polling on
         // its own. `try?` keeps the prior list on a transport hiccup;
@@ -208,9 +213,9 @@ final class AppCoordinator {
         // panel's own `loadDenials` owns the loading/error affordance —
         // this path never sets `.error`, so a flaky tick can't blow the
         // panel into its error state mid-read.
-        if let denials = try? await daemon.client.policyDenials(sessionId: nil) {
-            policy.apply(denials: denials)
-        }
+        // if let denials = try? await daemon.client.policyDenials(sessionId: nil) {
+        //     policy.apply(denials: denials)
+        // }
         // Permanent agents registry + the per-name successful-runs
         // counter ride along on every poll. `agents.list` returns []
         // on older daemons (METHOD_NOT_FOUND swallowed in the live

@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: – Step head (eyebrow + title + lede)
 
-/// Shared head block used by steps 2–6. Step 1's hero diverges enough
+/// Shared head block used by steps 2–5. Step 1's hero diverges enough
 /// (centered, no eyebrow) that it builds its own header inline.
 struct StepHead: View {
     @Environment(\.palette) private var p

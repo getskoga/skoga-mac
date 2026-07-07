@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Step 6 — Ready. Four-card tour (Roster, Dispatch, Review handoff,
+/// Step 5 — Ready. Four-card tour (Roster, Dispatch, Review handoff,
 /// Mobile bridge) plus the finishing fork: land on the roster or
 /// jump straight into Dispatch.
 struct StepReady: View {
