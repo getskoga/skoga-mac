@@ -27,6 +27,7 @@
 		28340A899A73DD7CA34E684C /* OnboardingShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE61C90AD30625B90E08E84E /* OnboardingShell.swift */; };
 		2B68F289DDBB44D323DF06DA /* StepWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64501AE53C21FFEF28FE6304 /* StepWorkspace.swift */; };
 		303029A15B9017AA387563AB /* DaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3CC5FADA740026853822A19 /* DaemonClient.swift */; };
+		309298AFF2676FA369FBA694 /* SkogaHomeAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799E2240DF1C66CD299DA0A4 /* SkogaHomeAccess.swift */; };
 		31BC5CD04C1B7237C7B5CB6E /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFAFBFFB8FA9968FD7AC98FF /* ConversationView.swift */; };
 		3389B16B7F8752451D8237CF /* StepModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6904AE5A2C71A82546BD51C1 /* StepModel.swift */; };
 		3E70103B56C8294DDCA1E434 /* NordicNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B445CBB1DD16119CE39FCC9 /* NordicNames.swift */; };
@@ -46,6 +47,7 @@
 		661CD394C01C7CDCEA758DEE /* CommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1B80DC49DE0A5D893A17CB /* CommandPalette.swift */; };
 		696B8958E1B7D92FC04551DC /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F594D7BABF3680BF59BBE69 /* Theme.swift */; };
 		6A53CB14C2C3BA657AD778DA /* HistoryState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524ADC0788B5404685826FD8 /* HistoryState.swift */; };
+		6A9A211B7759B9D53D6500F5 /* DaemonEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F37C94C116F185A234B517 /* DaemonEndpoint.swift */; };
 		6EEEECFE96A849FA50EBB981 /* RosterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAC0B12748DBA520B86EA074 /* RosterView.swift */; };
 		73E10F6654C9374EC0A04E83 /* EmbeddedTUIChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6997044FC6F3201B3B5DFA7D /* EmbeddedTUIChrome.swift */; };
 		7580499EE0EB855F91C98963 /* DispatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732368285D5460AB08855A49 /* DispatchView.swift */; };
@@ -141,9 +143,11 @@
 		66C5244BFB191ED9277E0E14 /* KongleHelperModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KongleHelperModal.swift; sourceTree = "<group>"; };
 		6904AE5A2C71A82546BD51C1 /* StepModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepModel.swift; sourceTree = "<group>"; };
 		6997044FC6F3201B3B5DFA7D /* EmbeddedTUIChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddedTUIChrome.swift; sourceTree = "<group>"; };
+		69F37C94C116F185A234B517 /* DaemonEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonEndpoint.swift; sourceTree = "<group>"; };
 		70C3CDA242BE7EF87A23DDD1 /* LiveDaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDaemonClient.swift; sourceTree = "<group>"; };
 		732368285D5460AB08855A49 /* DispatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DispatchView.swift; sourceTree = "<group>"; };
 		78635D3F6A65F96AE1FE4DC7 /* SettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSection.swift; sourceTree = "<group>"; };
+		799E2240DF1C66CD299DA0A4 /* SkogaHomeAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaHomeAccess.swift; sourceTree = "<group>"; };
 		7B1B80DC49DE0A5D893A17CB /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
 		7DD08C615FE12CF8526ABA8C /* PolicyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolicyView.swift; sourceTree = "<group>"; };
 		7E6D30C0F5B11763748C1C22 /* SkogaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaApp.swift; sourceTree = "<group>"; };
@@ -439,9 +443,11 @@
 			isa = PBXGroup;
 			children = (
 				C3CC5FADA740026853822A19 /* DaemonClient.swift */,
+				69F37C94C116F185A234B517 /* DaemonEndpoint.swift */,
 				3457E04866B98C322F63CCB3 /* JSONRPCConnection.swift */,
 				70C3CDA242BE7EF87A23DDD1 /* LiveDaemonClient.swift */,
 				ED68B708D3D45C9366760F38 /* MockDaemonClient.swift */,
+				799E2240DF1C66CD299DA0A4 /* SkogaHomeAccess.swift */,
 				94DE9B05F7B39ED2F2A214B4 /* SkogaRPC.swift */,
 			);
 			path = Data;
@@ -565,6 +571,7 @@
 				31BC5CD04C1B7237C7B5CB6E /* ConversationView.swift in Sources */,
 				303029A15B9017AA387563AB /* DaemonClient.swift in Sources */,
 				2144EFB928D43BAB7EEC4CE7 /* DaemonClientHolder.swift in Sources */,
+				6A9A211B7759B9D53D6500F5 /* DaemonEndpoint.swift in Sources */,
 				540A532678F1E33044D42AFF /* DaemonStatusBanner.swift in Sources */,
 				7580499EE0EB855F91C98963 /* DispatchView.swift in Sources */,
 				4150C94C17D0F4FC501E3DEA /* EditorSettingsSection.swift in Sources */,
@@ -612,6 +619,7 @@
 				10F388F0EA51E3ADE2CC0FD2 /* SkogaApp.swift in Sources */,
 				7F7EF46432B23998A29F4E47 /* SkogaBuild.swift in Sources */,
 				8C054293BB4CF2C9E24828CD /* SkogaGlyph.swift in Sources */,
+				309298AFF2676FA369FBA694 /* SkogaHomeAccess.swift in Sources */,
 				CCFCAD5B8E9DED56CC8A7D65 /* SkogaIcons.swift in Sources */,
 				0E1FEB24354422C20E477006 /* SkogaRPC.swift in Sources */,
 				7812EB1D772C88A505B7488B /* StatusPill.swift in Sources */,

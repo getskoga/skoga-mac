@@ -23,6 +23,13 @@ enum JSONRPCError: Error, LocalizedError {
     case emptyResponse
     case decode(String)
     case rpc(RPCError)
+    /// The daemon rejected our TCP `auth` call (bad/absent token → -32001), or
+    /// reported `authenticated: false`. Distinct from a transport failure so
+    /// the UI can tell "can't reach the daemon" from "reached it, was refused".
+    case authFailed(String)
+    /// No reachable TCP endpoint: the discovery file is absent (daemon down /
+    /// TCP disabled), stale (dead pid), or speaks a protocol we don't.
+    case daemonUnavailable(String)
 
     var errorDescription: String? {
         switch self {
@@ -33,24 +40,28 @@ enum JSONRPCError: Error, LocalizedError {
         case .emptyResponse:              "Daemon closed the connection without responding"
         case .decode(let m):              "Decode failed: \(m)"
         case .rpc(let e):                 "Daemon error \(e.code): \(e.message)"
+        case .authFailed(let m):          "Daemon authentication failed: \(m)"
+        case .daemonUnavailable(let m):   "Daemon not reachable: \(m)"
         }
     }
 }
 
 struct JSONRPCClient {
     let socketPath: URL
+    /// How this client reaches skogad. Defaults to the Direct build's
+    /// Unix-first strategy, so existing call sites (`JSONRPCClient(socketPath:)`)
+    /// are unaffected; a sandboxed build constructs one with `.tcpOnly`.
+    var transportPolicy: DaemonTransportPolicy = .unixThenTCP
 
     /// Issue one RPC. Throws on transport failure or RPC-level error.
     func call<R: Decodable>(_ method: String, params: AnyEncodable? = nil, decoding: R.Type = R.self) async throws -> R {
-        if !FileManager.default.fileExists(atPath: socketPath.path) {
-            throw JSONRPCError.socketMissing(socketPath)
-        }
         let line = try Self.encodeRequest(method: method, params: params, id: 1)
-        let path = socketPath.path
+        let socketPath = self.socketPath
+        let policy = self.transportPolicy
         return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<R, Error>) in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    let socket = try UnixSocket.connect(path: path)
+                    let socket = try RawSocket.connectReady(socketPath: socketPath, policy: policy)
                     defer { socket.close() }
                     try socket.writeAll(line)
                     let response = try socket.readLine()
@@ -78,19 +89,17 @@ struct JSONRPCClient {
     /// streaming, transport errors silently terminate the stream — the
     /// view can observe the finish and decide whether to retry.
     func openPTYStream(sessionId: String, cols: UInt16?, rows: UInt16?) async throws -> AttachedPTYStream {
-        if !FileManager.default.fileExists(atPath: socketPath.path) {
-            throw JSONRPCError.socketMissing(socketPath)
-        }
         let params = SessionAttachStreamParams(id: sessionId, cols: cols, rows: rows)
         let req = try Self.encodeRequest(method: "session.attach_stream", params: AnyEncodable(params), id: 1)
-        let path = socketPath.path
+        let socketPath = self.socketPath
+        let policy = self.transportPolicy
 
         // Phase 1: blocking handshake on a worker, bridged to async.
         let (snapshot, session, socket) = try await withCheckedThrowingContinuation {
-            (cont: CheckedContinuation<(Data, RPCSession, UnixSocket), Error>) in
+            (cont: CheckedContinuation<(Data, RPCSession, RawSocket), Error>) in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    let s = try UnixSocket.connect(path: path)
+                    let s = try RawSocket.connectReady(socketPath: socketPath, policy: policy)
                     do {
                         try s.writeAll(req)
                         let response = try s.readLine()
@@ -118,7 +127,7 @@ struct JSONRPCClient {
         // closure both reach it; closing from termination unblocks read(2)
         // with EBADF.
         final class SocketHolder: @unchecked Sendable {
-            var socket: UnixSocket?
+            var socket: RawSocket?
         }
         let holder = SocketHolder()
         holder.socket = socket
@@ -159,19 +168,20 @@ struct JSONRPCClient {
     /// stream ends when the daemon closes the socket or the caller cancels
     /// the consuming Task.
     func eventStream() -> AsyncStream<RPCEvent> {
-        let path = socketPath.path
+        let socketPath = self.socketPath
+        let policy = self.transportPolicy
         return AsyncStream { continuation in
             // Hold the socket in a class so the read-loop closure and the
             // `onTermination` closure can both reach it. Closing the fd from
             // termination unblocks `read(2)` on the worker thread with EBADF.
             final class SocketHolder: @unchecked Sendable {
-                var socket: UnixSocket?
+                var socket: RawSocket?
             }
             let holder = SocketHolder()
             let queue = DispatchQueue(label: "dev.getskoga.Skoga.JSONRPCEventStream", qos: .userInitiated)
             queue.async {
                 do {
-                    let socket = try UnixSocket.connect(path: path)
+                    let socket = try RawSocket.connectReady(socketPath: socketPath, policy: policy)
                     holder.socket = socket
                     let req = try Self.encodeRequest(method: "events.subscribe", params: nil, id: 1)
                     try socket.writeAll(req)
@@ -265,12 +275,16 @@ struct JSONRPCClient {
     }
 }
 
-// MARK: – Raw Unix socket
+// MARK: – Raw socket (Unix-domain or loopback TCP)
 
-/// Thin wrapper around a `SOCK_STREAM` Unix-domain fd. Blocking I/O on the
-/// caller's thread — callers schedule work on a `DispatchQueue` worker and
-/// bridge to async via `withCheckedThrowingContinuation`.
-private final class UnixSocket: @unchecked Sendable {
+/// Thin wrapper around a `SOCK_STREAM` fd — a `~/.skoga/sock` Unix-domain
+/// socket in the Direct build, or a `127.0.0.1` loopback TCP socket for a
+/// sandboxed build that can't open a socket in `$HOME`. Once connected the
+/// read/write/close paths are transport-agnostic (both are byte streams).
+/// Blocking I/O on the caller's thread — callers schedule work on a
+/// `DispatchQueue` worker and bridge to async via
+/// `withCheckedThrowingContinuation`.
+private final class RawSocket: @unchecked Sendable {
     private var fd: Int32
     private var readBuffer = Data()
     private let closeLock = NSLock()
@@ -278,7 +292,128 @@ private final class UnixSocket: @unchecked Sendable {
 
     private init(fd: Int32) { self.fd = fd }
 
-    static func connect(path: String) throws -> UnixSocket {
+    /// Connect and return a socket that is *ready to carry RPCs*: for the
+    /// Unix path that's just the raw connection (the daemon authenticates it
+    /// by peer credentials); for the TCP path the mandatory first `auth` call
+    /// has already succeeded, so the caller can send its real request next.
+    ///
+    /// `.unixThenTCP` tries the Unix socket first and only falls back to TCP
+    /// if the socket file is absent or won't connect. `.tcpOnly` skips the
+    /// Unix attempt entirely — the seam a sandboxed build flips.
+    static func connectReady(socketPath: URL, policy: DaemonTransportPolicy) throws -> RawSocket {
+        switch policy {
+        case .unixThenTCP:
+            // Try the native Unix socket first, but capture *why* it was
+            // skipped. A stale socket file (exists, yet `connect(2)` returns
+            // ECONNREFUSED after a daemon restart that didn't unlink it) is
+            // otherwise indistinguishable from "daemon never started" — the
+            // dropped error left a later TCP failure reporting only the missing
+            // endpoint file. Carry the Unix outcome into the fallback so a
+            // total failure names both legs.
+            let unixOutcome: String
+            if FileManager.default.fileExists(atPath: socketPath.path) {
+                do {
+                    return try connect(path: socketPath.path)
+                } catch {
+                    unixOutcome = "Unix socket \(socketPath.path): "
+                        + ((error as? JSONRPCError)?.errorDescription ?? "\(error)")
+                }
+            } else {
+                unixOutcome = "Unix socket \(socketPath.path): file absent"
+            }
+            do {
+                return try connectTCPAuthenticated()
+            } catch let tcpError as JSONRPCError {
+                // A reached-but-refused daemon (`authFailed`) is a definitive
+                // answer — surface it unchanged rather than diluting it with
+                // the Unix leg. Every other JSON-RPC transport failure means
+                // "couldn't reach it either way", so fold in the Unix outcome
+                // to make the combined failure debuggable.
+                if case .authFailed = tcpError { throw tcpError }
+                let tcpReason: String
+                switch tcpError {
+                case .daemonUnavailable(let m), .connectFailed(let m),
+                     .sendFailed(let m), .readFailed(let m), .decode(let m):
+                    tcpReason = m
+                default:
+                    tcpReason = tcpError.errorDescription ?? "\(tcpError)"
+                }
+                throw JSONRPCError.daemonUnavailable(
+                    "\(unixOutcome); TCP fallback failed: \(tcpReason)"
+                )
+            }
+        case .tcpOnly:
+            return try connectTCPAuthenticated()
+        }
+    }
+
+    /// Resolve the discovery file, open a loopback TCP connection, and clear
+    /// the token gate before returning. On auth rejection (-32001 or
+    /// `authenticated: false`) throws `JSONRPCError.authFailed` and closes the
+    /// fd; the token is never logged.
+    static func connectTCPAuthenticated() throws -> RawSocket {
+        let endpoint = try DaemonEndpoint.resolve()
+        let socket = try connectTCP(port: endpoint.port)
+        do {
+            let authReq = try JSONRPCClient.encodeRequest(
+                method: "auth",
+                params: AnyEncodable(AuthParams(token: endpoint.token)),
+                id: 1
+            )
+            try socket.writeAll(authReq)
+            let response = try socket.readLine()
+            let result = try JSONRPCClient.decode(response, type: AuthResult.self)
+            guard result.authenticated else {
+                throw JSONRPCError.authFailed("daemon returned authenticated: false")
+            }
+        } catch let e as JSONRPCError {
+            socket.close()
+            // The daemon surfaces a bad/absent token as JSON-RPC -32001; map
+            // that to a distinct auth failure rather than a generic RPC error.
+            if case .rpc(let rpc) = e, rpc.code == -32001 {
+                throw JSONRPCError.authFailed(rpc.message)
+            }
+            throw e
+        } catch {
+            socket.close()
+            throw error
+        }
+        return socket
+    }
+
+    /// Open a blocking `SOCK_STREAM` connection to `127.0.0.1:port`, Nagle
+    /// off to match the daemon's `set_nodelay(true)`.
+    static func connectTCP(port: UInt16) throws -> RawSocket {
+        let fd = Darwin.socket(AF_INET, SOCK_STREAM, 0)
+        if fd < 0 {
+            throw JSONRPCError.connectFailed("tcp socket: \(errnoMessage())")
+        }
+        // RPC is request/response, so coalescing small writes only adds
+        // latency — mirror the daemon's `set_nodelay(true)`.
+        var one: Int32 = 1
+        _ = withUnsafePointer(to: &one) { ptr in
+            setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, ptr, socklen_t(MemoryLayout<Int32>.size))
+        }
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = port.bigEndian
+        // Loopback only, always. `inet_addr` yields network byte order.
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+        let len = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let rc = withUnsafePointer(to: &addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sa in
+                Darwin.connect(fd, sa, len)
+            }
+        }
+        if rc < 0 {
+            let msg = errnoMessage()
+            Darwin.close(fd)
+            throw JSONRPCError.connectFailed("connect 127.0.0.1:\(port): \(msg)")
+        }
+        return RawSocket(fd: fd)
+    }
+
+    static func connect(path: String) throws -> RawSocket {
         let fd = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
         if fd < 0 {
             throw JSONRPCError.connectFailed("socket: \(errnoMessage())")
@@ -312,7 +447,7 @@ private final class UnixSocket: @unchecked Sendable {
             Darwin.close(fd)
             throw JSONRPCError.connectFailed("connect: \(msg)")
         }
-        return UnixSocket(fd: fd)
+        return RawSocket(fd: fd)
     }
 
     func writeAll(_ data: Data) throws {
@@ -324,7 +459,7 @@ private final class UnixSocket: @unchecked Sendable {
                 let n = Darwin.write(fd, base.advanced(by: offset), total - offset)
                 if n < 0 {
                     if errno == EINTR { continue }
-                    throw JSONRPCError.sendFailed(UnixSocket.errnoMessage())
+                    throw JSONRPCError.sendFailed(RawSocket.errnoMessage())
                 }
                 if n == 0 {
                     throw JSONRPCError.sendFailed("write returned 0")
@@ -350,7 +485,7 @@ private final class UnixSocket: @unchecked Sendable {
             }
             if n < 0 {
                 if errno == EINTR { continue }
-                throw JSONRPCError.readFailed(UnixSocket.errnoMessage())
+                throw JSONRPCError.readFailed(RawSocket.errnoMessage())
             }
             if n == 0 {
                 if readBuffer.isEmpty {
@@ -389,15 +524,10 @@ private final class UnixSocket: @unchecked Sendable {
 
 extension URL {
     /// `~/.skoga/sock`, honoring `SKOGA_HOME`. Mirrors `paths::socket_path()`
-    /// in skoga-core so an env override moves both sides together.
+    /// in skoga-core so an env override moves both sides together. The home
+    /// resolution lives in exactly one place — `SkogaHomeAccess.skogaHomeURL`
+    /// — so the env-override semantics can't drift between the two sites.
     static var skogaSocket: URL {
-        let env = ProcessInfo.processInfo.environment
-        let home: URL
-        if let override = env["SKOGA_HOME"], !override.isEmpty {
-            home = URL(fileURLWithPath: (override as NSString).expandingTildeInPath)
-        } else {
-            home = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".skoga")
-        }
-        return home.appendingPathComponent("sock")
+        SkogaHomeAccess.skogaHomeURL.appendingPathComponent("sock")
     }
 }
