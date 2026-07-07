@@ -187,11 +187,11 @@ protocol DaemonClient: AnyObject {
     /// the TUI re-lays out. Cheap — issue per resize event.
     func ptyResize(sessionId: String, cols: UInt16, rows: UInt16) async throws
 
-    /// Ask the CLI what title + body it would use for this session's PR if
-    /// `skoga land` ran right now. Used to pre-fill the PR modal so the user
-    /// edits real defaults instead of placeholder text. Shells out to
-    /// `skoga land <id> --preview`, which is read-only — no git, no daemon
-    /// writes, no audit emission.
+    /// Title + body to pre-fill the PR modal. Prefers the daemon's
+    /// Claude-drafted message (`session.draft_message`, which runs
+    /// `claude -p` server-side) and falls back to the structured
+    /// `session.land_preview` (task-derived default) when drafting fails.
+    /// Both are read-only — no git writes, no audit emission.
     func previewPR(for sessionId: String) async throws -> PRPreview
 
     /// Real diff stat for the session — commits, files changed, lines
@@ -214,22 +214,27 @@ protocol DaemonClient: AnyObject {
     /// rather than failing.
     func changedFiles(for sessionId: String) async throws -> [String]?
 
-    /// Drive a full `skoga land <id> --title ... --body ... --yes` flow:
-    /// squash, rebase, push, open PR via `gh`. The Mac app deliberately
-    /// shells out to the CLI rather than reimplementing the flow in Swift —
-    /// the architecture explicitly keeps git/gh side effects in the CLI
-    /// process (it inherits the dev's TTY, credentials, and gh auth).
-    /// Throws on any pre-flight failure (no commits, conflicts) or push/PR
-    /// failure. On success the session's `landed_pr_url` is set by the
-    /// daemon; callers refresh to see it.
+    /// Drive a full land flow via `session.land`: squash, rebase, push,
+    /// open PR — all daemon-side. `title`/`body` are an all-or-nothing pair
+    /// on the wire (a partial pair returns INVALID_PARAMS); the modal always
+    /// supplies both and they win over the daemon's default-message
+    /// derivation. Throws on any pre-flight failure (no commits, conflicts)
+    /// or push/PR failure. On success the session's `landed_pr_url` is set
+    /// by the daemon; callers refresh to see it.
     func landPR(for sessionId: String, title: String, body: String) async throws
 
-    /// Push the session's branch to its remote as-is — `skoga push <id>`,
-    /// which is a thin wrapper around `git push -u`. No squash, no PR
+    /// Push the session's branch to its remote as-is via `session.push` —
+    /// the daemon-side equivalent of `git push -u`. No squash, no PR
     /// creation, no rewrite. Use this to ship branch state to GitHub
     /// without opening a PR, or to update an already-open PR after the
     /// agent revises. Throws on push failures (no remote, auth, conflict).
     func pushBranch(for sessionId: String) async throws
+
+    /// The session repo's `origin` remote URL (`session.remote_url`), for
+    /// building GitHub compare links. `nil` when no `origin` is configured.
+    /// Replaces the former local `git config --get remote.origin.url`
+    /// shell-out so a sandboxed build can resolve it over RPC.
+    func remoteURL(for sessionId: String) async throws -> String?
 
     /// Current `gh` CLI state from the daemon's perspective — install,
     /// auth, login handle, scopes, and the persisted default reviewer.

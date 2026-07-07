@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 /// Step 4 — Plant the forest. Workspace folder picker + a lightweight
-/// environment check (git · workspace writeable). The `skogad` daemon is
+/// access check (workspace exists · writeable). The `skogad` daemon is
 /// installed separately via `brew install getskoga/tap/skoga` and started
 /// with `skoga daemon start` — the `DaemonStatusBanner` in the main window
 /// surfaces that hint when it isn't reachable.
@@ -72,10 +72,19 @@ struct StepWorkspace: View {
         )
     }
 
+    /// Only checks the app can genuinely perform are shown here. The old
+    /// card fabricated a "git 2.47.0 detected" row — a sandboxed app
+    /// can't run `git --version`, and made-up results are exactly what
+    /// App Review screens for. Toolchain checks (git, tmux, claude) are
+    /// the daemon's concern; `DaemonStatusBanner` reports its
+    /// reachability for real once the wizard closes.
     private var envCheckCard: some View {
         VStack(spacing: 6) {
-            envRow(label: "git", value: "2.47.0 detected")
-            envRow(label: "workspace", value: "writeable · \(state.data.workspace.isEmpty ? "~/code" : state.data.workspace)")
+            envRow(
+                label: "workspace",
+                value: workspaceStatus.message,
+                ok: workspaceStatus.ok
+            )
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .background(
@@ -87,12 +96,35 @@ struct StepWorkspace: View {
         )
     }
 
-    private func envRow(label: String, value: String) -> some View {
+    /// Live filesystem probe of the typed/chosen workspace folder —
+    /// exists, is a directory, is writeable. Recomputed on every render
+    /// (each keystroke in the field); two `stat` calls are trivially
+    /// cheap. Under App Sandbox the answers stay honest: a folder chosen
+    /// via the panel is granted and reports writeable, while a merely
+    /// typed path the sandbox can't reach reports as not accessible.
+    private var workspaceStatus: (ok: Bool, message: String) {
+        let raw = state.data.workspace.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else {
+            return (false, "choose a folder to check access")
+        }
+        let path = (raw as NSString).expandingTildeInPath
+        let fm = FileManager.default
+        var isDir: ObjCBool = false
+        guard fm.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
+            return (false, "not accessible — use Choose… to pick an existing folder")
+        }
+        guard fm.isWritableFile(atPath: path) else {
+            return (false, "not writeable — Skoga can't create worktrees here")
+        }
+        return (true, "writeable · \(raw)")
+    }
+
+    private func envRow(label: String, value: String, ok: Bool) -> some View {
         HStack(spacing: 12) {
             ZStack {
-                Circle().fill(p.forest)
+                Circle().fill(ok ? p.forest : p.amber)
                     .frame(width: 18, height: 18)
-                Image(skoga: .check).skogaIconSize(11)
+                Image(skoga: ok ? .check : .alert).skogaIconSize(11)
                     .foregroundStyle(Color.oklch(0.97, 0.02, 90))
             }
             .frame(width: 22)

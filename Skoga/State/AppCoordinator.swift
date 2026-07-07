@@ -64,6 +64,12 @@ final class AppCoordinator {
     /// conversations would lose the original anchor).
     @ObservationIgnored private var conversationOrigin: AppView = .roster
 
+    /// The `for await` loop over `daemon.client.events()`. Tracked so a
+    /// demo-mode client swap can cancel the old client's subscription
+    /// before subscribing to the new one — otherwise every enter/exit
+    /// would leak one loop that keeps triggering refreshes.
+    @ObservationIgnored private var eventLoopTask: Task<Void, Never>?
+
     /// Monotonically-increasing token for in-flight `loadHistory` calls.
     /// Bumped on entry, captured locally, and re-checked after the await
     /// so a slower fetch that was superseded by a newer chip click can't
@@ -596,10 +602,37 @@ final class AppCoordinator {
         }
     }
 
+    // MARK: – Demo mode
+
+    /// Swap the app onto the seeded `MockDaemonClient` at runtime — the
+    /// "Try the demo" affordance in `DaemonStatusBanner`, for users (and
+    /// App Review) who don't have skogad installed and can't set the
+    /// `SKOGA_USE_MOCK` env var. Lands on the Roster with the mock seeds;
+    /// the banner flips to `.mock` with an "Exit demo" affordance.
+    func enterDemoMode() async {
+        daemon.switchClient(MockDaemonClient(), isMock: true)
+        navigate(to: .roster)
+        await refresh()
+        startEventLoop()
+        modal.showToast("Demo mode — showing sample agents.")
+    }
+
+    /// Leave demo mode: back onto a fresh `LiveDaemonClient`. If skogad
+    /// still isn't running the next refresh flips the banner back to
+    /// `.notRunning` (with the demo affordance available again).
+    func exitDemoMode() async {
+        daemon.switchClient(LiveDaemonClient(), isMock: false)
+        navigate(to: .roster)
+        await refresh()
+        startEventLoop()
+    }
+
     private func startEventLoop() {
+        eventLoopTask?.cancel()
         let stream = daemon.client.events()
-        Task { [weak self] in
+        eventLoopTask = Task { [weak self] in
             for await event in stream {
+                if Task.isCancelled { return }
                 await self?.refresh()
                 if event.type == "pr-feedback", let id = event.session_id {
                     await self?.handlePRFeedback(sessionId: id)

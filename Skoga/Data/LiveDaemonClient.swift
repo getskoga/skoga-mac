@@ -231,38 +231,20 @@ final class LiveDaemonClient: DaemonClient {
     }
 
     func attachSession(id: String) async throws -> Agent {
-        // Shell out to `skoga attach <id>` rather than invoking the
-        // `session.attach` RPC directly. The daemon RPC only flips
-        // state + records pid; the agent relaunch (tmux pane spawn,
-        // sandbox wrap, credential env, adapter exec) all lives in
-        // the CLI command (`commands/attach.rs:151-235`). Driving
-        // that from Swift would duplicate ~80 lines of shell + sandbox
-        // logic, so we use the same shell-out pattern as `landPR` /
-        // `pushBranch`.
-        //
-        // The CLI ends with `tmux attach-session` via `exec(2)`, which
-        // fails in a GUI-spawned subprocess (no controlling TTY). All
-        // the launch work happens BEFORE that final exec, so we treat
-        // a stderr containing "failed to attach to tmux session" as
-        // success and refetch the session from `session.list` for the
-        // up-to-date record.
-        do {
-            _ = try await runSkoga(args: ["attach", id])
-        } catch let SkogaCLIError.commandFailed(_, stderr)
-            where stderr.contains("failed to attach to tmux session")
-        {
-            // Expected — the agent is up; the no-TTY exec at the tail
-            // is the only thing that errored.
-        }
-        // Refetch — the CLI doesn't emit a JSON envelope, so we read
-        // the now-running session out of the agent list.
-        let agents = try await listAgents()
-        guard let refreshed = agents.first(where: { $0.id == id }) else {
-            throw SkogaCLIError.unexpectedOutput(
-                "session \(id) not in session.list after attach"
-            )
-        }
-        return refreshed
+        // RESTORE (Direct build): reattaching a terminal (Done/Killed/
+        // Exited) session relaunches the agent — tmux pane spawn, sandbox
+        // wrap, credential env, adapter exec — which lives entirely in the
+        // `skoga attach <id>` CLI command. The `session.attach` RPC only
+        // reprovisions the worktree + flips state to Running; it does NOT
+        // start an agent process. A sandboxed Mac App Store build can't
+        // spawn that subprocess, so reattach is unavailable here and the
+        // History/Conversation "Attach" affordances are hidden behind
+        // `SkogaBuild.isDirectBuild`. To bring reattach back in the Direct
+        // build, restore the `skoga attach` shell-out here (see git
+        // history for the prior implementation) — or add a daemon RPC that
+        // performs the relaunch server-side, which would let both builds
+        // share this path.
+        throw DaemonActionError.attachUnavailable
     }
 
     func pendingQuestion(for agentId: String) async throws -> RPCPendingQuestion? {
@@ -314,76 +296,40 @@ final class LiveDaemonClient: DaemonClient {
     }
 
     func previewPR(for sessionId: String) async throws -> PRPreview {
-        // Mirror the CLI's `commit_message: Claude` mode: ask Claude to draft
-        // a commit message from the session's diff and use it as the PR's
-        // title (first line) + body (rest). Without this the modal pre-fills
-        // with the bare session task — produces noticeably worse PRs than
-        // `skoga land` from a terminal, which is the gap this method closes.
-        //
-        // Two failure paths fall back to the CLI's default-message preview
-        // rather than surfacing as a modal error: (1) we couldn't locate the
-        // session via session.list (older daemon, race against teardown);
-        // (2) we found it but `claude` isn't installed / produced nothing
-        // useful. The user can still edit the field — getting a worse
-        // default is better than a hard-failed modal.
-        if let drafted = try? await claudeDraftedPreview(for: sessionId) {
+        // Prefer the daemon's Claude-drafted message (`session.draft_message`
+        // runs `claude -p` server-side with the byte-for-byte prompt
+        // `skoga land` uses), so the modal pre-fills with the same text a
+        // terminal land would produce. On any failure — claude missing
+        // daemon-side, empty diff, the 120s timeout — fall back to the
+        // structured `session.land_preview` (task-derived default) rather
+        // than surfacing a modal error; the user can still edit the field,
+        // and a worse default beats a hard-failed modal. If BOTH fail the
+        // land_preview error propagates so the modal shows something real.
+        if let drafted = try? await draftedPreview(for: sessionId) {
             return drafted
         }
-        let out = try await runSkoga(args: ["land", sessionId, "--preview"])
-        let trimmed = out.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let data = trimmed.data(using: .utf8) else {
-            throw SkogaCLIError.unexpectedOutput("preview returned non-utf8 output")
-        }
-        let payload = try JSONDecoder().decode(SkogaLandPreviewPayload.self, from: data)
-        return PRPreview(title: payload.title, body: payload.body)
+        let params = AnyEncodable(SessionLandPreviewParams(id: sessionId))
+        let resp: SessionLandPreviewResponse = try await rpc.call(
+            "session.land_preview", params: params
+        )
+        return PRPreview(title: resp.title, body: resp.body)
     }
 
-    /// Re-implements `skoga land`'s `draft_message_via_claude` in Swift so
-    /// the Mac app's PR modal pre-fills with the same Claude-drafted text a
-    /// terminal `skoga land` would produce. Throws (and lets `previewPR`
-    /// fall back) when any precondition fails — claude not installed, empty
-    /// diff, non-zero exit — rather than papering over with junk output.
-    private func claudeDraftedPreview(for sessionId: String) async throws -> PRPreview {
-        guard let session = try await fetchSession(id: sessionId) else {
-            throw SkogaCLIError.unexpectedOutput("session \(sessionId) not in session.list")
-        }
-        guard let worktree = session.worktree, !worktree.isEmpty else {
-            throw SkogaCLIError.unexpectedOutput("session \(sessionId) has no worktree path")
-        }
-        // Refresh `origin/<base>` before computing the merge-base. The
-        // worktree's remote-tracking ref is only as fresh as the last
-        // `git fetch` — if upstream has merged PRs since the session
-        // forked but the user hasn't fetched, the three-dot diff below
-        // sweeps in every one of those merged commits and Claude drafts
-        // a message describing work the session didn't actually do. Fail
-        // soft: a fetch error (offline, slow remote) shouldn't sink the
-        // preview, so we fall through to whatever ref the worktree
-        // already has cached.
-        _ = try? await runGit(
-            args: ["fetch", "--quiet", "--no-tags", "--no-recurse-submodules",
-                   "origin", session.base],
-            cwd: worktree
+    /// Fetch the daemon-drafted commit / PR message (`session.draft_message`)
+    /// and map it onto the modal's title/body. The daemon already splits the
+    /// message, but a leading blank line in the model output can leave
+    /// `title` empty — re-split via `splitCommitMessage` in that case (the
+    /// same rule the CLI uses) so the title field never renders blank.
+    /// Throws (letting `previewPR` fall back) on any RPC failure.
+    private func draftedPreview(for sessionId: String) async throws -> PRPreview {
+        let params = AnyEncodable(SessionDraftMessageParams(id: sessionId))
+        let resp: SessionDraftMessageResponse = try await rpc.call(
+            "session.draft_message", params: params
         )
-        // `origin/<base>...HEAD` is the read-only equivalent of what the
-        // CLI feeds Claude. The CLI rebases onto target + `reset --soft
-        // merge_base` + `diff --cached`; we can't mutate the worktree for
-        // a preview, so we use three-dot diff (which is `merge-base(...)
-        // → HEAD`) directly.
-        let diff = try await runGit(
-            args: ["diff", "origin/\(session.base)...HEAD"],
-            cwd: worktree
-        )
-        if diff.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            throw SkogaCLIError.unexpectedOutput("no diff vs origin/\(session.base)")
+        if resp.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return splitCommitMessage(resp.message)
         }
-        let drafted = try await draftCommitMessageViaClaude(task: session.task, diff: diff)
-        return splitCommitMessage(drafted)
-    }
-
-    private func fetchSession(id: String) async throws -> RPCSession? {
-        let params = AnyEncodable(SessionListParams(include_terminal: true))
-        let sessions: [RPCSession] = try await rpc.call("session.list", params: params)
-        return sessions.first(where: { $0.id == id })
+        return PRPreview(title: resp.title, body: resp.body)
     }
 
     func diffStat(for sessionId: String) async throws -> RPCDiffStat? {
@@ -420,23 +366,35 @@ final class LiveDaemonClient: DaemonClient {
     }
 
     func landPR(for sessionId: String, title: String, body: String) async throws {
-        // `--yes` skips the confirm prompt. Title/body win over the CLI's
-        // default-message derivation, so the modal's edits make it all the
-        // way through the squash + push + gh-pr-create pipeline.
-        _ = try await runSkoga(args: [
-            "land", sessionId,
-            "--title", title,
-            "--body", body,
-            "--yes",
-        ])
+        // `session.land` drives the full squash + rebase + push + `gh pr
+        // create` pipeline daemon-side. title/body are an all-or-nothing
+        // pair on the wire — a partial pair returns INVALID_PARAMS — and
+        // the PR modal always hands us both, so we send both and they win
+        // over the daemon's default-message derivation. merge=false keeps
+        // the PR-opening path (vs `skoga land --merge`).
+        let params = AnyEncodable(SessionLandParams(
+            id: sessionId, title: title, body: body, merge: false
+        ))
+        let _: SessionLandResponse = try await rpc.call("session.land", params: params)
     }
 
     func pushBranch(for sessionId: String) async throws {
-        // `skoga push` is a thin wrapper around `git push -u` — no squash,
-        // no rewrite. Shelling out (vs reimplementing in Swift) keeps the
-        // dev's git credentials in the CLI process, matching how `land`
-        // already routes its push step.
-        _ = try await runSkoga(args: ["push", sessionId])
+        // `session.push` is the thin per-revision push (no squash, no PR) —
+        // the daemon-side equivalent of `git push -u`. force=false; the
+        // Mac's "View commits on GitHub" flow never force-pushes.
+        let params = AnyEncodable(SessionPushParams(id: sessionId, force: false))
+        let _: SessionPushResponse = try await rpc.call("session.push", params: params)
+    }
+
+    func remoteURL(for sessionId: String) async throws -> String? {
+        // `session.remote_url` returns the session repo's `origin` URL (or
+        // `nil` when no origin is configured), for building GitHub compare
+        // links without reading git config in a subprocess.
+        let params = AnyEncodable(SessionRemoteUrlParams(id: sessionId))
+        let resp: SessionRemoteUrlResponse = try await rpc.call(
+            "session.remote_url", params: params
+        )
+        return resp.url
     }
 
     func githubStatus() async throws -> RPCGitHubStatus {
@@ -623,67 +581,6 @@ final class LiveDaemonClient: DaemonClient {
         guard resp.ok else { throw PolicyError.notPromoted }
     }
 
-    /// Spawn `skoga <args>`, await termination, capture stdout. Stderr is
-    /// folded into the error message on failure so the user sees the same
-    /// preflight-failure / conflict text the terminal would surface.
-    private nonisolated func runSkoga(args: [String]) async throws -> String {
-        guard let bin = LiveDaemonClient.resolveSkogaBinary() else {
-            throw SkogaCLIError.binaryNotFound
-        }
-        return try await runProcess(executable: bin, args: args, stdin: nil, cwd: nil)
-    }
-
-    /// Run `git <args>` in `cwd`. Trimmed stdout on success; stderr folded
-    /// into `SkogaCLIError.commandFailed` on non-zero. `git` is resolved
-    /// via the system PATH — every macOS dev install has it (Xcode CLT or
-    /// Homebrew), so there's no equivalent of `resolveSkogaBinary` here.
-    private nonisolated func runGit(args: [String], cwd: String) async throws -> String {
-        try await runProcess(
-            executable: URL(fileURLWithPath: "/usr/bin/env"),
-            args: ["git"] + args,
-            stdin: nil,
-            cwd: cwd
-        )
-    }
-
-    /// Ask `claude` to draft a commit message from the staged diff. The
-    /// prompt mirrors `draft_message_via_claude` in skoga-cli's land.rs
-    /// verbatim — keeping the wording aligned means PRs opened from the
-    /// Mac app read the same as PRs opened from a terminal `skoga land`.
-    private nonisolated func draftCommitMessageViaClaude(task: String, diff: String) async throws -> String {
-        guard let bin = LiveDaemonClient.resolveClaudeBinary() else {
-            throw SkogaCLIError.binaryNotFound
-        }
-        // Embed the diff in the prompt arg (not stdin) to match the CLI's
-        // `draft_message_via_claude` byte-for-byte. ARG_MAX on macOS is 1MB
-        // — large for diffs but the CLI uses this shape successfully today,
-        // so we keep the two flows on the same prompt for parity. If we
-        // later hit E2BIG on a real PR, switch both implementations to
-        // stdin together so the wording stays aligned.
-        let prompt = """
-        Write a concise git commit message for the staged changes below. \
-        The user's original task was: "\(task)". \
-        Output ONLY the commit message — no preamble, no code fences. \
-        First line: imperative subject, 50 chars or less. \
-        Then a blank line. \
-        Then a short body wrapped at 72 chars explaining the why.
-
-        --- diff ---
-        \(diff)
-        """
-        let stdout = try await runProcess(
-            executable: bin,
-            args: ["-p", prompt],
-            stdin: nil,
-            cwd: nil
-        )
-        let trimmed = stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            throw SkogaCLIError.unexpectedOutput("claude produced an empty message")
-        }
-        return trimmed
-    }
-
     /// Split a Claude-drafted commit message into PR title (first line) and
     /// PR body (everything after the blank line). Matches the CLI's
     /// `first_line` / `message_body` pair — same splitting rule, so the
@@ -704,220 +601,22 @@ final class LiveDaemonClient: DaemonClient {
         return PRPreview(title: title, body: body)
     }
 
-    /// Common subprocess runner shared by `runSkoga`, `runGit`, and the
-    /// claude shell-out. Captures stdout, folds stderr into the error
-    /// message, and (when `stdin` is non-nil) writes the payload onto the
-    /// child's stdin before closing.
-    ///
-    /// Drains stdout/stderr asynchronously via `readabilityHandler` rather
-    /// than calling `readToEnd()` in `terminationHandler`. The pipe buffer
-    /// is ~64 KB; `git diff origin/<base>...HEAD` on any substantive
-    /// session blows past that and the child would block on `write()`,
-    /// never exit, and the modal would hang forever waiting on
-    /// `terminationHandler` to fire. Draining as data arrives keeps the
-    /// pipe from filling. A locked accumulator is needed because
-    /// `readabilityHandler` and `terminationHandler` fire on different
-    /// background queues.
-    private nonisolated func runProcess(
-        executable: URL,
-        args: [String],
-        stdin: String?,
-        cwd: String?
-    ) async throws -> String {
-        let process = Process()
-        process.executableURL = executable
-        process.arguments = args
-        // A macOS app launched from Finder/Dock inherits a minimal PATH
-        // (/usr/bin:/bin:/usr/sbin:/sbin). `git` lives in /usr/bin so
-        // `skoga land`'s push step works, but `gh` lives in homebrew —
-        // without augmenting PATH the subsequent `gh pr create` step
-        // silently fails and the user sees a pushed branch with no PR.
-        // Applied to every subprocess (skoga / git / claude) so each one
-        // gets the same dev-shell-like view of the toolchain.
-        process.environment = LiveDaemonClient.subprocessEnvironment()
-        if let cwd { process.currentDirectoryURL = URL(fileURLWithPath: cwd) }
-        let outPipe = Pipe()
-        let errPipe = Pipe()
-        let inPipe: Pipe? = (stdin != nil) ? Pipe() : nil
-        process.standardOutput = outPipe
-        process.standardError = errPipe
-        if let inPipe {
-            process.standardInput = inPipe
-        } else {
-            // Close stdin explicitly. Claude (and a few other CLIs) will
-            // otherwise hang reading from an inherited stdin in `-p` mode —
-            // the GUI app has no TTY, so what we'd inherit is undefined.
-            process.standardInput = FileHandle.nullDevice
-        }
-
-        let stdoutBuffer = LockedData()
-        let stderrBuffer = LockedData()
-        outPipe.fileHandleForReading.readabilityHandler = { handle in
-            let chunk = handle.availableData
-            if chunk.isEmpty {
-                // EOF on the pipe — child closed its write end. Detach so
-                // we don't busy-loop on a closed handle.
-                handle.readabilityHandler = nil
-            } else {
-                stdoutBuffer.append(chunk)
-            }
-        }
-        errPipe.fileHandleForReading.readabilityHandler = { handle in
-            let chunk = handle.availableData
-            if chunk.isEmpty {
-                handle.readabilityHandler = nil
-            } else {
-                stderrBuffer.append(chunk)
-            }
-        }
-
-        return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<String, Error>) in
-            process.terminationHandler = { p in
-                // Detach handlers; the child is gone and any further
-                // availableData will be empty anyway. Drain whatever the
-                // kernel still has buffered with one final read so we
-                // don't lose a trailing chunk.
-                outPipe.fileHandleForReading.readabilityHandler = nil
-                errPipe.fileHandleForReading.readabilityHandler = nil
-                if let tail = try? outPipe.fileHandleForReading.readToEnd() {
-                    stdoutBuffer.append(tail)
-                }
-                if let tail = try? errPipe.fileHandleForReading.readToEnd() {
-                    stderrBuffer.append(tail)
-                }
-                let stdout = String(data: stdoutBuffer.snapshot(), encoding: .utf8) ?? ""
-                let stderr = String(data: stderrBuffer.snapshot(), encoding: .utf8) ?? ""
-                if p.terminationStatus == 0 {
-                    cont.resume(returning: stdout)
-                } else {
-                    let detail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
-                    cont.resume(throwing: SkogaCLIError.commandFailed(
-                        status: p.terminationStatus,
-                        stderr: detail.isEmpty ? stdout : detail
-                    ))
-                }
-            }
-            do {
-                try process.run()
-                if let inPipe, let stdin {
-                    let handle = inPipe.fileHandleForWriting
-                    if let data = stdin.data(using: .utf8) {
-                        try? handle.write(contentsOf: data)
-                    }
-                    try? handle.close()
-                }
-            } catch {
-                cont.resume(throwing: error)
-            }
-        }
-    }
-
-    /// Find an installed `skoga` binary. Checked at call-time rather than
-    /// cached at boot because the user may install the CLI while the app
-    /// is already running. The order matches the priority `which skoga`
-    /// would return for a default zsh PATH on macOS dev machines.
-    private nonisolated static func resolveSkogaBinary() -> URL? {
-        resolveBinary(name: "skoga", extraDirs: ["\(NSHomeDirectory())/.cargo/bin"])
-    }
-
-    /// Find an installed `claude` binary. Same search order as `skoga` plus
-    /// the npm global prefix where the official CLI typically lands. Claude
-    /// is optional — if it's missing, `previewPR` falls back to the CLI's
-    /// default-message preview rather than surfacing a hard failure, so the
-    /// modal still opens for users who haven't set up the agent CLI.
-    private nonisolated static func resolveClaudeBinary() -> URL? {
-        resolveBinary(name: "claude", extraDirs: [
-            "\(NSHomeDirectory())/.claude/local",
-            "\(NSHomeDirectory())/.npm-global/bin",
-            "\(NSHomeDirectory())/.volta/bin",
-        ])
-    }
-
-    private nonisolated static func resolveBinary(name: String, extraDirs: [String]) -> URL? {
-        let fm = FileManager.default
-        for dir in extraDirs + standardSearchDirs {
-            let path = "\(dir)/\(name)"
-            if fm.isExecutableFile(atPath: path) {
-                return URL(fileURLWithPath: path)
-            }
-        }
-        return nil
-    }
-
-    /// Dirs checked for tool binaries and prepended to the spawn PATH so
-    /// `skoga land`'s shell-outs (`gh`, etc.) resolve under a Finder-
-    /// launched app. Single source of truth — the binary lookup and the
-    /// env augmentation must stay in sync or one of them will silently
-    /// regress. `/usr/bin` is included for the binary lookup but doesn't
-    /// need re-prepending to PATH (it's on the default already).
-    private nonisolated static let standardSearchDirs: [String] = [
-        "/opt/homebrew/bin",
-        "/usr/local/bin",
-        "/usr/bin",
-    ]
-
-    /// Build the env for `skoga` / `git` / `claude` subprocesses: inherit
-    /// the app's env, then prepend `standardSearchDirs` plus the cargo
-    /// install location so `gh` (and anything else the CLI shells out to)
-    /// is reachable on the Finder-launched app's stripped-down PATH.
-    private nonisolated static func subprocessEnvironment() -> [String: String] {
-        var env = ProcessInfo.processInfo.environment
-        let prepend = ["\(NSHomeDirectory())/.cargo/bin"] + standardSearchDirs
-        let existing = env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"
-        env["PATH"] = (prepend + [existing]).joined(separator: ":")
-        return env
-    }
 }
 
-/// Tiny lock-guarded `Data` accumulator. `runProcess` drains stdout/stderr
-/// from background `readabilityHandler` queues while another background
-/// queue fires `terminationHandler` — they touch the same buffer, so a
-/// plain `Data` would race. `NSLock` is enough; the contention window is
-/// a `Data.append` per pipe chunk.
-private final class LockedData: @unchecked Sendable {
-    private var data = Data()
-    private let lock = NSLock()
-
-    func append(_ chunk: Data) {
-        lock.lock(); defer { lock.unlock() }
-        data.append(chunk)
-    }
-
-    func snapshot() -> Data {
-        lock.lock(); defer { lock.unlock() }
-        return data
-    }
-}
-
-/// Failure modes for `skoga <verb>` shell-outs from the Mac app. Surfaced
-/// to the user via toasts / modal error states — they're the only useful
-/// signal when the CLI fails inside a non-interactive run.
-enum SkogaCLIError: LocalizedError {
-    case binaryNotFound
-    case commandFailed(status: Int32, stderr: String)
-    case unexpectedOutput(String)
+/// Failure modes for the daemon-client action paths that can't be served
+/// by an RPC under App Sandbox. Surfaced to the user via toasts.
+enum DaemonActionError: LocalizedError {
+    /// Reattaching a terminal session relaunches the agent via the CLI,
+    /// which a sandboxed daemon client can't do. Gated out of the UI in
+    /// the App Store build; see `LiveDaemonClient.attachSession`.
+    case attachUnavailable
 
     var errorDescription: String? {
         switch self {
-        case .binaryNotFound:
-            return "Couldn't find the `skoga` CLI on disk. Install it (e.g. `cargo install --path crates/skoga-cli`) and try again."
-        case .commandFailed(let status, let stderr):
-            let detail = stderr.isEmpty ? "no stderr output" : stderr
-            return "skoga exited \(status): \(detail)"
-        case .unexpectedOutput(let msg):
-            return msg
+        case .attachUnavailable:
+            return "Reattaching to a finished session isn't available in this build yet."
         }
     }
-}
-
-/// Decodes the JSON payload `skoga land --preview` writes to stdout. The
-/// CLI emits a single line with `session_id`, `title`, and `body`; we
-/// ignore `session_id` (the caller already knows which session it asked
-/// about) but decode it for forward compatibility.
-private struct SkogaLandPreviewPayload: Decodable {
-    let session_id: String
-    let title: String
-    let body: String
 }
 
 // MARK: – RPCSession → Agent

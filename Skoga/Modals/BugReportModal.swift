@@ -3,11 +3,10 @@ import AppKit
 
 /// Lightweight in-app bug reporter. Captures the two questions every
 /// triage instinctively asks ("what were you trying to do?" / "what
-/// happened instead?") and files a labelled issue against
-/// `getskoga/skoga-mac` via `gh issue create`. Falls back to opening a
-/// pre-filled new-issue URL in the browser when `gh` isn't reachable or
-/// the user isn't signed in — the report still lands, just with a
-/// second click from the user.
+/// happened instead?") and opens a pre-filled new-issue form against
+/// `getskoga/skoga-mac` in the user's browser via `NSWorkspace`. A
+/// sandboxed daemon client can't shell out to `gh`, so the user submits
+/// the pre-filled issue with one click on GitHub.
 struct BugReportModal: View {
     @Environment(\.palette) private var p
     @Environment(ModalState.self) private var modal
@@ -62,7 +61,7 @@ struct BugReportModal: View {
                 Text("Report a bug")
                     .font(SkogaFont.serifHeading(21))
                     .foregroundStyle(p.ink)
-                Text("Files a labelled issue in getskoga/skoga-mac")
+                Text("Opens a pre-filled issue in getskoga/skoga-mac")
                     .font(SkogaFont.mono(11))
                     .foregroundStyle(p.inkMute)
             }
@@ -212,9 +211,9 @@ struct BugReportModal: View {
 
     private var submitLabel: String {
         switch phase {
-        case .submitting: return "Filing issue…"
+        case .submitting: return "Opening GitHub…"
         case .failed:     return "Retry"
-        default:          return "File issue"
+        default:          return "Open issue on GitHub"
         }
     }
 
@@ -233,9 +232,9 @@ struct BugReportModal: View {
         let title = BugReportFiler.deriveTitle(intent: intent, actual: actual)
         let body = BugReportFiler.composeBody(intent: intent, actual: actual)
         do {
-            let url = try await BugReportFiler.fileIssue(title: title, body: body)
+            try BugReportFiler.openPrefilledIssue(title: title, body: body)
             modal.bugReportOpen = false
-            modal.showToast("Filed bug report — \(url)")
+            modal.showToast("Opened a pre-filled GitHub issue — submit it there to file.")
         } catch {
             phase = .failed(error.localizedDescription)
         }
@@ -244,10 +243,10 @@ struct BugReportModal: View {
 
 // MARK: – Filer
 
-/// Builds the issue payload and shells out to `gh issue create`. Kept as
-/// a separate type so the modal stays focused on layout/state and the
-/// subprocess + URL-fallback logic is easy to swap (e.g. once the daemon
-/// grows an `issue.create` RPC).
+/// Builds the issue payload and opens GitHub's pre-filled new-issue form
+/// in the browser. Kept as a separate type so the modal stays focused on
+/// layout/state and the URL-building logic is easy to swap (e.g. once the
+/// daemon grows an `issue.create` RPC).
 enum BugReportFiler {
     static let repo = "getskoga/skoga-mac"
     static let label = "user-bug-report"
@@ -300,42 +299,19 @@ enum BugReportFiler {
         return lines.joined(separator: "\n")
     }
 
-    /// Try `gh issue create` first. On any failure (binary missing,
-    /// not authed, network error) fall back to opening the GitHub
-    /// new-issue URL with the body pre-filled — the report still lands,
-    /// just with one extra click. Returns the URL of the created issue
-    /// (or the prefilled-form URL in the fallback case) so the modal can
-    /// surface it in the success toast.
-    static func fileIssue(title: String, body: String) async throws -> String {
-        do {
-            return try await runGhIssueCreate(title: title, body: body)
-        } catch let ghError {
-            if let fallback = prefilledIssueURL(title: title, body: body) {
-                await MainActor.run { NSWorkspace.shared.open(fallback) }
-                return fallback.absoluteString
-            }
-            throw ghError
+    /// Open GitHub's pre-filled new-issue form in the user's browser with
+    /// the title, body, and label populated. A sandboxed daemon client
+    /// can't shell out to `gh`, so filing is a one-click submit on GitHub.
+    /// Throws when the URL can't be built (empty payload) or the browser
+    /// hand-off is refused.
+    @MainActor
+    static func openPrefilledIssue(title: String, body: String) throws {
+        guard let url = prefilledIssueURL(title: title, body: body) else {
+            throw BugReportError.urlBuildFailed
         }
-    }
-
-    private static func runGhIssueCreate(title: String, body: String) async throws -> String {
-        guard let gh = resolveGh() else {
-            throw BugReportError.ghMissing
+        guard NSWorkspace.shared.open(url) else {
+            throw BugReportError.openFailed
         }
-        let args = [
-            "issue", "create",
-            "--repo", repo,
-            "--title", title,
-            "--body", body,
-            "--label", label,
-        ]
-        let output = try await runProcess(executable: gh, args: args)
-        // `gh issue create` prints the new issue URL on its own line
-        // when it succeeds. Pull the last https:// line so we don't
-        // confuse a "Creating issue in …" preamble for the result.
-        let lines = output.components(separatedBy: .newlines).reversed()
-        let urlLine = lines.first(where: { $0.hasPrefix("https://") })
-        return urlLine?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "issue filed"
     }
 
     private static func prefilledIssueURL(title: String, body: String) -> URL? {
@@ -346,52 +322,6 @@ enum BugReportFiler {
             URLQueryItem(name: "labels", value: label),
         ]
         return comps?.url
-    }
-
-    /// Resolve `gh`. A Finder-launched app has a stripped PATH (no
-    /// Homebrew), so check the common install locations directly. Mirrors
-    /// the search list used elsewhere in the app for `git`/`gh` lookups.
-    private static func resolveGh() -> URL? {
-        let candidates = [
-            "/opt/homebrew/bin/gh",
-            "/usr/local/bin/gh",
-            "/usr/bin/gh",
-        ]
-        for path in candidates where FileManager.default.isExecutableFile(atPath: path) {
-            return URL(fileURLWithPath: path)
-        }
-        return nil
-    }
-
-    private static func runProcess(executable: URL, args: [String]) async throws -> String {
-        try await Task.detached(priority: .userInitiated) { () -> String in
-            let process = Process()
-            process.executableURL = executable
-            process.arguments = args
-            var env = ProcessInfo.processInfo.environment
-            let prepend = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"]
-            let existing = env["PATH"] ?? "/usr/bin:/bin"
-            env["PATH"] = (prepend + [existing]).joined(separator: ":")
-            process.environment = env
-            let outPipe = Pipe()
-            let errPipe = Pipe()
-            process.standardOutput = outPipe
-            process.standardError = errPipe
-            process.standardInput = FileHandle.nullDevice
-            do {
-                try process.run()
-            } catch {
-                throw BugReportError.spawnFailed(error.localizedDescription)
-            }
-            process.waitUntilExit()
-            let out = String(data: outPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-            let err = String(data: errPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-            if process.terminationStatus != 0 {
-                let detail = err.trimmingCharacters(in: .whitespacesAndNewlines)
-                throw BugReportError.ghFailed(status: process.terminationStatus, stderr: detail.isEmpty ? out : detail)
-            }
-            return out
-        }.value
     }
 
     private static func appVersion() -> String {
@@ -408,19 +338,15 @@ enum BugReportFiler {
 }
 
 enum BugReportError: LocalizedError {
-    case ghMissing
-    case spawnFailed(String)
-    case ghFailed(status: Int32, stderr: String)
+    case urlBuildFailed
+    case openFailed
 
     var errorDescription: String? {
         switch self {
-        case .ghMissing:
-            return "Couldn't find the `gh` CLI. Install it (`brew install gh`) and authenticate (`gh auth login`), then retry — or we'll open a pre-filled GitHub form in your browser as a fallback."
-        case .spawnFailed(let detail):
-            return "Couldn't launch `gh`: \(detail)"
-        case .ghFailed(let status, let stderr):
-            let trimmed = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
-            return "`gh issue create` exited \(status): \(trimmed.isEmpty ? "no stderr" : trimmed)"
+        case .urlBuildFailed:
+            return "Couldn't build the GitHub issue URL. Add a bit more detail and try again."
+        case .openFailed:
+            return "Couldn't open your browser to file the issue. Check your default browser and try again."
         }
     }
 }

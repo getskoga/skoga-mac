@@ -21,7 +21,11 @@ struct EditorSettingsSection: View {
         VStack(alignment: .leading, spacing: 18) {
             header
             choiceCard
-            if EditorChoice(rawValue: selectedRaw) == .custom {
+            // The custom-command card drives a `/bin/sh -c` launch that
+            // can't run under App Sandbox, so it only appears in the
+            // Direct build (where `.custom` is also the only build that
+            // offers the choice at all).
+            if EditorChoice(rawValue: selectedRaw) == .custom, SkogaBuild.isDirectBuild {
                 customCommandCard
             }
         }
@@ -51,7 +55,7 @@ struct EditorSettingsSection: View {
                     .padding(.bottom, 12)
 
                 VStack(spacing: 6) {
-                    ForEach(EditorChoice.allCases) { choice in
+                    ForEach(EditorChoice.availableCases) { choice in
                         EditorChoiceRow(
                             choice: choice,
                             selected: selectedRaw == choice.rawValue
@@ -102,6 +106,15 @@ enum EditorChoice: String, CaseIterable, Identifiable, Hashable {
     case custom
 
     var id: String { rawValue }
+
+    /// Cases offered in the Settings picker. `.custom` runs an arbitrary
+    /// command through `/bin/sh -c`, which App Sandbox forbids — the
+    /// choice (and its command card) only appears in the Direct build.
+    /// The enum case itself stays so the Direct build round-trips the
+    /// persisted raw value unchanged.
+    static var availableCases: [EditorChoice] {
+        SkogaBuild.isDirectBuild ? allCases : allCases.filter { $0 != .custom }
+    }
 
     var displayName: String {
         switch self {
@@ -165,7 +178,16 @@ enum EditorPrefs {
 
     static func readSelected() -> EditorChoice {
         let raw = UserDefaults.standard.string(forKey: selected) ?? selectedDefault.rawValue
-        return EditorChoice(rawValue: raw) ?? selectedDefault
+        let choice = EditorChoice(rawValue: raw) ?? selectedDefault
+        // `.custom` shells out through `/bin/sh -c` which the sandboxed
+        // build can't do. A user who picked it on a Direct build and then
+        // switched channels falls back to Finder rather than hitting a
+        // dead action; the stored preference is left intact so switching
+        // back restores their command.
+        if choice == .custom && !SkogaBuild.isDirectBuild {
+            return selectedDefault
+        }
+        return choice
     }
 
     static func readCustomCommand() -> String {
@@ -273,7 +295,7 @@ enum EditorLauncher {
         choice: EditorChoice,
         customCommand: String,
         changedFiles: [String] = []
-    ) -> EditorLaunchResult {
+    ) async -> EditorLaunchResult {
         guard let raw = worktree, !raw.isEmpty else { return .noWorktree }
         // Resolve `~` and normalize trailing slashes so `open` doesn't
         // get an empty arg and editors don't choke on `~/.skoga/...`.
@@ -293,15 +315,25 @@ enum EditorLauncher {
 
         switch choice {
         case .vscode:
-            return openViaApp(name: "Visual Studio Code", folder: folder, files: filePaths, choice: .vscode)
+            // VS Code and Cursor register `<scheme>://file/<abs path>` —
+            // richer than a plain file-open (no "which window?" prompt,
+            // reuses the frontmost workspace) and it works from a
+            // sandboxed app because the receiving editor does the file
+            // access, not us.
+            return openViaURLScheme(scheme: "vscode", appName: "Visual Studio Code",
+                                    folder: folder, files: filePaths, choice: .vscode)
         case .cursor:
-            return openViaApp(name: "Cursor", folder: folder, files: filePaths, choice: .cursor)
+            return openViaURLScheme(scheme: "cursor", appName: "Cursor",
+                                    folder: folder, files: filePaths, choice: .cursor)
         case .zed:
-            return openViaApp(name: "Zed", folder: folder, files: filePaths, choice: .zed)
+            return await openViaApp(bundleId: "dev.zed.Zed", appName: "Zed",
+                                    folder: folder, files: filePaths, choice: .zed)
         case .xcode:
-            return openViaApp(name: "Xcode", folder: folder, files: [], choice: .xcode)
+            return await openViaApp(bundleId: "com.apple.dt.Xcode", appName: "Xcode",
+                                    folder: folder, files: [], choice: .xcode)
         case .terminal:
-            return openViaApp(name: "Terminal", folder: folder, files: [], choice: .terminal)
+            return await openViaApp(bundleId: "com.apple.Terminal", appName: "Terminal",
+                                    folder: folder, files: [], choice: .terminal)
         case .finder:
             return openInFinder(path: folder)
         case .custom:
@@ -311,25 +343,74 @@ enum EditorLauncher {
 
     // MARK: helpers
 
-    /// `open -a "<App>" <folder> [<file>...]`. The first positional arg
-    /// is the worktree root so VS Code / Cursor / Zed treat it as the
-    /// workspace; subsequent paths land as tabs. Apps without a
-    /// folder-plus-tabs model (Xcode, Terminal) get only the folder.
+    /// Open the worktree (and changed files) via the editor's custom URL
+    /// scheme: `vscode://file/<abs path>` / `cursor://file/<abs path>`.
+    /// The folder URL opens the workspace; per-file URLs land as tabs.
+    /// Fails cleanly when no app claims the scheme (editor not installed).
     @MainActor
-    private static func openViaApp(
-        name: String,
+    private static func openViaURLScheme(
+        scheme: String,
+        appName: String,
         folder: String,
         files: [String],
         choice: EditorChoice
     ) -> EditorLaunchResult {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = ["-a", name, folder] + files
+        guard let folderURL = fileSchemeURL(scheme: scheme, path: folder) else {
+            return .failed("Couldn't build a \(scheme):// URL for \(folder).")
+        }
+        guard NSWorkspace.shared.urlForApplication(toOpen: folderURL) != nil else {
+            return .failed("\(appName) doesn't appear to be installed (nothing handles \(scheme)://).")
+        }
+        guard NSWorkspace.shared.open(folderURL) else {
+            return .failed("Couldn't hand the worktree to \(appName).")
+        }
+        for file in files {
+            if let fileURL = fileSchemeURL(scheme: scheme, path: file) {
+                NSWorkspace.shared.open(fileURL)
+            }
+        }
+        return .opened(choice)
+    }
+
+    /// `vscode://file/<path>` with the path percent-encoded per component
+    /// (spaces, unicode) while keeping `/` literal.
+    private static func fileSchemeURL(scheme: String, path: String) -> URL? {
+        let escaped = path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path
+        return URL(string: "\(scheme)://file\(escaped.hasPrefix("/") ? "" : "/")\(escaped)")
+    }
+
+    /// Open the folder (plus any tab files) with a specific app via
+    /// `NSWorkspace` — the sandbox-safe equivalent of `open -a <App>`.
+    /// The app is resolved by bundle id; a missing editor fails with a
+    /// clear "not installed" message instead of a launch error.
+    @MainActor
+    private static func openViaApp(
+        bundleId: String,
+        appName: String,
+        folder: String,
+        files: [String],
+        choice: EditorChoice
+    ) async -> EditorLaunchResult {
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
+            return .failed("\(appName) doesn't appear to be installed.")
+        }
+        let urls = [URL(fileURLWithPath: folder)] + files.map { URL(fileURLWithPath: $0) }
+        // Await the launch instead of firing and forgetting. Resolving
+        // the bundle id only proves the app is *installed*; the launch
+        // itself can still fail afterwards (corrupt bundle, Gatekeeper
+        // or permission denial, an OS-level launch error). The async
+        // overload wraps the completion handler NSWorkspace calls once
+        // the app has actually launched (or failed), so those cases
+        // surface as a toast rather than a false-positive "Opening…".
         do {
-            try process.run()
+            try await NSWorkspace.shared.open(
+                urls,
+                withApplicationAt: appURL,
+                configuration: NSWorkspace.OpenConfiguration()
+            )
             return .opened(choice)
         } catch {
-            return .failed("Couldn't launch \(name): \(error.localizedDescription)")
+            return .failed("Couldn't open \(appName): \(error.localizedDescription)")
         }
     }
 
@@ -344,6 +425,14 @@ enum EditorLauncher {
 
     @MainActor
     private static func runCustom(template: String, folder: String, files: [String]) -> EditorLaunchResult {
+        // Custom commands run through `/bin/sh -c`, which App Sandbox
+        // forbids — Direct (non-MAS) builds only. The Settings UI hides
+        // the `.custom` choice and `EditorPrefs.readSelected()` falls
+        // back to Finder in sandboxed builds, so this guard is a
+        // belt-and-suspenders backstop rather than a reachable path.
+        guard SkogaBuild.isDirectBuild else {
+            return .failed("Custom editor commands aren't available in this build.")
+        }
         let trimmed = template.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return .unconfigured }
         // Quote each path before substituting so a worktree like

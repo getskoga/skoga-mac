@@ -52,6 +52,7 @@
 		7812EB1D772C88A505B7488B /* StatusPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EAA1E89343E9FE80E819AE0 /* StatusPill.swift */; };
 		792B97FCC47A040D5091B97C /* StepSandbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0092134D6C658A8CF9F68040 /* StepSandbox.swift */; };
 		7F7DEE61027F4C8E7978EE88 /* LiveDaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70C3CDA242BE7EF87A23DDD1 /* LiveDaemonClient.swift */; };
+		7F7EF46432B23998A29F4E47 /* SkogaBuild.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3F96A204F77513BF4376441 /* SkogaBuild.swift */; };
 		800E515C8068882CC591F294 /* OnboardingComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EE80EFADB57ECB78A16AC5D /* OnboardingComponents.swift */; };
 		81FEFDA06983E5D147F16B40 /* AppearanceSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E6D34716B739B5E80CA86A /* AppearanceSettingsSection.swift */; };
 		823115FEF637EEBBC6A8D163 /* PulseDot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C6D36A05B968E62F7CB7BF /* PulseDot.swift */; };
@@ -156,6 +157,7 @@
 		9504CA8AFEE1742998939607 /* MainWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindow.swift; sourceTree = "<group>"; };
 		9B445CBB1DD16119CE39FCC9 /* NordicNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NordicNames.swift; sourceTree = "<group>"; };
 		9BFB3F0B2FB366A5CC9BDAFA /* SkogaIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaIcons.swift; sourceTree = "<group>"; };
+		A3F96A204F77513BF4376441 /* SkogaBuild.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkogaBuild.swift; sourceTree = "<group>"; };
 		A495BC418BAD2F865FEA74FC /* RemoteTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteTerminalView.swift; sourceTree = "<group>"; };
 		AE61C90AD30625B90E08E84E /* OnboardingShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingShell.swift; sourceTree = "<group>"; };
 		B4B0745A9572FDACC189EA67 /* AppCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCoordinator.swift; sourceTree = "<group>"; };
@@ -391,6 +393,7 @@
 			children = (
 				011A602CAADDFE550B52C9DB /* Skoga.entitlements */,
 				7E6D30C0F5B11763748C1C22 /* SkogaApp.swift */,
+				A3F96A204F77513BF4376441 /* SkogaBuild.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -607,6 +610,7 @@
 				5B3788E5E8F01CADF79E4BB1 /* SettingsShell.swift in Sources */,
 				4B666D2DD45E99850F918565 /* Sidebar.swift in Sources */,
 				10F388F0EA51E3ADE2CC0FD2 /* SkogaApp.swift in Sources */,
+				7F7EF46432B23998A29F4E47 /* SkogaBuild.swift in Sources */,
 				8C054293BB4CF2C9E24828CD /* SkogaGlyph.swift in Sources */,
 				CCFCAD5B8E9DED56CC8A7D65 /* SkogaIcons.swift in Sources */,
 				0E1FEB24354422C20E477006 /* SkogaRPC.swift in Sources */,

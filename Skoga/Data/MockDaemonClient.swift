@@ -243,6 +243,13 @@ final class MockDaemonClient: DaemonClient {
         try await Task.sleep(nanoseconds: 400_000_000)
     }
 
+    func remoteURL(for sessionId: String) async throws -> String? {
+        // Seed a plausible github.com origin so the "View commits on
+        // GitHub" quick action resolves to a real-looking compare URL in
+        // demo mode instead of toasting "no GitHub remote".
+        "https://github.com/getskoga/skoga-mac"
+    }
+
     func githubStatus() async throws -> RPCGitHubStatus {
         githubStatusState
     }
