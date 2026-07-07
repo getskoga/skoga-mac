@@ -626,7 +626,7 @@ private struct ConvSidePanel: View {
                 return []
             }
         }()
-        let result = EditorLauncher.open(
+        let result = await EditorLauncher.open(
             worktree: agent.hostWorktree,
             choice: choice,
             customCommand: custom,

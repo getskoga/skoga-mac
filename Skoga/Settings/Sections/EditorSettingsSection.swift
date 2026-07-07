@@ -295,7 +295,7 @@ enum EditorLauncher {
         choice: EditorChoice,
         customCommand: String,
         changedFiles: [String] = []
-    ) -> EditorLaunchResult {
+    ) async -> EditorLaunchResult {
         guard let raw = worktree, !raw.isEmpty else { return .noWorktree }
         // Resolve `~` and normalize trailing slashes so `open` doesn't
         // get an empty arg and editors don't choke on `~/.skoga/...`.
@@ -326,14 +326,14 @@ enum EditorLauncher {
             return openViaURLScheme(scheme: "cursor", appName: "Cursor",
                                     folder: folder, files: filePaths, choice: .cursor)
         case .zed:
-            return openViaApp(bundleId: "dev.zed.Zed", appName: "Zed",
-                              folder: folder, files: filePaths, choice: .zed)
+            return await openViaApp(bundleId: "dev.zed.Zed", appName: "Zed",
+                                    folder: folder, files: filePaths, choice: .zed)
         case .xcode:
-            return openViaApp(bundleId: "com.apple.dt.Xcode", appName: "Xcode",
-                              folder: folder, files: [], choice: .xcode)
+            return await openViaApp(bundleId: "com.apple.dt.Xcode", appName: "Xcode",
+                                    folder: folder, files: [], choice: .xcode)
         case .terminal:
-            return openViaApp(bundleId: "com.apple.Terminal", appName: "Terminal",
-                              folder: folder, files: [], choice: .terminal)
+            return await openViaApp(bundleId: "com.apple.Terminal", appName: "Terminal",
+                                    folder: folder, files: [], choice: .terminal)
         case .finder:
             return openInFinder(path: folder)
         case .custom:
@@ -390,21 +390,28 @@ enum EditorLauncher {
         folder: String,
         files: [String],
         choice: EditorChoice
-    ) -> EditorLaunchResult {
+    ) async -> EditorLaunchResult {
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
             return .failed("\(appName) doesn't appear to be installed.")
         }
         let urls = [URL(fileURLWithPath: folder)] + files.map { URL(fileURLWithPath: $0) }
-        // Fire-and-forget: the completion handler reports launch errors
-        // asynchronously, after this call has already returned to the
-        // toast layer. A missing app — the realistic failure — is caught
-        // by the bundle-id resolution above.
-        NSWorkspace.shared.open(
-            urls,
-            withApplicationAt: appURL,
-            configuration: NSWorkspace.OpenConfiguration()
-        )
-        return .opened(choice)
+        // Await the launch instead of firing and forgetting. Resolving
+        // the bundle id only proves the app is *installed*; the launch
+        // itself can still fail afterwards (corrupt bundle, Gatekeeper
+        // or permission denial, an OS-level launch error). The async
+        // overload wraps the completion handler NSWorkspace calls once
+        // the app has actually launched (or failed), so those cases
+        // surface as a toast rather than a false-positive "Opening…".
+        do {
+            try await NSWorkspace.shared.open(
+                urls,
+                withApplicationAt: appURL,
+                configuration: NSWorkspace.OpenConfiguration()
+            )
+            return .opened(choice)
+        } catch {
+            return .failed("Couldn't open \(appName): \(error.localizedDescription)")
+        }
     }
 
     @MainActor
