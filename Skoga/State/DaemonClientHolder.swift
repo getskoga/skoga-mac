@@ -7,8 +7,12 @@ import Foundation
 @MainActor
 @Observable
 final class DaemonClientHolder {
-    let client: DaemonClient
-    let isMock: Bool
+    /// Mutable so the "Try the demo" affordance can swap the live client
+    /// for the seeded mock at runtime (and back) — see `switchClient`.
+    /// Every consumer reads `daemon.client` per call, so a swap takes
+    /// effect on the next refresh tick without re-plumbing the slices.
+    private(set) var client: DaemonClient
+    private(set) var isMock: Bool
 
     /// All daemon-derived facts below — set internally by
     /// `refreshGitHubStatus()` or from the coordinator's refresh path
@@ -74,6 +78,17 @@ final class DaemonClientHolder {
     /// the coordinator's `refresh()` on each `session.list` round-trip.
     func setDaemonStatus(_ status: DaemonStatus) {
         if daemonStatus != status { daemonStatus = status }
+    }
+
+    /// Swap the underlying client at runtime — the demo-mode toggle. Only
+    /// `AppCoordinator.enterDemoMode()` / `exitDemoMode()` call this; they
+    /// own the follow-up refresh + event-loop restart. Resets the banner
+    /// to the same status `init` would have chosen for the new client so
+    /// the UI flips immediately instead of waiting for the next poll.
+    func switchClient(_ newClient: DaemonClient, isMock mock: Bool) {
+        client = newClient
+        isMock = mock
+        daemonStatus = mock ? .mock : .connecting
     }
 
     /// Adopt a `gh` status update from a successful response — clears

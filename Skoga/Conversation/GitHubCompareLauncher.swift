@@ -2,13 +2,11 @@ import Foundation
 
 /// Builds the `github.com/<owner>/<repo>/compare/<base>...<branch>` URL
 /// for the agent's session, used by the conversation side panel's
-/// "View commits on GitHub" quick action. Owner/repo come from the
-/// agent's worktree origin remote — we read `remote.origin.pushurl`
-/// first and fall back to `remote.origin.url`, because Skoga's
-/// sandbox clones set `url` to the host checkout (a local filesystem
-/// path, for cheap local fetches) and only `pushurl` carries the
-/// github.com URL we want here. Only `github.com` is recognized; other
-/// hosts (GHE, GitLab, Bitbucket) fall through as `.notGitHub`.
+/// "View commits on GitHub" quick action. The origin URL is resolved by
+/// the daemon (`session.remote_url`) rather than read from local git
+/// config in a subprocess, so a sandboxed build stays a pure daemon
+/// client. Only `github.com` is recognized; other hosts (GHE, GitLab,
+/// Bitbucket) fall through as `.notGitHub`.
 enum GitHubCompareLauncher {
     enum Outcome {
         case resolved(URL)
@@ -16,134 +14,25 @@ enum GitHubCompareLauncher {
         case failed(String)
     }
 
-    /// True when `refs/remotes/origin/<branch>` exists in the worktree —
-    /// i.e. the branch has been pushed at least once. We use this purely
-    /// local check (no network) to decide whether the "View commits"
-    /// quick action needs to push before opening the compare URL.
-    /// `git push -u origin <branch>` always updates the remote-tracking
-    /// ref, so its absence is a reliable "never pushed" signal. Returns
-    /// false on any git failure so callers fall through to the push path
-    /// (a redundant push is cheap; an unviewable compare page isn't).
-    static func isBranchPushed(worktree: String, branch: String) async -> Bool {
-        await Task.detached(priority: .userInitiated) {
-            guard let git = resolveGit() else { return false }
-            let process = Process()
-            process.executableURL = git
-            process.arguments = [
-                "-C", worktree,
-                "rev-parse", "--verify", "--quiet",
-                "refs/remotes/origin/\(branch)",
-            ]
-            process.standardOutput = FileHandle.nullDevice
-            process.standardError = FileHandle.nullDevice
-            process.standardInput = FileHandle.nullDevice
-            do {
-                try process.run()
-            } catch {
-                return false
-            }
-            process.waitUntilExit()
-            return process.terminationStatus == 0
-        }.value
-    }
-
-    static func resolve(worktree: String, base: String, branch: String) async -> Outcome {
-        await Task.detached(priority: .userInitiated) {
-            let remote: String
-            switch readOriginURL(worktree: worktree) {
-            case .ok(let value):
-                remote = value
-            case .notConfigured:
-                return .notGitHub
-            case .error(let message):
-                return .failed(message)
-            }
-            guard let parsed = parseGitHubRemote(remote) else {
-                return .notGitHub
-            }
-            // Branch names can contain `/` (e.g. `skoga/foo`) and GitHub
-            // uses those literally in compare URLs — `.urlPathAllowed`
-            // preserves `/` while escaping anything genuinely unsafe.
-            let baseEscaped = base.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? base
-            let branchEscaped = branch.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? branch
-            let urlString = "https://github.com/\(parsed.owner)/\(parsed.repo)/compare/\(baseEscaped)...\(branchEscaped)"
-            guard let url = URL(string: urlString) else {
-                return .failed("Couldn't build a valid GitHub compare URL.")
-            }
-            return .resolved(url)
-        }.value
-    }
-
-    // MARK: – git invocation
-
-    private enum OriginReadResult {
-        case ok(String)
-        case notConfigured
-        case error(String)
-    }
-
-    private static func readOriginURL(worktree: String) -> OriginReadResult {
-        // Skoga's sandbox repos set `remote.origin.url` to the user's host
-        // checkout (a local path) so fetches stay local, and put the
-        // github.com URL on `remote.origin.pushurl`. Try pushurl first;
-        // anything but `.ok` (key missing OR a transient git error) falls
-        // through to url so a flaky pushurl probe can't mask a readable
-        // url. If url also fails, we surface its result directly.
-        if case .ok(let value) = readConfigValue(worktree: worktree, key: "remote.origin.pushurl") {
-            return .ok(value)
+    /// Turn a daemon-resolved `origin` URL into a GitHub compare URL. Pure
+    /// and synchronous — the caller fetches `remoteURL` over RPC and hands
+    /// the result in. `nil` (no `origin` configured) or a non-github.com
+    /// host resolves to `.notGitHub`.
+    static func resolve(remoteURL: String?, base: String, branch: String) -> Outcome {
+        guard let remoteURL, !remoteURL.isEmpty else { return .notGitHub }
+        guard let parsed = parseGitHubRemote(remoteURL) else {
+            return .notGitHub
         }
-        return readConfigValue(worktree: worktree, key: "remote.origin.url")
-    }
-
-    private static func readConfigValue(worktree: String, key: String) -> OriginReadResult {
-        guard let git = resolveGit() else {
-            return .error("Couldn't find `git` on this machine.")
+        // Branch names can contain `/` (e.g. `skoga/foo`) and GitHub uses
+        // those literally in compare URLs — `.urlPathAllowed` preserves `/`
+        // while escaping anything genuinely unsafe.
+        let baseEscaped = base.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? base
+        let branchEscaped = branch.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? branch
+        let urlString = "https://github.com/\(parsed.owner)/\(parsed.repo)/compare/\(baseEscaped)...\(branchEscaped)"
+        guard let url = URL(string: urlString) else {
+            return .failed("Couldn't build a valid GitHub compare URL.")
         }
-        let process = Process()
-        process.executableURL = git
-        process.arguments = ["-C", worktree, "config", "--get", key]
-        let outPipe = Pipe()
-        process.standardOutput = outPipe
-        // Drain stderr to /dev/null rather than a Pipe — we never read it
-        // and a full Pipe buffer would deadlock `waitUntilExit`.
-        process.standardError = FileHandle.nullDevice
-        process.standardInput = FileHandle.nullDevice
-        do {
-            try process.run()
-        } catch {
-            return .error("Couldn't run git: \(error.localizedDescription)")
-        }
-        process.waitUntilExit()
-        // `git config --get` exits 1 when the key is missing — that's a
-        // "not configured" signal, not a hard error.
-        if process.terminationStatus == 1 {
-            return .notConfigured
-        }
-        if process.terminationStatus != 0 {
-            return .error("git exited \(process.terminationStatus) while reading the remote.")
-        }
-        let data = outPipe.fileHandleForReading.readDataToEndOfFile()
-        let raw = (String(data: data, encoding: .utf8) ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !raw.isEmpty else { return .notConfigured }
-        return .ok(raw)
-    }
-
-    /// Finder-launched apps inherit a stripped PATH (no Homebrew), so
-    /// look at known install locations directly. `/usr/bin/git` is
-    /// present on every supported macOS, but the homebrew candidates
-    /// come first so a user with a newer toolchain installed there
-    /// gets that version. Same search list as `BugReportModal.resolveGh`.
-    private static func resolveGit() -> URL? {
-        let candidates = [
-            "/opt/homebrew/bin/git",
-            "/usr/local/bin/git",
-            "/usr/bin/git",
-        ]
-        for path in candidates where FileManager.default.isExecutableFile(atPath: path) {
-            return URL(fileURLWithPath: path)
-        }
-        return nil
+        return .resolved(url)
     }
 
     // MARK: – URL parsing

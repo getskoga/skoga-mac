@@ -38,12 +38,30 @@ enum AgentStatus: String, CaseIterable, Codable, Hashable {
         }
     }
 
-    /// Whether the daemon's `session.attach` will accept this state.
-    /// All terminal states are re-armable — the daemon provisions a
-    /// fresh worktree from the session's base branch + SHA when the
-    /// original is gone, so `.done` and `.killed` revive the same way
-    /// as `.exited` / `.prMerged` / `.prClosed`.
+    /// Whether the UI offers the "Attach" (revive) affordance for this
+    /// state.
+    ///
+    /// RESTORE (Direct build): reviving a terminal session relaunches
+    /// the agent (tmux pane, sandbox wrap, adapter exec) via the
+    /// `skoga attach` CLI — a subprocess the sandboxed App Store build
+    /// can't spawn, so the affordance is hidden everywhere for now
+    /// (History hover pill, right-click item, Conversation footer all
+    /// gate on this). The daemon-acceptance logic is kept below; to
+    /// re-enable, return `attachableByDaemon` when
+    /// `SkogaBuild.isDirectBuild` and restore the CLI shell-out in
+    /// `LiveDaemonClient.attachSession` (see git history), or add a
+    /// daemon RPC that performs the relaunch server-side.
     var canAttach: Bool {
+        false
+    }
+
+    /// Which states the daemon's `session.attach` accepts. All terminal
+    /// states are re-armable — the daemon provisions a fresh worktree
+    /// from the session's base branch + SHA when the original is gone,
+    /// so `.done` and `.killed` revive the same way as `.exited` /
+    /// `.prMerged` / `.prClosed`. Unused while `canAttach` is hard-off;
+    /// kept so the revive gate doesn't have to be re-derived.
+    var attachableByDaemon: Bool {
         switch self {
         case .exited, .prMerged, .prClosed, .done, .killed: true
         case .running, .blocked, .prOpen, .idle, .stopping: false

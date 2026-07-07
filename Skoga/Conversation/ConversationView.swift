@@ -554,27 +554,29 @@ private struct ConvSidePanel: View {
     }
 
     /// Open `github.com/<owner>/<repo>/compare/<base>...<branch>` in the
-    /// user's default browser. Owner/repo come from the agent's worktree
-    /// origin remote — see `GitHubCompareLauncher` for the pushurl/url
-    /// lookup rules. Daemon-side resolution would also work but the
-    /// local shell-out keeps this self-contained.
+    /// user's default browser. The origin remote is resolved daemon-side
+    /// (`session.remote_url`) — see `GitHubCompareLauncher` for the
+    /// github.com URL parsing.
     ///
-    /// If the branch hasn't been pushed yet, GitHub's compare page is
-    /// useless (it'd 404 or claim the branches share no history). Push
-    /// first via `skoga push` and only open the URL once the push
-    /// succeeds — otherwise the user gets the same broken page they'd
-    /// have hit by clicking the URL directly. Off-happy-path:
-    /// * no worktree yet (legacy daemon) → toast and bail.
+    /// GitHub's compare page 404s (or claims no shared history) when the
+    /// branch has never been pushed, and a sandboxed client can't cheaply
+    /// probe the remote-tracking ref locally, so we always push first via
+    /// `session.push` and only open once it succeeds. The push is
+    /// idempotent — a redundant push is cheap; an unviewable compare page
+    /// isn't. Off-happy-path:
     /// * remote isn't on github.com (or no `origin` at all) → toast.
-    /// * git invocation itself failed → surface the error as a toast.
-    /// * push needed but `skoga push` failed → toast the error, don't open.
+    /// * remote lookup itself failed → surface the error as a toast.
+    /// * `session.push` failed → toast the error, don't open.
     private func openCommitsOnGitHub() async {
-        guard let worktree = agent.hostWorktree else {
-            modal.showToast("No worktree path for this session yet.")
+        let remote: String?
+        do {
+            remote = try await daemon.client.remoteURL(for: agent.id)
+        } catch {
+            modal.showToast("Couldn't read the repo's remote: \(error.toastMessage)")
             return
         }
         let url: URL
-        switch await GitHubCompareLauncher.resolve(worktree: worktree, base: agent.base, branch: agent.branch) {
+        switch GitHubCompareLauncher.resolve(remoteURL: remote, base: agent.base, branch: agent.branch) {
         case .resolved(let resolved):
             url = resolved
         case .notGitHub:
@@ -582,10 +584,6 @@ private struct ConvSidePanel: View {
             return
         case .failed(let message):
             modal.showToast(message)
-            return
-        }
-        if await GitHubCompareLauncher.isBranchPushed(worktree: worktree, branch: agent.branch) {
-            NSWorkspace.shared.open(url)
             return
         }
         modal.showToast("Pushing \(agent.branch) to GitHub…")

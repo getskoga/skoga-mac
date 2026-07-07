@@ -392,6 +392,106 @@ struct SessionChangedFilesResponse: Decodable {
     let files: [String]
 }
 
+// MARK: – session.land_preview / .land / .push / .diff / .draft_message / .remote_url
+//
+// Daemon-side action RPCs (getskoga/skoga action-RPC work). These replace
+// the Mac app's former `skoga`/`git`/`claude` shell-outs so a sandboxed
+// Mac App Store build can stay a pure daemon client. Field names/casing
+// mirror the serde attrs on the matching structs in
+// `skoga-core/src/protocol.rs` verbatim.
+
+struct SessionLandPreviewParams: Encodable {
+    let id: String
+}
+
+/// Structured, read-only preview of what `skoga land <id>` would do — the
+/// daemon-side replacement for parsing `skoga land --preview` stdout. Only
+/// `title`/`body` pre-fill the PR modal today; the rest is decoded for
+/// forward use (and so a stray extra field doesn't trip decoding).
+struct SessionLandPreviewResponse: Decodable {
+    let session_id: String
+    let original_branch: String
+    let final_branch: String
+    let target: String
+    let commit_count: Int
+    let title: String
+    let body: String
+}
+
+/// Params for `session.land`. `title`/`body` are an all-or-nothing pair on
+/// the daemon side — supplying only one returns INVALID_PARAMS — so the PR
+/// modal path always sends both (or, for a default-message land, neither).
+/// `merge` mirrors `skoga land --merge` (no PR); the Mac keeps it `false`.
+struct SessionLandParams: Encodable {
+    let id: String
+    let title: String?
+    let body: String?
+    let merge: Bool
+}
+
+/// Result of a successful `session.land`. The full `session` record comes
+/// back too but the Mac refreshes via `session.list`, so we decode only the
+/// land outcome here (extra JSON keys are ignored by `Decodable`).
+struct SessionLandResponse: Decodable {
+    let pushed_branch: String
+    let base: String
+    let commit_count: Int
+    let title: String
+    let final_sha: String
+    let pr_url: String?
+    let merge_mode: Bool
+}
+
+/// Params for `session.push` — the thin per-revision push (no squash, no
+/// PR). `force` maps to `--force-with-lease` daemon-side; the Mac's
+/// "View commits" path never forces.
+struct SessionPushParams: Encodable {
+    let id: String
+    let force: Bool
+}
+
+/// Result of `session.push`. As with land, the `session` record is elided —
+/// callers refresh through `session.list`.
+struct SessionPushResponse: Decodable {
+    let branch: String
+    let pushed_sha: String
+    let force: Bool
+}
+
+struct SessionDiffParams: Encodable {
+    let id: String
+}
+
+/// Full unified diff of the session branch vs its base. May end with a
+/// truncation marker line (16 MB cap daemon-side).
+struct SessionDiffResponse: Decodable {
+    let diff: String
+}
+
+struct SessionDraftMessageParams: Encodable {
+    let id: String
+}
+
+/// A commit / PR message drafted from the session diff via `claude -p`
+/// server-side (120s timeout). `message` is the raw model output; the
+/// daemon also returns the convenience `title`/`body` split (first line /
+/// remainder) so the Mac doesn't have to compute it.
+struct SessionDraftMessageResponse: Decodable {
+    let message: String
+    let title: String
+    let body: String
+}
+
+struct SessionRemoteUrlParams: Encodable {
+    let id: String
+}
+
+/// The session repo's `origin` remote URL, for building GitHub compare
+/// links. `nil` when no `origin` is configured.
+struct SessionRemoteUrlResponse: Decodable {
+    let url: String?
+}
+
 // MARK: – PTY streaming (session.attach_stream / pty_write / pty_resize)
 
 struct SessionAttachStreamParams: Encodable {
