@@ -1,9 +1,11 @@
 import SwiftUI
 import AppKit
 
-/// Step 5 — Plant the forest. Workspace folder picker + a lightweight
-/// environment check (git · sandbox-exec · workspace writeable). No
-/// installation work — the daemon is already bundled with the app.
+/// Step 4 — Plant the forest. Workspace folder picker + a lightweight
+/// environment check (git · workspace writeable). The `skogad` daemon is
+/// installed separately via `brew install getskoga/tap/skoga` and started
+/// with `skoga daemon start` — the `DaemonStatusBanner` in the main window
+/// surfaces that hint when it isn't reachable.
 struct StepWorkspace: View {
     @Environment(\.palette) private var p
     @Environment(OnboardingState.self) private var state
@@ -13,7 +15,7 @@ struct StepWorkspace: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
             StepHead(
-                eyebrow: "Step 5 · Plant the forest",
+                eyebrow: "Step 4 · Plant the forest",
                 title: "Where should the agents live?",
                 body: AnyView(StepLede("Each run gets its own git worktree, fully isolated. Pick the folder your repos already live in — Skoga creates a sibling .skoga/worktrees directory inside."))
             )
@@ -73,7 +75,6 @@ struct StepWorkspace: View {
     private var envCheckCard: some View {
         VStack(spacing: 6) {
             envRow(label: "git", value: "2.47.0 detected")
-            envRow(label: "sandbox-exec", value: "available · macOS 14.6")
             envRow(label: "workspace", value: "writeable · \(state.data.workspace.isEmpty ? "~/code" : state.data.workspace)")
         }
         .padding(.horizontal, 16).padding(.vertical, 14)

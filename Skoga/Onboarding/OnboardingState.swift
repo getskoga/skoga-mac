@@ -1,7 +1,7 @@
 import SwiftUI
 import Foundation
 
-/// First-run wizard state. Owns the six-step flow's data (default model,
+/// First-run wizard state. Owns the five-step flow's data (default model,
 /// github status, sandbox config, workspace) and persists it to
 /// UserDefaults so re-running from Settings · About restores the wizard
 /// with previous values pre-filled. The `completed` flag is the
@@ -115,13 +115,17 @@ struct OnboardingData: Codable, Equatable {
     }
 }
 
-/// Six-step ordering. The string raw values match the design's progress
-/// pips (Welcome · Model · GitHub · Sandbox · Forest · Ready).
+/// Five-step ordering. The string raw values match the design's progress
+/// pips (Welcome · Model · GitHub · Forest · Ready).
+///
+/// v1: the Sandbox step is intentionally omitted — the security /
+/// containment stack ships in v2. `StepSandbox` and `OnboardingData.sandbox`
+/// remain in-tree so the step can be reinstated by adding `case sandbox`
+/// back here and to `OnboardingShell.stepBody`.
 enum OnboardingStep: Int, CaseIterable {
     case welcome
     case model
     case github
-    case sandbox
     case forest
     case ready
 
@@ -130,7 +134,6 @@ enum OnboardingStep: Int, CaseIterable {
         case .welcome:  "Welcome"
         case .model:    "Model"
         case .github:   "GitHub"
-        case .sandbox:  "Sandbox"
         case .forest:   "Forest"
         case .ready:    "Ready"
         }

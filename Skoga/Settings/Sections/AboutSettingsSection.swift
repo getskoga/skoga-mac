@@ -236,7 +236,7 @@ struct AboutSettingsSection: View {
                         Text("Re-run onboarding")
                             .font(SkogaFont.bodyMedium(13))
                             .foregroundStyle(p.ink)
-                        Text("Drops you back on the welcome card with your previous picks (default model, sandbox carveouts, workspace, etc.) pre-filled.")
+                        Text("Drops you back on the welcome card with your previous picks (default model, workspace, etc.) pre-filled.")
                             .font(SkogaFont.body(12))
                             .foregroundStyle(p.inkMute)
                             .fixedSize(horizontal: false, vertical: true)

@@ -36,7 +36,7 @@ struct PrivacySettingsSection: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Wipes the saved wizard picks (default model, sandbox carveouts, workspace) and reopens the welcome card. Your daemon state and worktrees are untouched.")
+            Text("Wipes the saved wizard picks (default model, workspace) and reopens the welcome card. Your daemon state and worktrees are untouched.")
         }
         .confirmationDialog(
             "Clear local Skoga state?",
