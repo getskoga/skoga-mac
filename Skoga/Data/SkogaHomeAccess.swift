@@ -33,9 +33,11 @@ final class SkogaHomeAccess: @unchecked Sendable {
     }
 
     /// The `$SKOGA_HOME` directory, honoring the env override exactly like
-    /// `URL.skogaSocket` / `paths::skoga_home()` in skoga-core so a test or
-    /// dev override moves the daemon and the app together.
-    var skogaHomeURL: URL {
+    /// `paths::skoga_home()` in skoga-core so a test or dev override moves the
+    /// daemon and the app together. Single source of truth for this resolution:
+    /// `URL.skogaSocket` derives the socket path from it, so the env-override
+    /// semantics never drift between the two sites.
+    static var skogaHomeURL: URL {
         let env = ProcessInfo.processInfo.environment
         if let override = env["SKOGA_HOME"], !override.isEmpty {
             return URL(fileURLWithPath: (override as NSString).expandingTildeInPath)
@@ -53,7 +55,7 @@ final class SkogaHomeAccess: @unchecked Sendable {
     /// the underlying `NSFileReadNoSuchFileError` unchanged — the caller
     /// treats that as "no endpoint", distinct from "access denied".
     func read(fileName: String) throws -> Data {
-        let fileURL = skogaHomeURL.appendingPathComponent(fileName)
+        let fileURL = Self.skogaHomeURL.appendingPathComponent(fileName)
         do {
             return try Data(contentsOf: fileURL)
         } catch {
@@ -97,7 +99,7 @@ final class SkogaHomeAccess: @unchecked Sendable {
     /// Present the one-time open panel asking the user to grant `~/.skoga`,
     /// then mint and persist a security-scoped bookmark for it.
     private func requestFolderGrant() throws -> URL {
-        let home = skogaHomeURL
+        let home = Self.skogaHomeURL
         let folderURL = try Self.runOnMain { () throws -> URL in
             let panel = NSOpenPanel()
             panel.canChooseFiles = false
@@ -109,6 +111,17 @@ final class SkogaHomeAccess: @unchecked Sendable {
             panel.message = "Skoga needs read access to your \(home.path) folder to connect to the local daemon."
             guard panel.runModal() == .OK, let url = panel.url else {
                 throw SkogaHomeAccessError.accessDenied
+            }
+            // `directoryURL` is only a starting hint — the panel lets the user
+            // navigate anywhere and pick a different folder. Persisting a
+            // bookmark for the wrong directory would silently redirect every
+            // later read, surfacing as a confusing `daemonUnavailable` instead
+            // of "you granted the wrong folder". Reject a mismatch up front with
+            // an actionable error rather than banking a useless grant.
+            guard Self.sameDirectory(url, home) else {
+                throw SkogaHomeAccessError.wrongFolderSelected(
+                    expected: home.path, selected: url.path
+                )
             }
             return url
         }
@@ -131,6 +144,15 @@ final class SkogaHomeAccess: @unchecked Sendable {
         return ns.domain == NSCocoaErrorDomain && ns.code == NSFileReadNoPermissionError
     }
 
+    /// Whether two URLs name the same directory. Compares symlink- and
+    /// `.`/`..`-normalized paths so the macOS `/Users` → `/System/Volumes/Data/
+    /// Users` firmlink alias (which the open panel routinely returns) still
+    /// matches the resolved `$SKOGA_HOME`, avoiding a false rejection.
+    private static func sameDirectory(_ a: URL, _ b: URL) -> Bool {
+        a.resolvingSymlinksInPath().standardizedFileURL.path
+            == b.resolvingSymlinksInPath().standardizedFileURL.path
+    }
+
     private static func runOnMain<T>(_ body: @escaping () throws -> T) throws -> T {
         if Thread.isMainThread { return try body() }
         var result: Result<T, Error>!
@@ -141,11 +163,16 @@ final class SkogaHomeAccess: @unchecked Sendable {
 
 enum SkogaHomeAccessError: Error, LocalizedError {
     case accessDenied
+    /// The open panel returned a folder other than `$SKOGA_HOME`, so the grant
+    /// was rejected instead of being persisted against the wrong directory.
+    case wrongFolderSelected(expected: String, selected: String)
 
     var errorDescription: String? {
         switch self {
         case .accessDenied:
             "Access to the ~/.skoga folder was not granted, so the app can't reach the local daemon over TCP."
+        case let .wrongFolderSelected(expected, selected):
+            "Skoga needs access to \(expected), but \(selected) was selected. Re-open the grant prompt and choose the \(expected) folder."
         }
     }
 }

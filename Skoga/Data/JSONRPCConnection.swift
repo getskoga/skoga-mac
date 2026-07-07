@@ -303,11 +303,45 @@ private final class RawSocket: @unchecked Sendable {
     static func connectReady(socketPath: URL, policy: DaemonTransportPolicy) throws -> RawSocket {
         switch policy {
         case .unixThenTCP:
-            if FileManager.default.fileExists(atPath: socketPath.path),
-               let unix = try? connect(path: socketPath.path) {
-                return unix
+            // Try the native Unix socket first, but capture *why* it was
+            // skipped. A stale socket file (exists, yet `connect(2)` returns
+            // ECONNREFUSED after a daemon restart that didn't unlink it) is
+            // otherwise indistinguishable from "daemon never started" — the
+            // dropped error left a later TCP failure reporting only the missing
+            // endpoint file. Carry the Unix outcome into the fallback so a
+            // total failure names both legs.
+            let unixOutcome: String
+            if FileManager.default.fileExists(atPath: socketPath.path) {
+                do {
+                    return try connect(path: socketPath.path)
+                } catch {
+                    unixOutcome = "Unix socket \(socketPath.path): "
+                        + ((error as? JSONRPCError)?.errorDescription ?? "\(error)")
+                }
+            } else {
+                unixOutcome = "Unix socket \(socketPath.path): file absent"
             }
-            return try connectTCPAuthenticated()
+            do {
+                return try connectTCPAuthenticated()
+            } catch let tcpError as JSONRPCError {
+                // A reached-but-refused daemon (`authFailed`) is a definitive
+                // answer — surface it unchanged rather than diluting it with
+                // the Unix leg. Every other JSON-RPC transport failure means
+                // "couldn't reach it either way", so fold in the Unix outcome
+                // to make the combined failure debuggable.
+                if case .authFailed = tcpError { throw tcpError }
+                let tcpReason: String
+                switch tcpError {
+                case .daemonUnavailable(let m), .connectFailed(let m),
+                     .sendFailed(let m), .readFailed(let m), .decode(let m):
+                    tcpReason = m
+                default:
+                    tcpReason = tcpError.errorDescription ?? "\(tcpError)"
+                }
+                throw JSONRPCError.daemonUnavailable(
+                    "\(unixOutcome); TCP fallback failed: \(tcpReason)"
+                )
+            }
         case .tcpOnly:
             return try connectTCPAuthenticated()
         }
@@ -490,15 +524,10 @@ private final class RawSocket: @unchecked Sendable {
 
 extension URL {
     /// `~/.skoga/sock`, honoring `SKOGA_HOME`. Mirrors `paths::socket_path()`
-    /// in skoga-core so an env override moves both sides together.
+    /// in skoga-core so an env override moves both sides together. The home
+    /// resolution lives in exactly one place — `SkogaHomeAccess.skogaHomeURL`
+    /// — so the env-override semantics can't drift between the two sites.
     static var skogaSocket: URL {
-        let env = ProcessInfo.processInfo.environment
-        let home: URL
-        if let override = env["SKOGA_HOME"], !override.isEmpty {
-            home = URL(fileURLWithPath: (override as NSString).expandingTildeInPath)
-        } else {
-            home = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".skoga")
-        }
-        return home.appendingPathComponent("sock")
+        SkogaHomeAccess.skogaHomeURL.appendingPathComponent("sock")
     }
 }
