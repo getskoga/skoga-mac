@@ -6,13 +6,23 @@ options:
   createIntermediateGroups: true
   generateEmptyDirectories: false
 
+# Debug / Release build the Mac App Store flavor: App Sandbox on, pure
+# daemon client, no local subprocesses. Release-Direct is the notarized
+# direct-download flavor: no sandbox, and the SKOGA_DIRECT_BUILD
+# compilation condition re-enables the process-spawning affordances
+# (see Skoga/App/SkogaBuild.swift).
+configs:
+  Debug: debug
+  Release: release
+  Release-Direct: release
+
 settings:
   base:
     SWIFT_VERSION: "5.10"
     MARKETING_VERSION: "0.0.1"
     CURRENT_PROJECT_VERSION: "1"
-    DEVELOPMENT_TEAM: ""
-    CODE_SIGN_IDENTITY: ""
+    DEVELOPMENT_TEAM: VXXTD73426
+    CODE_SIGN_STYLE: Automatic
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     SWIFT_STRICT_CONCURRENCY: minimal
 
@@ -40,7 +50,9 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleIdentifier: dev.getskoga.Skoga
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
-        NSHumanReadableCopyright: ""
+        LSApplicationCategoryType: public.app-category.developer-tools
+        ITSAppUsesNonExemptEncryption: false
+        NSHumanReadableCopyright: "© 2026 Andrew Pierce"
         NSPrincipalClass: NSApplication
         NSHighResolutionCapable: true
         # Drop any .otf/.ttf into Skoga/App/Fonts/ to auto-register (Geist, Newsreader)
@@ -52,8 +64,41 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Skoga/App/Info.plist
         ENABLE_HARDENED_RUNTIME: YES
-        CODE_SIGN_ENTITLEMENTS: Skoga/App/Skoga.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         LD_RUNPATH_SEARCH_PATHS:
           - "$(inherited)"
           - "@executable_path/../Frameworks"
+      configs:
+        Debug:
+          CODE_SIGN_ENTITLEMENTS: Skoga/App/Skoga-MAS.entitlements
+        Release:
+          CODE_SIGN_ENTITLEMENTS: Skoga/App/Skoga-MAS.entitlements
+        Release-Direct:
+          CODE_SIGN_ENTITLEMENTS: Skoga/App/Skoga-Direct.entitlements
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) SKOGA_DIRECT_BUILD"
+
+schemes:
+  Skoga:
+    build:
+      targets:
+        Skoga: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+  Skoga-Direct:
+    build:
+      targets:
+        Skoga: all
+    run:
+      config: Release-Direct
+    profile:
+      config: Release-Direct
+    analyze:
+      config: Release-Direct
+    archive:
+      config: Release-Direct
